@@ -1,0 +1,4 @@
+interface:
+  display_name: "DGX Spark Ops"
+  short_description: "Audit and maintain DGX Spark safely"
+  default_prompt: "Use $dgx-spark-ops to run a read-only update audit and recommend the safest next actions."

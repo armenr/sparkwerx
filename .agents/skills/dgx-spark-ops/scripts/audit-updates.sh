@@ -1,0 +1,703 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+usage() {
+  printf 'Usage: %s [--offline]\n' "$(basename "$0")" >&2
+}
+
+offline=0
+case "${1:-}" in
+  "")
+    ;;
+  --offline)
+    offline=1
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if ! repo_dir="$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)"; then
+  printf '%s\n' "ERROR: the skill must live inside a Git repository." >&2
+  exit 1
+fi
+cd "$repo_dir" || exit 1
+
+sanitize() {
+  local value="${1:-}"
+  value="${value//$'\t'/ }"
+  value="${value//$'\r'/ }"
+  value="${value//$'\n'/; }"
+  printf '%s' "$value"
+}
+
+emit() {
+  local scope="$1"
+  local owner="$2"
+  local component="$3"
+  local current="$4"
+  local candidate="$5"
+  local status="$6"
+  local source="$7"
+  local detail="$8"
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$(sanitize "$scope")" \
+    "$(sanitize "$owner")" \
+    "$(sanitize "$component")" \
+    "$(sanitize "$current")" \
+    "$(sanitize "$candidate")" \
+    "$(sanitize "$status")" \
+    "$(sanitize "$source")" \
+    "$(sanitize "$detail")"
+}
+
+short_rev() {
+  local revision="${1:-}"
+  if [[ -n "$revision" ]]; then
+    printf '%.12s' "$revision"
+  else
+    printf '%s' "UNKNOWN"
+  fi
+}
+
+version_status() {
+  local current="$1"
+  local candidate="$2"
+  local first
+
+  if [[ "$current" == "$candidate" ]]; then
+    printf '%s' "CURRENT"
+    return
+  fi
+
+  first="$(printf '%s\n%s\n' "$current" "$candidate" | sort -V | head -n 1)"
+  if [[ "$first" == "$current" ]]; then
+    printf '%s' "UPDATE_AVAILABLE"
+  else
+    printf '%s' "AHEAD"
+  fi
+}
+
+remote_head() {
+  local url="$1"
+  local ref="$2"
+  timeout 30s git \
+    -c http.lowSpeedLimit=1 \
+    -c http.lowSpeedTime=15 \
+    ls-remote "$url" "$ref" 2>/dev/null |
+    awk 'NR == 1 { print $1 }'
+}
+
+root_input_node() {
+  local input_name="$1"
+  jq -r --arg input "$input_name" '
+    .root as $root
+    | .nodes[$root].inputs[$input]
+    | if type == "array" then .[0] else . end
+    // empty
+  ' flake.lock 2>/dev/null
+}
+
+lock_value() {
+  local node="$1"
+  local expression="$2"
+  jq -r --arg node "$node" "$expression // empty" flake.lock 2>/dev/null
+}
+
+compare_branch_input() {
+  local input_name="$1"
+  local label="$2"
+  local node owner repo ref revision url remote_revision current candidate status detail
+
+  node="$(root_input_node "$input_name")"
+  if [[ -z "$node" ]]; then
+    emit "NIX_REPO" "repository" "$label" "absent" "UNKNOWN" "NOT_PINNED" \
+      "repo:flake.lock" "Root input is not pinned."
+    return
+  fi
+
+  owner="$(lock_value "$node" '.nodes[$node].locked.owner // .nodes[$node].original.owner')"
+  repo="$(lock_value "$node" '.nodes[$node].locked.repo // .nodes[$node].original.repo')"
+  ref="$(lock_value "$node" '.nodes[$node].locked.ref // .nodes[$node].original.ref')"
+  revision="$(lock_value "$node" '.nodes[$node].locked.rev')"
+  current="${ref:-detached}@$(short_rev "$revision")"
+
+  if [[ "$offline" -eq 1 ]]; then
+    emit "NIX_REPO" "repository" "$label" "$current" "REMOTE_SUPPRESSED" \
+      "UNKNOWN" "https://github.com/$owner/$repo" \
+      "Offline audit; branch head was not queried."
+    return
+  fi
+
+  if [[ ! "$owner" =~ ^[A-Za-z0-9_.-]+$ ||
+        ! "$repo" =~ ^[A-Za-z0-9_.-]+$ ||
+        ! "$ref" =~ ^[A-Za-z0-9_./-]+$ ]]; then
+    emit "NIX_REPO" "repository" "$label" "$current" "UNKNOWN" "UNKNOWN" \
+      "repo:flake.lock" "Lock metadata did not contain a safe GitHub branch."
+    return
+  fi
+
+  url="https://github.com/$owner/$repo.git"
+  remote_revision="$(remote_head "$url" "refs/heads/$ref")"
+  if [[ -z "$remote_revision" ]]; then
+    emit "NIX_REPO" "repository" "$label" "$current" "UNKNOWN" "UNKNOWN" \
+      "https://github.com/$owner/$repo/tree/$ref" \
+      "Unable to resolve the authoritative branch head."
+    return
+  fi
+
+  candidate="$ref@$(short_rev "$remote_revision")"
+  if [[ "$revision" == "$remote_revision" ]]; then
+    status="CURRENT"
+    detail="Locked revision matches the authoritative branch head."
+  else
+    status="UPDATE_AVAILABLE"
+    detail="The branch head moved; availability only until the resulting lock is validated."
+  fi
+  emit "NIX_REPO" "repository" "$label" "$current" "$candidate" "$status" \
+    "https://github.com/$owner/$repo/tree/$ref" \
+    "$detail"
+}
+
+printf '# dgx-spark-ops update audit\n'
+printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf '# repository=%s\n' "$repo_dir"
+if [[ "$offline" -eq 1 ]]; then
+  printf '# mode=offline\n'
+else
+  printf '# mode=online\n'
+fi
+printf 'SCOPE\tOWNER\tCOMPONENT\tCURRENT\tCANDIDATE\tSTATUS\tSOURCE\tDETAIL\n'
+
+host_name="$(hostname 2>/dev/null || printf '%s' "UNKNOWN")"
+architecture="$(uname -m 2>/dev/null || printf '%s' "UNKNOWN")"
+kernel="$(uname -r 2>/dev/null || printf '%s' "UNKNOWN")"
+os_name="$(
+  sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null |
+    head -n 1 |
+    sed 's/^"//; s/"$//'
+)"
+emit "HOST" "local" "hostname" "$host_name" "n/a" "INFO" "local:hostname" \
+  "Audit target."
+emit "HOST" "local" "architecture" "${architecture:-UNKNOWN}" \
+  "aarch64" "INFO" "local:uname" "DGX Spark fleet target architecture."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "DGX OS" \
+  "${os_name:-UNKNOWN}" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" \
+  "Dashboard/vendor guidance owns applicability; package indexes were untouched."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "kernel" \
+  "$kernel" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" \
+  "Do not compare against a generic Ubuntu kernel channel."
+
+gpu_query="$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || true)"
+if [[ -n "$gpu_query" ]]; then
+  gpu_names="$(printf '%s\n' "$gpu_query" | awk -F', *' '{print $1}' | paste -sd ';' -)"
+  driver_versions="$(printf '%s\n' "$gpu_query" | awk -F', *' '{print $2}' | sort -u | paste -sd ';' -)"
+  nvidia_output="$(nvidia-smi 2>/dev/null || true)"
+  cuda_version="$(
+    printf '%s\n' "$nvidia_output" |
+      sed -n 's/.*CUDA Version:[[:space:]]*\([^ |]*\).*/\1/p' |
+      head -n 1
+  )"
+else
+  gpu_names="UNKNOWN"
+  driver_versions="UNKNOWN"
+  cuda_version="UNKNOWN"
+fi
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "GPU" "$gpu_names" \
+  "CHECK_DASHBOARD" "MANUAL" "local:nvidia-smi" \
+  "Hardware inventory; no GPU settings were changed."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "NVIDIA driver" \
+  "$driver_versions" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" \
+  "The newest generic NVIDIA driver is not automatically the applicable one."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "CUDA compatibility" \
+  "${cuda_version:-UNKNOWN}" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" \
+  "This is the driver-reported CUDA compatibility level."
+
+docker_client="$(docker version --format '{{.Client.Version}}' 2>/dev/null || true)"
+compose_version="$(docker compose version --short 2>/dev/null || true)"
+toolkit_version="$(
+  nvidia-ctk --version 2>/dev/null |
+    sed -nE '1s/.*version[[:space:]]+//p' || true
+)"
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "Docker client" \
+  "${docker_client:-NOT_FOUND}" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" "Vendor-owned package."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "Docker Compose" \
+  "${compose_version:-NOT_FOUND}" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/dgx/dgx-spark/" "Vendor-owned package."
+emit "NVIDIA_SUBSTRATE" "NVIDIA/DGX Dashboard" "NVIDIA Container Toolkit" \
+  "${toolkit_version:-NOT_FOUND}" "CHECK_DASHBOARD" "MANUAL" \
+  "https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/" \
+  "Keep compatible with the DGX OS driver and Docker packages."
+
+docker_server="$(docker info --format '{{.ServerVersion}}' 2>/dev/null || true)"
+if [[ -n "$docker_server" ]]; then
+  docker_access_detail="Current user can access Docker daemon version $docker_server."
+else
+  docker_access_detail="Current user cannot access the daemon; no sudo or group change was attempted."
+fi
+emit "HOST" "reviewed bootstrap" "Docker daemon access" \
+  "${docker_server:-DENIED_OR_INACTIVE}" "n/a" "INFO" "local:docker-info" \
+  "$docker_access_detail"
+
+# Tailscale is deliberately audited as the fleet access plane, not as a generic
+# user app or NVIDIA substrate package. The existing apt package is migration
+# input. A temporary Nix derivation may be required to prevent a downgrade when
+# locked stable Nixpkgs lags the approved release. Before changing this logic or
+# the package/service, read references/tailscale.md.
+#
+# Never print the raw output of status or prefs below: it can identify nodes,
+# addresses, or the tailnet. Extract only the explicitly approved fields.
+tailscale_path="$(command -v tailscale 2>/dev/null || true)"
+tailscale_path_target="$(readlink -f "$tailscale_path" 2>/dev/null || true)"
+tailscale_daemon_path="$(command -v tailscaled 2>/dev/null || true)"
+tailscale_deb_version="$(
+  dpkg-query -W -f='${Version}' tailscale 2>/dev/null || true
+)"
+tailscale_deb_arch="$(
+  dpkg-query -W -f='${Architecture}' tailscale 2>/dev/null || true
+)"
+tailscale_current="NOT_FOUND"
+tailscale_candidate="UNKNOWN"
+
+if [[ -n "$tailscale_path" ]]; then
+  if command -v jq >/dev/null 2>&1; then
+    tailscale_current="$(
+      tailscale version --json 2>/dev/null |
+        jq -r '.short // .majorMinorPatch // empty' 2>/dev/null || true
+    )"
+  else
+    tailscale_current="$(tailscale version 2>/dev/null | head -n 1 || true)"
+  fi
+  tailscale_current="${tailscale_current:-UNKNOWN}"
+
+  if [[ "$offline" -eq 1 ]]; then
+    tailscale_candidate="REMOTE_SUPPRESSED"
+    tailscale_status="UNKNOWN"
+    tailscale_detail="Offline audit; official stable release was not queried."
+  elif command -v jq >/dev/null 2>&1; then
+    tailscale_candidate="$(
+      timeout 30s tailscale version --json --upstream --track stable 2>/dev/null |
+        jq -r '.upstream // empty' 2>/dev/null || true
+    )"
+    if [[ -n "$tailscale_candidate" ]]; then
+      tailscale_status="$(version_status "$tailscale_current" "$tailscale_candidate")"
+      if [[ "$tailscale_status" == "AHEAD" ]]; then
+        tailscale_status="HOLD"
+        tailscale_detail="Official candidate is older than installed; refuse a downgrade."
+      elif [[ "$tailscale_status" == "CURRENT" ]]; then
+        tailscale_detail="Installed release matches official stable; ownership migration and SBOM remain separate work."
+      else
+        tailscale_detail="Availability only; review ARM64 artifact, checksum, changelog, security bulletins, SBOM, unit, and rollback."
+      fi
+    else
+      tailscale_candidate="UNKNOWN"
+      tailscale_status="UNKNOWN"
+      tailscale_detail="Unable to parse Tailscale's official stable release response."
+    fi
+  else
+    tailscale_status="UNKNOWN"
+    tailscale_detail="jq is unavailable, so the official JSON candidate was not parsed."
+  fi
+else
+  tailscale_status="UNKNOWN"
+  tailscale_detail="Tailscale CLI is not on PATH."
+fi
+
+if [[ -n "$tailscale_deb_version" ]]; then
+  tailscale_binary_owner="manual official apt (migration input)"
+  tailscale_installed_detail="deb=${tailscale_deb_version};arch=${tailscale_deb_arch:-UNKNOWN}; daemon=${tailscale_daemon_path:+present}"
+elif [[ "$tailscale_path_target" == /nix/store/* ]]; then
+  tailscale_binary_owner="repository/Nix"
+  tailscale_installed_detail="CLI resolves from the Nix store; verify the active unit separately."
+elif [[ -n "$tailscale_path" ]]; then
+  tailscale_binary_owner="unclassified host install"
+  tailscale_installed_detail="CLI exists outside apt and the Nix store; investigate provenance."
+else
+  tailscale_binary_owner="repository target"
+  tailscale_installed_detail="No installed CLI was detected."
+fi
+emit "FLEET_ACCESS" "$tailscale_binary_owner" "Tailscale release" \
+  "$tailscale_current" "$tailscale_candidate" "$tailscale_status" \
+  "https://pkgs.tailscale.com/stable/" "$tailscale_detail $tailscale_installed_detail"
+
+tailscale_nix_eval_args=(
+  --extra-experimental-features "nix-command flakes"
+  eval --raw --impure --no-write-lock-file
+)
+if [[ "$offline" -eq 1 ]]; then
+  tailscale_nix_eval_args+=(--offline)
+fi
+tailscale_locked_nixpkgs="UNKNOWN"
+tailscale_repo_pin=""
+if command -v nix >/dev/null 2>&1 && [[ -r flake.lock ]]; then
+  tailscale_locked_nixpkgs="$(
+    timeout 60s nix "${tailscale_nix_eval_args[@]}" --expr \
+      'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.aarch64-linux.tailscale.version' \
+      2>/dev/null || true
+  )"
+  tailscale_locked_nixpkgs="${tailscale_locked_nixpkgs:-UNKNOWN}"
+  tailscale_repo_pin="$(
+    timeout 60s nix "${tailscale_nix_eval_args[@]}" \
+      '.#packages.aarch64-linux.tailscale.version' 2>/dev/null || true
+  )"
+fi
+
+if [[ "$tailscale_current" =~ ^[0-9] &&
+      "$tailscale_locked_nixpkgs" =~ ^[0-9] ]]; then
+  tailscale_nixpkgs_status="$(
+    version_status "$tailscale_current" "$tailscale_locked_nixpkgs"
+  )"
+  if [[ "$tailscale_nixpkgs_status" == "AHEAD" ]]; then
+    tailscale_nixpkgs_status="HOLD"
+    tailscale_nixpkgs_detail="Locked stock package is older than installed Tailscale; a direct substitution would downgrade the access plane."
+  else
+    tailscale_nixpkgs_detail="Stock package still requires ARM64 build, SBOM, unit, and migration validation."
+  fi
+else
+  tailscale_nixpkgs_status="UNKNOWN"
+  tailscale_nixpkgs_detail="Unable to compare installed Tailscale with the locked stock Nixpkgs package."
+fi
+emit "FLEET_ACCESS" "locked Nixpkgs" "stock Tailscale substitution" \
+  "$tailscale_current" "$tailscale_locked_nixpkgs" \
+  "$tailscale_nixpkgs_status" "repo:flake.lock" "$tailscale_nixpkgs_detail"
+
+if [[ -z "$tailscale_repo_pin" ]]; then
+  tailscale_repo_pin="absent"
+  tailscale_repo_status="NOT_PINNED"
+  tailscale_repo_detail="No repository Tailscale package output exists yet; apt ownership remains migration input."
+elif [[ "$tailscale_current" =~ ^[0-9] && "$tailscale_repo_pin" =~ ^[0-9] ]]; then
+  tailscale_repo_status="$(version_status "$tailscale_current" "$tailscale_repo_pin")"
+  if [[ "$tailscale_repo_status" == "AHEAD" ]]; then
+    tailscale_repo_status="HOLD"
+    tailscale_repo_detail="Repository pin is older than installed Tailscale; do not activate it."
+  else
+    tailscale_repo_detail="Repository pin exists; build/SBOM and active service ownership remain separate gates."
+  fi
+else
+  tailscale_repo_status="UNKNOWN"
+  tailscale_repo_detail="Repository Tailscale pin could not be compared."
+fi
+emit "FLEET_ACCESS" "repository" "Tailscale package pin" \
+  "$tailscale_repo_pin" "$tailscale_candidate" "$tailscale_repo_status" \
+  "repo:flake.nix" "$tailscale_repo_detail"
+
+tailscale_active="$(systemctl is-active tailscaled.service 2>/dev/null || true)"
+tailscale_enabled="$(systemctl is-enabled tailscaled.service 2>/dev/null || true)"
+tailscale_wanted_by="$(
+  systemctl show tailscaled.service -p WantedBy --value 2>/dev/null || true
+)"
+tailscale_fragment="$(
+  systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true
+)"
+tailscale_fragment_target="$(readlink -f "$tailscale_fragment" 2>/dev/null || true)"
+case "$tailscale_fragment_target" in
+  /nix/store/*)
+    tailscale_unit_owner="repository/Nix"
+    ;;
+  /usr/lib/systemd/* | /lib/systemd/*)
+    tailscale_unit_owner="host package (migration input)"
+    ;;
+  "")
+    tailscale_unit_owner="not found"
+    ;;
+  *)
+    tailscale_unit_owner="review required"
+    ;;
+esac
+emit "FLEET_ACCESS" "$tailscale_unit_owner" "tailscaled.service" \
+  "active=${tailscale_active:-UNKNOWN};enabled=${tailscale_enabled:-UNKNOWN};wanted-by=${tailscale_wanted_by:-UNKNOWN}" \
+  "multi-user.target" "INFO" "local:systemctl-show" \
+  "Headless mode must retain this service; the audit did not reload, restart, enable, or disable it."
+
+tailscale_backend="UNKNOWN"
+tailscale_self_online="UNKNOWN"
+tailscale_want_running="UNKNOWN"
+tailscale_run_ssh="UNKNOWN"
+if [[ -n "$tailscale_path" ]] && command -v jq >/dev/null 2>&1; then
+  tailscale_backend="$(
+    timeout 10s tailscale status --json 2>/dev/null |
+      jq -r '.BackendState // "UNKNOWN"' 2>/dev/null || true
+  )"
+  tailscale_self_online="$(
+    timeout 10s tailscale status --json 2>/dev/null |
+      jq -r 'if .Self.Online == null then "UNKNOWN" else (.Self.Online | tostring) end' \
+        2>/dev/null || true
+  )"
+  tailscale_want_running="$(
+    timeout 10s tailscale debug prefs 2>/dev/null |
+      jq -r 'if .WantRunning == null then "UNKNOWN" else (.WantRunning | tostring) end' \
+        2>/dev/null || true
+  )"
+  tailscale_run_ssh="$(
+    timeout 10s tailscale debug prefs 2>/dev/null |
+      jq -r 'if .RunSSH == null then "UNKNOWN" else (.RunSSH | tostring) end' \
+        2>/dev/null || true
+  )"
+fi
+emit "FLEET_ACCESS" "mutable daemon/control-plane state" \
+  "Tailscale runtime and SSH" \
+  "backend=${tailscale_backend:-UNKNOWN};online=${tailscale_self_online:-UNKNOWN};WantRunning=${tailscale_want_running:-UNKNOWN};RunSSH=${tailscale_run_ssh:-UNKNOWN}" \
+  "documented desired state" "INFO" "local:sanitized-tailscale-cli" \
+  "Only approved booleans/state labels are emitted; node, address, identity, and tailnet data were discarded."
+
+if [[ -x /nix/nix-installer ]]; then
+  installer_version="$(/nix/nix-installer --version 2>/dev/null || true)"
+else
+  installer_version="NOT_FOUND"
+fi
+nix_profile_target="$(readlink -f /nix/var/nix/profiles/default 2>/dev/null || true)"
+daemon_state="$(systemctl show nix-daemon.service -p ActiveState --value 2>/dev/null || true)"
+daemon_reload="$(systemctl show nix-daemon.service -p NeedDaemonReload --value 2>/dev/null || true)"
+emit "NIX_RUNTIME" "official nix-installer" "installer provenance" \
+  "${installer_version:-UNKNOWN}" "n/a" "INFO" \
+  "https://github.com/NixOS/nix-installer" \
+  "Devbox triggered this installer; Devbox does not own runtime updates."
+emit "NIX_RUNTIME" "root Nix profile" "default profile target" \
+  "${nix_profile_target:-UNKNOWN}" "n/a" "INFO" "local:readlink" \
+  "Runtime ownership and rollback anchor."
+emit "NIX_RUNTIME" "systemd/root Nix profile" "nix-daemon" \
+  "state=${daemon_state:-UNKNOWN};need-reload=${daemon_reload:-UNKNOWN}" \
+  "n/a" "INFO" "local:systemctl-show" \
+  "Audit did not reload or restart the daemon."
+
+if command -v nix >/dev/null 2>&1; then
+  nix_version="$(nix --version 2>/dev/null | awk '{print $NF}')"
+  if [[ "$offline" -eq 1 ]]; then
+    emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+      "REMOTE_SUPPRESSED" "UNKNOWN" \
+      "https://nix.dev/manual/nix/latest/command-ref/new-cli/nix3-upgrade-nix.html" \
+      "Offline audit; the upgrader dry-run was not called."
+  else
+    nix_audit_output="$(
+      timeout 120s nix \
+        --extra-experimental-features "nix-command flakes" \
+        upgrade-nix --dry-run \
+        --profile /nix/var/nix/profiles/default \
+        --refresh 2>&1 || true
+    )"
+    nix_candidate="$(
+      printf '%s\n' "$nix_audit_output" |
+        sed -nE 's/.*would (upgrade|downgrade)( Nix)? to version ([0-9][0-9.]*).*/\3/ip' |
+        head -n 1
+    )"
+    if [[ -n "$nix_candidate" ]]; then
+      nix_status="$(version_status "$nix_version" "$nix_candidate")"
+      if [[ "$nix_status" == "AHEAD" ]]; then
+        nix_status="HOLD"
+        nix_detail="The built-in candidate is older than installed Nix; refuse the downgrade."
+      else
+        nix_detail="Dry-run candidate only; confirm an aarch64-linux binary and rollback before applying."
+      fi
+      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+        "$nix_candidate" "$nix_status" \
+        "https://nix.dev/manual/nix/latest/installation/upgrading.html" "$nix_detail"
+    elif grep -Eqi 'already (up.?to.?date|the newest|latest)' <<<"$nix_audit_output"; then
+      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+        "$nix_version" "CURRENT" \
+        "https://nix.dev/manual/nix/latest/installation/upgrading.html" \
+        "The explicit-profile upgrader dry-run reports no change."
+    else
+      nix_excerpt="$(printf '%s\n' "$nix_audit_output" | tail -n 2)"
+      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+        "UNKNOWN" "UNKNOWN" \
+        "https://nix.dev/manual/nix/latest/installation/upgrading.html" \
+        "Unable to parse upgrader dry-run: $nix_excerpt"
+    fi
+  fi
+else
+  emit "NIX_RUNTIME" "root Nix profile" "Nix" "NOT_FOUND" "UNKNOWN" \
+    "UNKNOWN" "https://nixos.org/download/" "Nix is not on PATH."
+fi
+
+if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
+  compare_branch_input "nixpkgs" "Nixpkgs"
+  compare_branch_input "home-manager" "Home Manager"
+
+  hypr_node="$(root_input_node "hyprland")"
+  if [[ -n "$hypr_node" ]]; then
+    hypr_owner="$(lock_value "$hypr_node" '.nodes[$node].locked.owner // .nodes[$node].original.owner')"
+    hypr_repo="$(lock_value "$hypr_node" '.nodes[$node].locked.repo // .nodes[$node].original.repo')"
+    hypr_ref="$(lock_value "$hypr_node" '.nodes[$node].locked.ref // .nodes[$node].original.ref')"
+    hypr_revision="$(lock_value "$hypr_node" '.nodes[$node].locked.rev')"
+    hypr_current="${hypr_ref:-detached}@$(short_rev "$hypr_revision")"
+    if [[ "$offline" -eq 1 ]]; then
+      emit "NIX_REPO" "repository" "Hyprland" "$hypr_current" \
+        "REMOTE_SUPPRESSED" "UNKNOWN" "https://github.com/hyprwm/Hyprland/releases" \
+        "Offline audit; release tags were not queried."
+    else
+      hypr_tags="$(
+        timeout 30s git \
+          -c http.lowSpeedLimit=1 \
+          -c http.lowSpeedTime=15 \
+          ls-remote --tags --refs https://github.com/hyprwm/Hyprland.git \
+          'refs/tags/v*' 2>/dev/null || true
+      )"
+      hypr_latest="$(
+        printf '%s\n' "$hypr_tags" |
+          awk '{sub("refs/tags/v", "", $2); print $2}' |
+          grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+          sort -V |
+          tail -n 1
+      )"
+      hypr_current_version="${hypr_ref#v}"
+      if [[ -n "$hypr_latest" &&
+            "$hypr_current_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        hypr_status="$(version_status "$hypr_current_version" "$hypr_latest")"
+        emit "NIX_REPO" "repository" "Hyprland" "$hypr_current" \
+          "v$hypr_latest" "$hypr_status" \
+          "https://github.com/hyprwm/Hyprland/releases" \
+          "Review release notes, the Glaze patch, portals, ARM64 build, and NVIDIA runtime before activation."
+      else
+        emit "NIX_REPO" "repository" "Hyprland" "$hypr_current" \
+          "UNKNOWN" "UNKNOWN" "https://github.com/hyprwm/Hyprland/releases" \
+          "Could not compare the pinned ref with upstream semantic release tags."
+      fi
+    fi
+  else
+    emit "NIX_REPO" "repository" "Hyprland" "absent" "UNKNOWN" \
+      "NOT_PINNED" "repo:flake.lock" "Root input is not pinned."
+  fi
+
+  playbook_node="$(root_input_node "dgx-spark-playbooks")"
+  if [[ -n "$playbook_node" ]]; then
+    compare_branch_input "dgx-spark-playbooks" "NVIDIA DGX Spark playbooks"
+  elif [[ "$offline" -eq 1 ]]; then
+    emit "WORKLOAD_SOURCE" "repository" "NVIDIA DGX Spark playbooks" \
+      "absent" "REMOTE_SUPPRESSED" "NOT_PINNED" \
+      "https://github.com/NVIDIA/dgx-spark-playbooks" \
+      "Add an exact source pin before deriving workload configuration."
+  else
+    playbook_head="$(remote_head "https://github.com/NVIDIA/dgx-spark-playbooks.git" "HEAD")"
+    emit "WORKLOAD_SOURCE" "repository" "NVIDIA DGX Spark playbooks" \
+      "absent" "$(short_rev "$playbook_head")" "NOT_PINNED" \
+      "https://github.com/NVIDIA/dgx-spark-playbooks" \
+      "The displayed head is informational; add an exact reviewed commit pin."
+  fi
+else
+  emit "NIX_REPO" "repository" "flake inputs" "UNKNOWN" "UNKNOWN" "UNKNOWN" \
+    "repo:flake.lock" "flake.lock or jq is unavailable."
+fi
+
+if command -v codex >/dev/null 2>&1; then
+  codex_version="$(codex --version 2>/dev/null | awk '{print $NF}')"
+else
+  codex_version="NOT_FOUND"
+fi
+if [[ "$offline" -eq 1 || "$codex_version" == "NOT_FOUND" ]]; then
+  emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+    "REMOTE_SUPPRESSED" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
+    "Official npm metadata was not queried."
+else
+  codex_candidate="$(
+    curl -fsSL --connect-timeout 10 --max-time 30 \
+      'https://registry.npmjs.org/@openai%2Fcodex/latest' 2>/dev/null |
+      jq -r '.version // empty' 2>/dev/null || true
+  )"
+  if [[ -n "$codex_candidate" ]]; then
+    codex_status="$(version_status "$codex_version" "$codex_candidate")"
+    emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+      "$codex_candidate" "$codex_status" \
+      "https://www.npmjs.com/package/@openai/codex" \
+      "Availability only; update ownership has not yet been migrated into Nix."
+  else
+    emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+      "UNKNOWN" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
+      "Unable to read official npm release metadata."
+  fi
+fi
+
+chatgpt_packages="$(
+  dpkg-query -W -f='${binary:Package}\t${Version}\n' 2>/dev/null |
+    awk 'BEGIN {IGNORECASE=1} $1 ~ /(chatgpt|openai)/ {print $1 "=" $2}' |
+    paste -sd ';' - || true
+)"
+emit "USER_APP" "manual exception" "ChatGPT desktop package" \
+  "${chatgpt_packages:-NOT_DETECTED}" "CHECK_OFFICIAL_APP" "MANUAL" \
+  "https://openai.com/chatgpt/desktop/" \
+  "No stable package feed is assumed; do not replace the installed deb during an audit."
+firefox_version="$(firefox --version 2>/dev/null | sed 's/^[^0-9]*//' || true)"
+emit "USER_APP" "DGX OS/manual exception" "Firefox" \
+  "${firefox_version:-NOT_FOUND}" "CHECK_VENDOR_CHANNEL" "MANUAL" \
+  "local:firefox-version" "Preserve the existing OS/application ownership."
+emit "USER_APP" "Firefox extension store" "1Password extension" \
+  "PROFILE_NOT_INSPECTED" "CHECK_FIREFOX_ADDONS" "MANUAL" \
+  "https://addons.mozilla.org/firefox/addon/1password-x-password-manager/" \
+  "Browser profile data was deliberately not inspected."
+
+workload_files=0
+if [[ -d workloads ]]; then
+  while IFS= read -r -d '' file; do
+    workload_files=$((workload_files + 1))
+    relative_file="${file#"$repo_dir"/}"
+    case "$(basename "$file")" in
+      compose*.yaml | compose*.yml | docker-compose*.yaml | docker-compose*.yml)
+        while IFS=: read -r line_number image_line; do
+          image_ref="${image_line#*:}"
+          image_ref="${image_ref%%#*}"
+          image_ref="$(printf '%s' "$image_ref" | sed -E 's/^[[:space:]"'\'']+//; s/[[:space:]"'\'']+$//')"
+          [[ -z "$image_ref" ]] && continue
+          if [[ "$image_ref" =~ @sha256:[0-9A-Fa-f]{64}$ ]]; then
+            image_status="INFO"
+            image_detail="Architecture-specific digest is pinned; registry drift was not resolved by this script."
+          else
+            image_status="NOT_PINNED"
+            image_detail="Pin the reviewed linux/arm64 digest as well as the readable source tag."
+          fi
+          emit "WORKLOAD_IMAGE" "repository/container" \
+            "$relative_file:$line_number" "$image_ref" "REGISTRY_NOT_QUERIED" \
+            "$image_status" "repo:$relative_file" "$image_detail"
+        done < <(grep -nE '^[[:space:]]*image:[[:space:]]*' "$file" 2>/dev/null || true)
+        ;;
+      Dockerfile | Dockerfile.* | *.Dockerfile)
+        while IFS=: read -r line_number from_line; do
+          read -r -a from_parts <<<"$from_line"
+          image_ref=""
+          for part in "${from_parts[@]:1}"; do
+            [[ "$part" == --* ]] && continue
+            image_ref="$part"
+            break
+          done
+          [[ -z "$image_ref" ]] && continue
+          if [[ "$image_ref" == "scratch" ]]; then
+            image_status="INFO"
+            image_detail="Scratch base has no registry pin."
+          elif [[ "$image_ref" =~ @sha256:[0-9A-Fa-f]{64}$ ]]; then
+            image_status="INFO"
+            image_detail="Base image digest is pinned; validate linux/arm64 support."
+          else
+            image_status="NOT_PINNED"
+            image_detail="Pin the base image's reviewed linux/arm64 digest."
+          fi
+          emit "WORKLOAD_BASE" "repository/container" \
+            "$relative_file:$line_number" "$image_ref" "REGISTRY_NOT_QUERIED" \
+            "$image_status" "repo:$relative_file" "$image_detail"
+        done < <(grep -nEi '^[[:space:]]*FROM[[:space:]]+' "$file" 2>/dev/null || true)
+        ;;
+    esac
+  done < <(
+    find "$repo_dir/workloads" -type f \
+      \( -iname 'compose*.yml' -o -iname 'compose*.yaml' \
+      -o -iname 'docker-compose*.yml' -o -iname 'docker-compose*.yaml' \
+      -o -iname 'Dockerfile' -o -iname 'Dockerfile.*' \
+      -o -iname '*.Dockerfile' \) -print0 |
+      sort -z
+  )
+fi
+if [[ "$workload_files" -eq 0 ]]; then
+  emit "WORKLOAD" "repository" "workload definitions" "none" "n/a" "INFO" \
+    "repo:workloads/" "No Compose files or Dockerfiles are currently configured."
+fi
+
+printf '# result=READ_ONLY; no pins, profiles, packages, services, or images changed\n'

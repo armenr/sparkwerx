@@ -1,0 +1,6 @@
+.direnv/
+.env
+.env.*
+result
+result-*
+inventory/**/raw/
