@@ -210,14 +210,20 @@ audit_root_integration() {
   manager_rev="$(jq -r '.manager.rev // empty' <<<"$manifest")"
   private_nix_version="$(jq -r '.privateNixRuntime.version // empty' <<<"$manifest")"
   private_nix_rev="$(jq -r '.privateNixRuntime.rev // empty' <<<"$manifest")"
+  manager_patch_name="$(jq -r '.manager.patches[0].name // empty' <<<"$manifest")"
+  manager_patch_hash="$(jq -r '.manager.patches[0].sha256 // empty' <<<"$manifest")"
   release_version="$(jq -r '.version // empty' root/nix/release.json)"
   release_rev="$(jq -r '.tagCommit // empty' root/nix/release.json)"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev")"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
     (.manager.activated == false) and
+    ((.manager.patches | length) == 1) and
+    (.manager.patches[0].name == "skip-empty-tmpfiles") and
+    (.manager.patches[0].path == "patches/system-manager/skip-empty-tmpfiles.patch") and
+    (.manager.patches[0].sha256 == "32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a") and
     (.registration.performed == false) and
     (.privateNixRuntime.ownsHostInstallation == false) and
     (.managerState.path == "/var/lib/system-manager/state/system-manager-state.json") and
@@ -229,6 +235,9 @@ audit_root_integration() {
     (.policy.replaceExisting == false) and
     (.policy.startsAtBoot == false) and
     (.policy.globalPackages == []) and
+    (.policy.managedTmpfiles == []) and
+    (.policy.invokesGlobalTmpfiles == false) and
+    (.policy.tmpfilesMode == "skip-when-empty") and
     (.policy.ports == []) and
     (.policy.etcEntries == ["dgx-setup/canary", "systemd/system"]) and
     (.policy.services == [
@@ -244,6 +253,9 @@ audit_root_integration() {
     /nix/var/nix/gcroots/system-manager-current \
     /etc/dgx-setup/canary \
     /etc/systemd/system/dgx-setup-canary.service \
+    /etc/systemd/system/sysinit-reactivation.target \
+    /etc/systemd/system/system-manager.target \
+    /etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service \
     /var/lib/system-manager/state/system-manager-state.json; do
     if [[ -e "$artifact" || -L "$artifact" ]]; then
       host_artifact="$artifact"
@@ -267,7 +279,7 @@ audit_root_integration() {
     detail="Unexpected live-host root-manager artifact detected at $host_artifact."
   else
     status="CURRENT"
-    detail="Manifest, lock, and private Nix pin agree; no live-host activation or registration artifacts were detected."
+    detail="Manifest, local safety patch, lock, and private Nix pin agree; no live-host activation or registration artifacts were detected."
   fi
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \

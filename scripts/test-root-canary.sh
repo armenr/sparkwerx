@@ -21,6 +21,11 @@ fi
 # required cgroup isolation can be enabled for this build without changing the
 # daemon configuration or restarting it. The derivation activates/deactivates
 # only inside a disposable Ubuntu systemd-nspawn container.
+# Ignore root's user-specific Nix config for this deterministic one-shot command;
+# the system-wide /etc/nix/nix.conf is still read. Every required experimental
+# feature is supplied explicitly below and remains process-local.
+export NIX_USER_CONF_FILES=/dev/null
+
 exec "$nix_bin" \
   --store local \
   --extra-experimental-features \

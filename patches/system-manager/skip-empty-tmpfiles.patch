@@ -1,0 +1,16 @@
+diff --git a/crates/system-manager-engine/src/activate/tmp_files.rs b/crates/system-manager-engine/src/activate/tmp_files.rs
+--- a/crates/system-manager-engine/src/activate/tmp_files.rs
++++ b/crates/system-manager-engine/src/activate/tmp_files.rs
+@@ -21,6 +21,12 @@ pub fn activate(etc_tree: &HashSet<PathBuf>) -> TmpFilesActivationResult {
+         })
+         .collect();
++
++    if tmpfiles_conf_files.is_empty() {
++        log::debug!("No managed tmpfiles configuration; skipping systemd-tmpfiles");
++        return Ok(());
++    }
++
+     let mut cmd = process::Command::new("systemd-tmpfiles");
+     cmd.arg("--create")
+         .arg("--remove")
+         .args(tmpfiles_conf_files);

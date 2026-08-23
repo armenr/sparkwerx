@@ -114,6 +114,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   candidate; its 109-path / 230.0 MiB canary is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control
   surface documented in `root/system-manager/README.md`;
+- the first root-local disposable activation exposed System Manager 1.1.0's
+  global empty-list tmpfiles behavior without touching the host; the candidate
+  now carries an exact-version skip patch and an unmanaged-rule regression
+  sentinel, and any version change requires patch reassessment;
 - low-level System Manager activation would create a state record under
   `/var/lib/system-manager/state`, while generation profile/GC-root registration
   is separate; neither has occurred on the pilot;
@@ -152,7 +156,8 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep the System Manager candidate inactive and unregistered until its
   root-assisted container test and separately approved host canary pass; never
   let it own host Nix, users, wrappers, global PATH, boot links, or factory
-  services.
+  services or process global factory tmpfiles rules when its managed set is
+  empty; preserve the exact-version patch and regression sentinel.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

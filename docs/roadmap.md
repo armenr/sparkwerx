@@ -43,8 +43,13 @@ the measured software manifest; evaluation did not authorize realization.
       candidate; build and inspect its inert 109-path / 230.0 MiB ARM64 closure,
       force its private wrapper to Nix 2.35.2, and reject Nix/user/wrapper/PATH/
       boot defaults
-- [ ] Run `sudo ./scripts/test-root-canary.sh` to prove activation/deactivation
-      inside the disposable Ubuntu container; do not activate the host
+- [x] Let the first root-local container attempt fail closed on System Manager's
+      global empty-list tmpfiles behavior; pin an exact-version skip patch, add
+      an unmanaged-rule regression sentinel, rebuild policy, and verify the host
+      remained untouched
+- [ ] Rerun `sudo ./scripts/test-root-canary.sh` to prove patched
+      activation/deactivation inside the disposable Ubuntu container; do not
+      activate the host
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

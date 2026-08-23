@@ -36,11 +36,12 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   remains at its expected provisioning version, 2.35.1. The default
   `upgrade-nix` fallback still targets stale 2.34.8 and remains blocked.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
-  inert ARM64 canary and anti-downgrade policy built with `--no-link`: 109 paths
-  / 230.0 MiB, no global packages, boot link, users, wrappers, ports, or
-  NVIDIA/Tailscale/desktop ownership. Its private wrapper uses verified Nix
-  2.35.2 instead of stable Nixpkgs' older 2.34.8. It is not activated or
-  registered; the root-assisted disposable-container test remains open.
+  109-path / 230.0 MiB ARM64 canary now contains the exact-version
+  `skip-empty-tmpfiles` safety patch as well as the anti-downgrade policy. The
+  first root-local disposable test exposed upstream global tmpfiles processing;
+  its container was destroyed and postflight proved the host unchanged. The
+  patched runtime/policy rebuilt with `--no-link`; host activation and
+  registration remain forbidden, and the patched container-test retry is open.
 
 ## Operating model
 
@@ -79,6 +80,7 @@ inventory/                 Sanitized, non-secret baseline records
 modules/home/              Reusable user-level modules
 modules/system/            Narrow non-NixOS root-manager modules
 packages/                  Exact current-release adapters and source hashes
+patches/                   Narrow, version-guarded upstream safety patches
 root/                      Reviewed Nix, Tailscale, and System Manager runbooks
 scripts/                   Inventory, validation, and dependency-update helpers
 flake.nix                  Fleet entry point and evaluation invariants

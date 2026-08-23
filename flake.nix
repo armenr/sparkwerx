@@ -85,18 +85,46 @@
 
       verifiedNixPackage = nix-release.packages.${system}.nix;
 
+      # Upstream System Manager 1.1.0 invokes systemd-tmpfiles globally when
+      # its managed tmpfiles set is empty. That crosses the factory-substrate
+      # ownership boundary, so patch only this exact manager release.
+      systemManagerEnginePatch = ./patches/system-manager/skip-empty-tmpfiles.patch;
+      reviewedSystemManagerEnginePatchSha256 = "32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a";
+
       rootManagerOverlays = [
-        (_final: _previous: {
+        (_final: previous: {
           nix = verifiedNixPackage;
+          rustPlatform = previous.rustPlatform // {
+            buildRustPackage =
+              args:
+              let
+                package = previous.rustPlatform.buildRustPackage args;
+              in
+              if (args.pname or null) == "system-manager" && (args.version or null) == "1.1.0" then
+                package.overrideAttrs (oldAttrs: {
+                  patches = (oldAttrs.patches or [ ]) ++ [ systemManagerEnginePatch ];
+                  passthru = (oldAttrs.passthru or { }) // {
+                    dgxSkipEmptyTmpfilesPatch = systemManagerEnginePatch;
+                  };
+                })
+              else
+                package;
+          };
         })
       ];
+
+      rootManagerPkgs = import nixpkgs {
+        inherit system;
+        overlays = rootManagerOverlays;
+        config.allowUnfree = false;
+      };
 
       rootCanary = system-manager.lib.makeSystemConfig {
         overlays = rootManagerOverlays;
         modules = [ ./hosts/sparkle-01/system.nix ];
       };
 
-      systemManagerPackage = system-manager.packages.${system}.system-manager-unwrapped;
+      systemManagerPackage = rootManagerPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.services
@@ -354,6 +382,14 @@
           drvPath = systemManagerPackage.drvPath;
           rootOutputPath = rootCanary.outPath;
           activated = false;
+          patches = [
+            {
+              name = "skip-empty-tmpfiles";
+              path = "patches/system-manager/skip-empty-tmpfiles.patch";
+              sha256 = builtins.hashFile "sha256" systemManagerEnginePatch;
+              reason = "Prevent global systemd-tmpfiles execution when no managed tmpfiles configuration exists.";
+            }
+          ];
         };
 
         privateNixRuntime = {
@@ -376,6 +412,9 @@
           replaceExisting = false;
           ports = [ ];
           mutableState = [ "/var/lib/system-manager/state/system-manager-state.json" ];
+          managedTmpfiles = [ ];
+          invokesGlobalTmpfiles = false;
+          tmpfilesMode = "skip-when-empty";
         };
 
         managerState = {
@@ -459,6 +498,9 @@
 
       rootManagerPolicyCheck =
         assert systemManagerPackage.version == "1.1.0";
+        assert systemManagerPackage.dgxSkipEmptyTmpfilesPatch == systemManagerEnginePatch;
+        assert
+          builtins.hashFile "sha256" systemManagerEnginePatch == reviewedSystemManagerEnginePatchSha256;
         assert verifiedNixPackage.version == "2.35.2";
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
@@ -470,6 +512,7 @@
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
         assert rootCanaryConfig.systemd.targets.system-manager.wantedBy == [ ];
         assert !rootCanaryConfig.environment.etc."dgx-setup/canary".replaceExisting;
+        assert !rootCanaryConfig.environment.etc."tmpfiles.d".enable;
         assert rootCanaryConfig.systemd.tmpfiles.rules == [ ];
         assert rootCanaryConfig.systemd.tmpfiles.settings == { };
         pkgs.runCommand "dgx-root-manager-policy" { } ''
@@ -481,6 +524,8 @@
             echo "The inert root-manager closure retained userborn." >&2
             exit 1
           fi
+          grep -Fx -- '${systemManagerPackage}' ${rootCanaryClosureInfo}/store-paths \
+            >/dev/null
           grep -Fx -- '${verifiedNixPackage}' ${rootCanaryClosureInfo}/store-paths \
             >/dev/null
           touch "$out"
@@ -499,6 +544,7 @@
           state_path = "/var/lib/system-manager/state/system-manager-state.json"
           profile_path = "/nix/var/nix/profiles/system-manager-profiles/system-manager"
           gcroot_path = "/nix/var/nix/gcroots/system-manager-current"
+          unmanaged_tmpfiles_sentinel = "/run/dgx-unmanaged-tmpfiles-sentinel"
 
           protected_paths = [
               "/etc/nix/nix.conf",
@@ -518,9 +564,14 @@
           def assert_absent(path: str) -> None:
               machine.fail(f"test -e '{path}' || test -L '{path}'")
 
+          machine.succeed(
+              "echo 'f /run/dgx-unmanaged-tmpfiles-sentinel 0644 root root - blocked' "
+              "> /etc/tmpfiles.d/dgx-unmanaged.conf"
+          )
           before = protected_snapshot()
 
           with subtest("Canary is inert before activation"):
+              assert_absent(unmanaged_tmpfiles_sentinel)
               assert_absent("/etc/dgx-setup/canary")
               assert_absent("/etc/profile.d/system-manager-path.sh")
               assert_absent("/etc/environment.d/10-system-manager.conf")
@@ -536,6 +587,7 @@
           machine.wait_for_unit("dgx-setup-canary.service")
 
           with subtest("Activation owns only the bounded canary"):
+              assert_absent(unmanaged_tmpfiles_sentinel)
               machine.succeed("test -L /etc/dgx-setup/canary")
               machine.succeed("grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary")
               assert_absent("/etc/profile.d/system-manager-path.sh")
@@ -547,7 +599,13 @@
               assert_absent("/etc/systemd/system/suid-sgid-wrappers.service")
               activated_state = json.loads(machine.succeed(f"cat {state_path}"))
               assert activated_state["version"] == 1
-              assert "/etc/dgx-setup/canary" in activated_state["fileTree"]["files"]
+              assert set(activated_state["fileTree"]["files"]) == {
+                  "/etc/dgx-setup/canary",
+                  "/etc/systemd/system/dgx-setup-canary.service",
+                  "/etc/systemd/system/sysinit-reactivation.target",
+                  "/etc/systemd/system/system-manager.target",
+                  "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service",
+              }
               assert set(activated_state["services"].keys()) == {
                   "dgx-setup-canary.service",
                   "sysinit-reactivation.target",
@@ -565,8 +623,10 @@
                   "/etc/systemd/system/dgx-setup-canary.service",
                   "/etc/systemd/system/sysinit-reactivation.target",
                   "/etc/systemd/system/system-manager.target",
+                  "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service",
               ]:
                   assert_absent(path)
+              assert_absent(unmanaged_tmpfiles_sentinel)
               deactivated_state = json.loads(machine.succeed(f"cat {state_path}"))
               assert deactivated_state == {
                   "fileTree": {"files": [], "backedUpFiles": []},

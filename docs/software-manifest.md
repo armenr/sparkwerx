@@ -10,17 +10,17 @@ Nix evaluation, redistribution, or the installation method.
 
 ## Status of this snapshot
 
-Evidence date: **2026-08-23**
+Evidence date: **2026-08-24**
 
 The versions below came from the current 2026-08-23 lock, exact upstream pins,
 and current official vendor sources. Stable Nixpkgs was advanced to its current
 branch head. Devbox 0.18.0 and Tailscale 1.102.3 plus its inert unit tree were
-built with `--no-link` and inspected. The System Manager 1.1.0 inert root canary
-and closure policy were also built and inspected without activation. The root
-default profile and `nix-daemon` were explicitly advanced from Nix 2.35.1 to
-verified 2.35.2. No Home Manager profile or application was activated,
-System Manager was not registered or activated, Tailscale was not restarted or
-replaced, and the desktop was not switched.
+built with `--no-link` and inspected. The patched System Manager 1.1.0 inert
+root canary and closure policy were also built and inspected without host
+activation. A disposable-container activation attempt failed closed on upstream
+global tmpfiles behavior and left the host untouched. System Manager was not
+registered or activated on the host, Tailscale was not restarted or replaced,
+and the desktop was not switched.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -45,7 +45,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2 | Do not replace/restart the live daemon over Tailscale SSH; validate the selected root-manager candidate and pass console, rollback, state/identity, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; RUNTIME/POLICY BUILD-PASSED; activation/container test OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is forced to verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. No host activation or generation registration occurred | Run the root-assisted disposable-container test, inspect collisions and manager state, establish independent console/timed rollback, then request separate canary activation approval |
+| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY BUILD-PASSED; container retry/activation OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The first disposable activation caught the upstream bug and left the host untouched | Rerun the patched root-assisted disposable-container test, then inspect collisions/state, establish independent console/timed rollback, and request separate canary activation approval |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -101,25 +101,35 @@ The root-manager canary pins System Manager 1.1.0 at revision
 `05e08c6dd739d7f3204e71322594bb8095334cfb` and uses the official Nix
 2.35.2 release flake for its private engine wrapper. Its 109-path, 230.0 MiB
 runtime closure contains no Nix 2.34.8 and no real `userborn`. The evaluated
-surface is exactly `/etc/dgx-setup/canary`, three systemd control/canary units,
-and System Manager rollback bookkeeping. It is not boot-linked and owns no
-host Nix configuration, package, users, wrappers, PATH hook, port, Tailscale,
-Docker, GDM, or NVIDIA service.
+surface materializes exactly five filesystem entries: `/etc/dgx-setup/canary`,
+three systemd control/canary units, and their target-wants dependency symlink.
+It is not boot-linked and owns no host Nix configuration, package, users,
+wrappers, PATH hook, port, Tailscale, Docker, GDM, or NVIDIA service.
 
-Low-level activation would create
+Upstream 1.1.0 globally processes every visible tmpfiles rule when its managed
+list is empty. The repository's exact-version `skip-empty-tmpfiles` patch has
+SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a`.
+The manifest and closure policy require that patch, an empty managed set, and
+`invokesGlobalTmpfiles = false`; the container test adds an unmanaged rule and
+requires it to remain unprocessed.
+
+The first root-local disposable-container activation reached System Manager and
+failed closed when the upstream global invocation tried to change journal modes.
+The container was destroyed. Postflight found all host canary, unit, state,
+profile, and GC-root paths absent; Nix, Tailscale, and GDM remained active with
+no pending reload. The patched runtime and closure policy subsequently rebuilt
+with `--no-link`; the container retry remains open.
+
+Low-level activation would write
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
-the managed links/units and leaves an empty state record. The canary has not
-been activated and no profile or GC root has been registered. The runtime and
-closure-policy builds passed with `--no-link`. The disposable Ubuntu activation
-and rollback test remains pending because its temporary `auto-allocate-uids`
-and `cgroups` features require a root-local Nix process; Nix 2.35 does not
-forward those experimental-feature overrides to the daemon. Run only the
-reviewed `sudo ./scripts/test-root-canary.sh` gate; its test-only dry-run is
-943.7 MiB download / 3.9 GiB unpacked. See
-`root/system-manager/README.md`. The rejected daemon-path preflight started no
-container and left every System Manager host/registration path absent; it did
-create Nix internal UID-lock/stale-temporary-root bookkeeping disclosed in the
-runbook.
+the managed links/units and leaves an empty state record. No profile or GC root
+has been registered. The helper supplies temporary root-local
+`auto-allocate-uids`/`cgroups` flags and ignores root's personal Nix config with
+`NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Its
+test-only plan was 943.7 MiB download / 3.9 GiB unpacked. Nix's UID lock, cgroup
+tracking, and stale temporary-root records are disclosed operational
+bookkeeping, not a manager generation, and were not manually removed. See the
+root-manager runbook.
 
 The portal remains an independent option. Selecting Hyprland sets Home
 Manager's implicit `portalPackage` to `null`; only

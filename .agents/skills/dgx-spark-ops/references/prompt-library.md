@@ -35,9 +35,10 @@ rewrite flake.lock.
 ```text
 $dgx-spark-ops Audit the System Manager root candidate read-only. Compare its
 matching release-26.05 head, private Nix release, machine-readable root manifest,
-service/etc/state/registration allowlists, closure anti-downgrade rules, and
-runbook. Run evaluation and dry-run only; do not build, run the sudo container
-test, register a generation, create state, or activate the host.
+service/etc/state/registration allowlists, the exact-version empty-tmpfiles
+patch/hash, unmanaged-rule regression sentinel, closure anti-downgrade rules,
+and runbook. Run evaluation and dry-run only; do not build, run the sudo
+container test, register a generation, create state, or activate the host.
 ```
 
 ```text
@@ -167,7 +168,8 @@ builds with --no-link, and stop before activation.
 $dgx-spark-ops Update System Manager only within the matching stable branch.
 Diff every evaluated service, /etc entry, package, state path, registration
 path, private Nix version, and closure path against the current root manifest.
-Keep Nix 2.34.8 and real userborn rejected, build with --no-link, and leave the
+Keep Nix 2.34.8 and real userborn rejected, preserve or explicitly reassess the
+empty-tmpfiles patch and sentinel, build with `--no-link`, and leave the
 root-assisted container test, registration, and host activation as separate
 gates.
 ```

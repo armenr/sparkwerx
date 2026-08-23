@@ -67,6 +67,7 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Codex CLI releases | https://github.com/openai/codex/releases |
 | System Manager matching stable branch | https://github.com/numtide/system-manager/tree/release-26.05 |
 | Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
+| Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |
 
 Branches in this table match the repository's current policy. If the repository

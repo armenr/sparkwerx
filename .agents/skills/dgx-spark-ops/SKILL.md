@@ -88,7 +88,9 @@ register a profile, create state, or activate the host. Keep System Manager on
 the branch matching stable Nixpkgs and keep its private wrapper aligned with the
 separately reviewed current host Nix release. Treat any reappearance of stale
 Nix, real `userborn`, users, wrappers, global PATH, boot links, unexpected
-units, or replacement ownership as a stop condition.
+units, replacement ownership, global tmpfiles processing, a missing or
+version-mismatched `skip-empty-tmpfiles` patch, or a processed unmanaged
+tmpfiles sentinel as a stop condition.
 
 `sudo ./scripts/test-root-canary.sh` is a separately authorized disposable
 Ubuntu activation/deactivation test, not a host activation. Actual host
@@ -103,6 +105,8 @@ build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
 those features or restart/reconfigure the daemon merely to run this test.
 Disclose `/nix/var/nix/userpool2` and `/nix/var/nix/cgroups` as Nix
 operational bookkeeping; do not delete their records casually.
+Keep `NIX_USER_CONF_FILES=/dev/null` in the helper so root-specific user config
+cannot add hidden settings; system `/etc/nix/nix.conf` is still read.
 
 ### Audit, migrate, or update Tailscale
 
@@ -173,7 +177,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - System Manager is selected only as a bounded inactive candidate. Preserve its
   exact service/`/etc` allowlists, state/registration disclosure, no-boot policy,
   Nix 2.35.2 private runtime, and closure rejection of Nix 2.34.8 and real
-  `userborn`. A build or container test never implies host activation.
+  `userborn`. Preserve the exact-version `skip-empty-tmpfiles` patch, its
+  manifest hash/policy, and the unmanaged-rule regression sentinel; never allow
+  an empty managed set to trigger global factory tmpfiles processing. A build or
+  container test never implies host activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

@@ -220,17 +220,27 @@ generation registration, or ownership of a service.
 
 Upstream's nominally empty configuration enables broader defaults than this
 fleet permits. The canary forces off Nix configuration ownership, users and
-`userborn`, setuid wrappers, global packages and login PATH hooks, tmpfiles,
-`/run/current-system`, and its boot-time target link. It declares exactly one
-harmless `/etc/dgx-setup/canary` link, one no-network oneshot, and System
-Manager's two control targets. No NVIDIA, Docker, Tailscale, GDM, or desktop
-unit enters the graph.
+`userborn`, setuid wrappers, global packages and login PATH hooks, managed
+tmpfiles, `/run/current-system`, and its boot-time target link. It declares
+exactly one harmless `/etc/dgx-setup/canary` link, one no-network oneshot,
+and System Manager's two control targets. No NVIDIA, Docker, Tailscale, GDM, or
+desktop unit enters the graph.
 
 System Manager's private engine wrapper is overlaid with the separately pinned
 official Nix 2.35.2 release, matching the reviewed active host runtime. Closure
 policy rejects stale Nix 2.34.8 and the otherwise-unused real `userborn`
 binary. The built ARM64 canary is 109 paths / 230.0 MiB and has no global
 package, port, boot link, or application state.
+
+System Manager 1.1.0 otherwise invokes `systemd-tmpfiles --create --remove`
+globally when its managed tmpfiles list is empty. The first disposable-container
+activation exposed that boundary violation without touching the host. The
+candidate therefore carries the exact-version `skip-empty-tmpfiles` patch
+(SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a`),
+and policy requires the patched manager, an empty managed-tmpfiles set, and no
+global tmpfiles invocation. The test plants an unmanaged rule as a regression
+sentinel. Any System Manager version change requires explicit patch
+reassessment.
 
 Low-level activation would create
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation empties
@@ -239,9 +249,9 @@ but does not remove that bookkeeping file. The canary test does not register
 `/nix/var/nix/gcroots/system-manager-current`. Those registration paths remain
 a separate gate.
 
-The runtime and closure-policy no-link builds passed. The disposable Ubuntu
-activation/deactivation test still requires the explicit root-assisted helper,
-and host activation still requires independent console access, collision
+The patched runtime and closure-policy no-link builds passed. The disposable
+Ubuntu activation/deactivation retry still requires the explicit root-assisted
+helper. Host activation still requires independent console access, collision
 review, timed rollback, and separate authorization. This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 

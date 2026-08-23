@@ -5,7 +5,7 @@ existing Ubuntu-based DGX OS substrate. The configuration is defined by
 `hosts/sparkle-01/system.nix` and `modules/system/minimal-root.nix`.
 
 Nothing in this directory, the flake input, or a successful build activates the
-manager. As of 2026-08-23, no System Manager profile has been registered and no
+manager. As of 2026-08-24, no System Manager profile has been registered and no
 System Manager configuration has been applied to the host.
 
 ## Reviewed candidate
@@ -18,6 +18,7 @@ System Manager configuration has been applied to the host.
 | Source timestamp | 2026-08-14 14:22:29 UTC |
 | Platform | `aarch64-linux` |
 | Private Nix runtime | Official Nix 2.35.2 release flake at `2c73b59da29606068c0c98db015dd3a66955525d` |
+| Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Host activation | **Not performed** |
 
@@ -33,8 +34,10 @@ The evaluated configuration has no global packages and declares only:
   replace a collision;
 - `/etc/systemd/system`, containing only the three units below;
 - `dgx-setup-canary.service`, a no-network oneshot that tests the canary link;
-- `system-manager.target`, started explicitly by the activation engine; and
-- `sysinit-reactivation.target`, System Manager activation infrastructure.
+- `system-manager.target`, started explicitly by the activation engine;
+- `sysinit-reactivation.target`, System Manager activation infrastructure; and
+- `system-manager.target.wants/dgx-setup-canary.service`, the generated dependency
+  symlink for the canary unit.
 
 It declares no port, socket, secret, user, group, setuid wrapper, application
 state, desktop change, Tailscale unit, Nix daemon unit, Docker unit, or GDM unit.
@@ -66,13 +69,37 @@ root role. The repository explicitly disables or removes:
 - global system packages;
 - login-wide PATH/XDG hooks in `/etc/profile.d` and `/etc/environment.d`;
 - `system-manager-path.service`;
-- tmpfiles configuration;
+- managed tmpfiles configuration;
 - `/run/current-system`; and
 - the boot-time `default.target` link.
 
 The policy check fails if these defaults return, if any unexpected service or
 `/etc` entry appears, or if Nix 2.34.8 or a real `userborn` runtime re-enters the
 closure.
+
+## Local empty-tmpfiles safety patch
+
+System Manager 1.1.0 collects this configuration's managed files below
+`/etc/tmpfiles.d`, then unconditionally runs `systemd-tmpfiles --create
+--remove`. When the collection is empty, omitting config-file arguments tells
+`systemd-tmpfiles` to process every tmpfiles rule visible on the machine. That
+would cross this repository's boundary and act on factory-owned configuration.
+
+The first root-local disposable-container attempt on 2026-08-24 exposed this:
+activation reached the manager, installed its canary tree inside the container,
+then global tmpfiles processing tried to change journal-directory modes and the
+container rejected it. The test derivation failed and destroyed the container.
+Postflight checks confirmed every canary, unit, state, profile, and GC-root path
+on the host remained absent; Nix, Tailscale, and GDM remained active with no
+pending reload.
+
+The repository applies
+`patches/system-manager/skip-empty-tmpfiles.patch` only when the package name is
+`system-manager` and the version is exactly `1.1.0`. It returns successfully
+without spawning `systemd-tmpfiles` when no managed config exists. The patch is
+part of the manager derivation and machine-readable manifest, and closure policy
+requires that exact patched package. A future manager version will not inherit
+the patch silently: evaluation/build policy must be reviewed and adjusted.
 
 ## Runtime versus lock graph
 
@@ -140,7 +167,10 @@ deactivates the canary inside a disposable Nix build sandbox. It verifies:
 
 - protected Nix/passwd/group/shadow files are byte-identical;
 - no global PATH hooks, `/run/current-system`, boot link, users, or wrappers;
-- exactly the canary and three expected units become managed;
+- exactly five filesystem entries become managed: the canary, three units, and
+  the target-wants dependency symlink;
+- an unmanaged container-only tmpfiles rule is never processed during activation
+  or deactivation;
 - no System Manager profile or GC root is registered;
 - deactivation removes the canary and units; and
 - the residual manager state is an empty version-0 record.
@@ -165,6 +195,11 @@ Nix removes stale temporary-root records during a future garbage-collection scan
 No manual cleanup was attempted. That preflight failure is why the direct-store
 path is explicit.
 
+The next root-local attempt reached activation and found the upstream empty-list
+tmpfiles bug documented above. Its container was also disposable and the host
+again remained untouched. The patched regression test must pass before this gate
+can be marked complete.
+
 After reviewing the command, run this one test with a temporary root-local
 build setting:
 
@@ -173,17 +208,20 @@ sudo ./scripts/test-root-canary.sh
 ```
 
 The reviewed helper invokes `/nix/var/nix/profiles/default/bin/nix` against the
-local store with `auto-allocate-uids` and `cgroups` enabled only in that
-root process. It does not edit `nix.conf`, stop/reconfigure/restart the daemon,
-create a profile, or activate the host. Like every build, it may add test paths
-and build records to the Nix store. UID allocation uses persistent lock files
-under `/nix/var/nix/userpool2`; cgroup cleanup tracking may remain under
+local store with `auto-allocate-uids` and `cgroups` enabled only in that root
+process. It also sets `NIX_USER_CONF_FILES=/dev/null` for that command so root's
+personal Nix configuration cannot add warnings or hidden behavior; system-wide
+`/etc/nix/nix.conf` is still read, and all temporary features remain explicit.
+It does not edit `nix.conf`, stop/reconfigure/restart the daemon, create a
+profile, or activate the host. Like every build, it may add test paths and build
+records to the Nix store.
+UID allocation uses persistent lock files under `/nix/var/nix/userpool2`;
+cgroup cleanup tracking may remain under
 `/nix/var/nix/cgroups/<uid>`. These are Nix operational bookkeeping, not a
 System Manager generation or host configuration. The one-time dry-run was
-943.7 MiB download
-and 3.9 GiB unpacked, primarily the Ubuntu rootfs, Rust/build tools, Python test
-driver, and systemd utilities. Those are test dependencies, not the 230.0 MiB
-runtime closure and not a system profile.
+943.7 MiB download and 3.9 GiB unpacked, primarily the Ubuntu rootfs,
+Rust/build tools, Python test driver, and systemd utilities. Those are test
+dependencies, not the 230.0 MiB runtime closure and not a system profile.
 
 ## Host activation hold
 
@@ -213,8 +251,12 @@ the placeholder with a floating flake reference in a rollback command.
 
 `scripts/update-dependencies.sh` advances the matching System Manager release
 branch and reruns its evaluation, closure-policy, and no-link runtime gates. The
-root-assisted container test remains the explicit helper above. Any changed
-ownership surface or closure fails review rather than being accepted automatically.
+update remains valid only while the exact-version overlay applies the reviewed
+patch and the manifest/audit retain its hash and no-global-tmpfiles policy. An
+upstream version change is a mandatory reassessment, not permission to drop or
+blindly carry the patch. The root-assisted container test remains the explicit
+helper above. Any changed ownership surface or closure fails review rather than
+being accepted automatically.
 
 The `nix-release` input is an exact tag and is intentionally not auto-advanced.
 Audit and activate a new host Nix runtime through `root/nix/README.md` first;

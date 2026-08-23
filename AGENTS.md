@@ -48,6 +48,13 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   experimental-feature overrides on daemon connections, while this test needs
   temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings
   or restart/reconfigure the daemon for the test.
+- Preserve `NIX_USER_CONF_FILES=/dev/null` in that helper so root-only user
+  configuration cannot add hidden behavior; the system Nix config remains read.
+- System Manager 1.1.0 must retain the exact-version
+  `skip-empty-tmpfiles` patch and unmanaged-rule regression sentinel. Treat any
+  global tmpfiles invocation, missing patch, changed patch hash, or processed
+  sentinel as a stop condition; never weaken the test to tolerate factory-rule
+  processing.
 - Validate on `aarch64-linux` and pilot on one host before fleet rollout.
 
 Follow the skill's routed references rather than duplicating update policy in
