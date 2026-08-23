@@ -35,6 +35,12 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
   remains at its expected provisioning version, 2.35.1. The default
   `upgrade-nix` fallback still targets stale 2.34.8 and remains blocked.
+- System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
+  inert ARM64 canary and anti-downgrade policy built with `--no-link`: 109 paths
+  / 230.0 MiB, no global packages, boot link, users, wrappers, ports, or
+  NVIDIA/Tailscale/desktop ownership. Its private wrapper uses verified Nix
+  2.35.2 instead of stable Nixpkgs' older 2.34.8. It is not activated or
+  registered; the root-assisted disposable-container test remains open.
 
 ## Operating model
 
@@ -58,22 +64,25 @@ Start with the [decision register](docs/decision-register.md), then review the
 [docs/roadmap.md](docs/roadmap.md) for sequencing, and the
 [Tailscale operations reference](.agents/skills/dgx-spark-ops/references/tailscale.md)
 before auditing, packaging, migrating, restarting, or updating Tailscale. Read
-[the Nix runtime diagnosis](root/nix/README.md) before running `upgrade-nix`.
+[the Nix runtime diagnosis](root/nix/README.md) before running `upgrade-nix`,
+and the [root-manager runbook](root/system-manager/README.md) before evaluating,
+testing, registering, or activating System Manager.
 
 ## Repository layout
 
 ```text
 .agents/skills/             Repository-local Codex operational skills
-bootstrap/                 Reviewed host-level integration (currently empty)
+bootstrap/                 Reviewed host-level integration and activation hold
 docs/                      Architecture and rollout decisions
-hosts/                     Per-host Home Manager configuration
+hosts/                     Per-host Home and inert root-manager configuration
 inventory/                 Sanitized, non-secret baseline records
 modules/home/              Reusable user-level modules
+modules/system/            Narrow non-NixOS root-manager modules
 packages/                  Exact current-release adapters and source hashes
-root/                      Reviewed root-service/runtime artifacts and runbooks
+root/                      Reviewed Nix, Tailscale, and System Manager runbooks
 scripts/                   Inventory, validation, and dependency-update helpers
 flake.nix                  Fleet entry point and evaluation invariants
-flake.lock                 Exact stable/apps/Home Manager/Hyprland input pins
+flake.lock                 Exact stable/apps/Home/desktop/root-manager pins
 ```
 
 ## Read-only manifest and validation
@@ -96,6 +105,13 @@ nix --extra-experimental-features "nix-command flakes" \
   eval --json .#lib.dgxProfileManifests.aarch64-linux
 ```
 
+The separately scoped root-manager manifest is:
+
+```bash
+nix --extra-experimental-features "nix-command flakes" \
+  eval --json .#lib.dgxRootManagerManifest.aarch64-linux
+```
+
 The human-reviewed size and package findings are in the
 [software manifest](docs/software-manifest.md).
 
@@ -107,16 +123,21 @@ The human-reviewed size and package findings are in the
 
 This is a mutating, build-authorized workflow, not the default audit command. It
 preflights the exact Devbox and Hyprland release pins; advances stable Nixpkgs,
-the independently scoped apps input, and Home Manager; advances Tailscale only
-through its verified stable ARM64 artifact/checksum workflow; formats/evaluates
-the flake; and builds every ARM64 Home profile plus the Devbox, Tailscale,
-Hyprland, unit, and portal outputs with `--no-link`. It never activates a
-profile, service, or desktop session, but it does rewrite pins, fetch inputs,
-and realize packages, so run it only after those actions are explicitly
+the independently scoped apps input, Home Manager, and matching System Manager
+release branch; advances Tailscale only through its verified stable ARM64
+artifact/checksum workflow; formats/evaluates the flake; and builds every ARM64
+Home profile plus the Devbox, Tailscale, Hyprland, root canary/policy, unit,
+and portal outputs with `--no-link`. It never activates a profile, service, or
+desktop session, but it does rewrite pins, fetch inputs, and realize packages,
+so run it only after those actions are explicitly
 approved.
 
 Hyprland release tags are bumped deliberately rather than automatically because
 each new compositor release must pass the NVIDIA/ARM64 build gate first.
+
+System Manager's disposable activation/deactivation test requires a restricted,
+temporary Nix build setting and remains a separate reviewed gate:
+`sudo ./scripts/test-root-canary.sh`.
 
 ## Codex operations skill
 
@@ -150,5 +171,6 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-First review the relevant closure and rollback gate. GNOME remains the recovery
-desktop throughout every graphical pilot.
+Do not activate or register the System Manager canary either. First review the
+relevant closure and rollback gate. GNOME remains the recovery desktop
+throughout every graphical pilot.

@@ -25,3 +25,11 @@ The Nix daemon is also a reviewed root concern. The default `upgrade-nix`
 candidate is currently a downgrade and must not be run. Read the exact
 [Nix runtime diagnosis and candidate](../root/nix/README.md); its files are
 inert evidence, not bootstrap authorization.
+
+System Manager is now the selected root-manager candidate, but only its inert
+canary, closure policy, and disposable-container test are defined. Read
+[root/system-manager/README.md](../root/system-manager/README.md). A no-link
+build or successful container test is not bootstrap or host-activation
+authorization. The first host canary still requires an independent local
+console, collision/snapshot report, timed deactivation plan, and separate
+approval; do not infer safety from an active Tailscale SSH session.

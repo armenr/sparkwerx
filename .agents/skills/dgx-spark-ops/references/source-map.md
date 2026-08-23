@@ -58,13 +58,15 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Default stable-binary pointer used by `upgrade-nix` | https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/installer/tools/nix-fallback-paths.nix |
 | Nix releases | https://github.com/NixOS/nix/releases |
 | Nix 2.35.2 ARM64 release artifact | https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-aarch64-linux.tar.xz |
+| Official Nix 2.35.2 release flake | https://github.com/NixOS/nix/tree/2.35.2 |
 | Repository Nix diagnosis and custom candidate | [root/nix/README.md](../../../../root/nix/README.md) |
 | Stable Nixpkgs branch | https://github.com/NixOS/nixpkgs/tree/nixos-26.05 |
 | Matching Home Manager branch | https://github.com/nix-community/home-manager/tree/release-26.05 |
 | Hyprland releases | https://github.com/hyprwm/Hyprland/releases |
 | Hyprland v0.56.2 Glaze packaging fix | https://github.com/hyprwm/Hyprland/commit/91f29f23bb691462f8aa6171b964069aebc37910 |
 | Codex CLI releases | https://github.com/openai/codex/releases |
-| Non-NixOS root configuration candidate | https://github.com/numtide/system-manager |
+| System Manager matching stable branch | https://github.com/numtide/system-manager/tree/release-26.05 |
+| Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |
 
 Branches in this table match the repository's current policy. If the repository

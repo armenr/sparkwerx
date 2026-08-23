@@ -33,6 +33,14 @@ rewrite flake.lock.
 ```
 
 ```text
+$dgx-spark-ops Audit the System Manager root candidate read-only. Compare its
+matching release-26.05 head, private Nix release, machine-readable root manifest,
+service/etc/state/registration allowlists, closure anti-downgrade rules, and
+runbook. Run evaluation and dry-run only; do not build, run the sudo container
+test, register a generation, create state, or activate the host.
+```
+
+```text
 $dgx-spark-ops Audit the NVIDIA-owned substrate: DGX OS, firmware, kernel,
 driver, CUDA, Docker, and NVIDIA Container Toolkit. Inventory locally, use only
 current NVIDIA guidance for applicability, and make no host changes.
@@ -156,6 +164,15 @@ builds with --no-link, and stop before activation.
 ```
 
 ```text
+$dgx-spark-ops Update System Manager only within the matching stable branch.
+Diff every evaluated service, /etc entry, package, state path, registration
+path, private Nix version, and closure path against the current root manifest.
+Keep Nix 2.34.8 and real userborn rejected, build with --no-link, and leave the
+root-assisted container test, registration, and host activation as separate
+gates.
+```
+
+```text
 $dgx-spark-ops Scaffold <workload> from the official NVIDIA playbook at <exact
 commit>. Pin ARM64 image digests and all downloads, document storage, ports,
 health checks, secrets, validation, and rollback. Do not pull, start, or expose
@@ -183,6 +200,11 @@ For a Tailscale activation, the prompt must additionally name the independent
 recovery path, rollback timer/runbook, and accepted session interruption. Never
 infer those from a prior build or from the fact that Tailscale SSH currently
 works.
+
+For a System Manager host canary, the prompt must name the already-built output,
+independent local console, exact collision/snapshot evidence, state and
+registration scope, timed deactivation command, and accepted residual state
+file. The disposable root-assisted container test is not host activation.
 
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.

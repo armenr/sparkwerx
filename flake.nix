@@ -14,6 +14,18 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # System Manager's private wrapper must use the same reviewed current Nix
+    # release as the host, not the older pkgs.nix from stable Nixpkgs.
+    nix-release.url = "github:NixOS/nix/2.35.2";
+
+    # Root-level configuration for the existing Ubuntu/DGX OS substrate. Keep
+    # this on the branch matching stable Nixpkgs and never let it own the Nix
+    # installation itself.
+    system-manager = {
+      url = "github:numtide/system-manager/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Hyprland moves faster than stable Nixpkgs. Pin the latest reviewed
     # upstream release independently so the rest of the fleet remains stable.
     hyprland.url = "github:hyprwm/Hyprland/v0.56.2";
@@ -24,6 +36,8 @@
       nixpkgs,
       nixpkgs-apps,
       home-manager,
+      nix-release,
+      system-manager,
       hyprland,
       ...
     }:
@@ -68,6 +82,43 @@
       tailscaleService = pkgs.callPackage ./root/tailscale/unit.nix {
         tailscale = tailscalePackage;
       };
+
+      verifiedNixPackage = nix-release.packages.${system}.nix;
+
+      rootManagerOverlays = [
+        (_final: _previous: {
+          nix = verifiedNixPackage;
+        })
+      ];
+
+      rootCanary = system-manager.lib.makeSystemConfig {
+        overlays = rootManagerOverlays;
+        modules = [ ./hosts/sparkle-01/system.nix ];
+      };
+
+      systemManagerPackage = system-manager.packages.${system}.system-manager-unwrapped;
+      rootCanaryConfig = rootCanary.config;
+      rootCanaryServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryConfig.build.services
+      );
+      rootCanaryEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryConfig.build.etc.entries
+      );
+      rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
+      rootCanaryClosureInfo = pkgs.closureInfo {
+        rootPaths = [ rootCanary ];
+      };
+
+      expectedRootCanaryServiceNames = [
+        "dgx-setup-canary.service"
+        "sysinit-reactivation.target"
+        "system-manager.target"
+      ];
+
+      expectedRootCanaryEtcNames = [
+        "dgx-setup/canary"
+        "systemd/system"
+      ];
 
       mkHome =
         {
@@ -288,6 +339,64 @@
         };
       };
 
+      rootManagerManifest = {
+        schemaVersion = 1;
+        inherit system;
+        hostName = "sparkle-01";
+
+        manager = {
+          name = "system-manager";
+          version = systemManagerPackage.version;
+          licenses = packageLicenses systemManagerPackage;
+          branch = "release-26.05";
+          rev = system-manager.rev;
+          lastModified = system-manager.lastModified;
+          drvPath = systemManagerPackage.drvPath;
+          rootOutputPath = rootCanary.outPath;
+          activated = false;
+        };
+
+        privateNixRuntime = {
+          version = verifiedNixPackage.version;
+          rev = nix-release.rev;
+          outputPath = verifiedNixPackage.outPath;
+          ownsHostInstallation = false;
+        };
+
+        policy = {
+          ownsNix = false;
+          ownsUsers = false;
+          enablesSetuidWrappers = false;
+          exportsGlobalPath = false;
+          linksCurrentSystem = false;
+          startsAtBoot = false;
+          globalPackages = rootCanaryPackageNames;
+          etcEntries = rootCanaryEtcNames;
+          services = rootCanaryServiceNames;
+          replaceExisting = false;
+          ports = [ ];
+          mutableState = [ "/var/lib/system-manager/state/system-manager-state.json" ];
+        };
+
+        managerState = {
+          path = "/var/lib/system-manager/state/system-manager-state.json";
+          createdByLowLevelActivation = true;
+          removedByDeactivation = false;
+        };
+
+        registration = {
+          performed = false;
+          profile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
+          gcRoot = "/nix/var/nix/gcroots/system-manager-current";
+        };
+
+        canary = {
+          etcPath = "/etc/dgx-setup/canary";
+          service = "dgx-setup-canary.service";
+          target = "system-manager.target";
+        };
+      };
+
       stableRejectsVscode = !(builtins.tryEval pkgs.vscode.outPath).success;
       appsRejectsVscode = !(builtins.tryEval appsPkgs.vscode.outPath).success;
       appsAllowsLmStudio = (builtins.tryEval appsPkgs.lmstudio.outPath).success;
@@ -348,6 +457,128 @@
           touch "$out"
         '';
 
+      rootManagerPolicyCheck =
+        assert systemManagerPackage.version == "1.1.0";
+        assert verifiedNixPackage.version == "2.35.2";
+        assert rootCanaryConfig.nixpkgs.hostPlatform == system;
+        assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
+        assert rootCanaryEtcNames == expectedRootCanaryEtcNames;
+        assert rootCanaryPackageNames == [ ];
+        assert !rootCanaryConfig.nix.enable;
+        assert !rootCanaryConfig.services.userborn.enable;
+        assert !rootCanaryConfig.security.enableWrappers;
+        assert !rootCanaryConfig.system-manager.linkCurrentSystem;
+        assert rootCanaryConfig.systemd.targets.system-manager.wantedBy == [ ];
+        assert !rootCanaryConfig.environment.etc."dgx-setup/canary".replaceExisting;
+        assert rootCanaryConfig.systemd.tmpfiles.rules == [ ];
+        assert rootCanaryConfig.systemd.tmpfiles.settings == { };
+        pkgs.runCommand "dgx-root-manager-policy" { } ''
+          if grep -Eq -- '-nix-2\.34\.8$' ${rootCanaryClosureInfo}/store-paths; then
+            echo "The root-manager closure retained stale Nix 2.34.8." >&2
+            exit 1
+          fi
+          if grep -Eq -- '-userborn-[0-9]' ${rootCanaryClosureInfo}/store-paths; then
+            echo "The inert root-manager closure retained userborn." >&2
+            exit 1
+          fi
+          grep -Fx -- '${verifiedNixPackage}' ${rootCanaryClosureInfo}/store-paths \
+            >/dev/null
+          touch "$out"
+        '';
+
+      rootCanaryContainerTest = system-manager.lib.containerTest.makeContainerTest {
+        hostPkgs = pkgs;
+        name = "dgx-root-canary";
+        toplevel = rootCanary;
+        testScript = ''
+          import json
+
+          start_all()
+          machine.wait_for_unit("multi-user.target")
+
+          state_path = "/var/lib/system-manager/state/system-manager-state.json"
+          profile_path = "/nix/var/nix/profiles/system-manager-profiles/system-manager"
+          gcroot_path = "/nix/var/nix/gcroots/system-manager-current"
+
+          protected_paths = [
+              "/etc/nix/nix.conf",
+              "/etc/passwd",
+              "/etc/group",
+              "/etc/shadow",
+          ]
+
+          def protected_snapshot() -> dict[str, str]:
+              return {
+                  path: machine.succeed(
+                      f"if test -e '{path}'; then sha256sum '{path}' | cut -d' ' -f1; else printf absent; fi"
+                  ).strip()
+                  for path in protected_paths
+              }
+
+          def assert_absent(path: str) -> None:
+              machine.fail(f"test -e '{path}' || test -L '{path}'")
+
+          before = protected_snapshot()
+
+          with subtest("Canary is inert before activation"):
+              assert_absent("/etc/dgx-setup/canary")
+              assert_absent("/etc/profile.d/system-manager-path.sh")
+              assert_absent("/etc/environment.d/10-system-manager.conf")
+              assert_absent("/run/current-system")
+              assert_absent("/etc/systemd/system/default.target.wants/system-manager.target")
+              machine.fail(f"test -e {state_path}")
+              assert_absent(profile_path)
+              assert_absent(gcroot_path)
+
+          activation_logs = machine.activate()
+          assert "ERROR" not in activation_logs, activation_logs
+          machine.wait_for_unit("system-manager.target")
+          machine.wait_for_unit("dgx-setup-canary.service")
+
+          with subtest("Activation owns only the bounded canary"):
+              machine.succeed("test -L /etc/dgx-setup/canary")
+              machine.succeed("grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary")
+              assert_absent("/etc/profile.d/system-manager-path.sh")
+              assert_absent("/etc/environment.d/10-system-manager.conf")
+              assert_absent("/run/current-system")
+              assert_absent("/etc/systemd/system/default.target.wants/system-manager.target")
+              assert_absent("/etc/systemd/system/userborn.service")
+              assert_absent("/etc/systemd/system/run-wrappers.mount")
+              assert_absent("/etc/systemd/system/suid-sgid-wrappers.service")
+              activated_state = json.loads(machine.succeed(f"cat {state_path}"))
+              assert activated_state["version"] == 1
+              assert "/etc/dgx-setup/canary" in activated_state["fileTree"]["files"]
+              assert set(activated_state["services"].keys()) == {
+                  "dgx-setup-canary.service",
+                  "sysinit-reactivation.target",
+                  "system-manager.target",
+              }
+              assert_absent(profile_path)
+              assert_absent(gcroot_path)
+              assert protected_snapshot() == before
+
+          machine.succeed("${rootCanary}/bin/deactivate")
+
+          with subtest("Deactivation removes ownership and leaves empty bookkeeping"):
+              for path in [
+                  "/etc/dgx-setup/canary",
+                  "/etc/systemd/system/dgx-setup-canary.service",
+                  "/etc/systemd/system/sysinit-reactivation.target",
+                  "/etc/systemd/system/system-manager.target",
+              ]:
+                  assert_absent(path)
+              deactivated_state = json.loads(machine.succeed(f"cat {state_path}"))
+              assert deactivated_state == {
+                  "fileTree": {"files": [], "backedUpFiles": []},
+                  "services": {},
+                  "version": 0,
+              }
+              assert_absent(profile_path)
+              assert_absent(gcroot_path)
+              assert protected_snapshot() == before
+        '';
+      };
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -355,9 +586,12 @@
     {
       inherit homeConfigurations;
 
+      systemConfigs.sparkle-01 = rootCanary;
+
       packages.${system} = {
         devbox = devboxPackage;
         hyprland = hyprlandPackage;
+        root-system-canary = rootCanary;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
@@ -372,12 +606,16 @@
         home-hyprland = hyprlandProfile.activationPackage;
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
         profile-policy = profilePolicyCheck;
+        root-canary-container = rootCanaryContainerTest;
+        root-manager-policy = rootManagerPolicyCheck;
+        root-system-canary = rootCanary;
         tailscale-package = tailscalePackage;
         tailscale-policy = tailscalePolicyCheck;
         tailscaled-unit = tailscaleService.package;
       };
 
       lib.dgxProfileManifests.${system} = profileManifests;
+      lib.dgxRootManagerManifest.${system} = rootManagerManifest;
 
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = [

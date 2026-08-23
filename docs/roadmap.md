@@ -39,8 +39,12 @@ the measured software manifest; evaluation did not authorize realization.
       2.35.1 rollback environment and verify daemon/build/Tailscale continuity
 - [x] Resolve the Nix systemd daemon-reload warning during the approved runtime
       rollout; restart only nix-daemon and verify GDM/Tailscale continuity
-- [ ] Review the SBOM and operational maturity of the non-NixOS root manager
-      candidate; do not let it take ownership of the existing Nix installer
+- [x] Select and pin System Manager 1.1.0 as the bounded non-NixOS
+      candidate; build and inspect its inert 109-path / 230.0 MiB ARM64 closure,
+      force its private wrapper to Nix 2.35.2, and reject Nix/user/wrapper/PATH/
+      boot defaults
+- [ ] Run `sudo ./scripts/test-root-canary.sh` to prove activation/deactivation
+      inside the disposable Ubuntu container; do not activate the host
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

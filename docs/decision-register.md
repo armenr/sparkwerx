@@ -209,6 +209,42 @@ installer-created 2.35.1 environment remains an independent GC-rooted rollback
 anchor. Future hosts and releases require the same separate authorization and
 validation.
 
+### D-014: System Manager is the bounded root-manager candidate
+
+**Status:** SELECTED
+
+Pin System Manager 1.1.0 from its matching `release-26.05` branch for a
+non-NixOS pilot above the existing Ubuntu/DGX substrate. Selection authorizes
+its repository definition and reviewed build/test gates, not host activation,
+generation registration, or ownership of a service.
+
+Upstream's nominally empty configuration enables broader defaults than this
+fleet permits. The canary forces off Nix configuration ownership, users and
+`userborn`, setuid wrappers, global packages and login PATH hooks, tmpfiles,
+`/run/current-system`, and its boot-time target link. It declares exactly one
+harmless `/etc/dgx-setup/canary` link, one no-network oneshot, and System
+Manager's two control targets. No NVIDIA, Docker, Tailscale, GDM, or desktop
+unit enters the graph.
+
+System Manager's private engine wrapper is overlaid with the separately pinned
+official Nix 2.35.2 release, matching the reviewed active host runtime. Closure
+policy rejects stale Nix 2.34.8 and the otherwise-unused real `userborn`
+binary. The built ARM64 canary is 109 paths / 230.0 MiB and has no global
+package, port, boot link, or application state.
+
+Low-level activation would create
+`/var/lib/system-manager/state/system-manager-state.json`; deactivation empties
+but does not remove that bookkeeping file. The canary test does not register
+`/nix/var/nix/profiles/system-manager-profiles/system-manager` or
+`/nix/var/nix/gcroots/system-manager-current`. Those registration paths remain
+a separate gate.
+
+The runtime and closure-policy no-link builds passed. The disposable Ubuntu
+activation/deactivation test still requires the explicit root-assisted helper,
+and host activation still requires independent console access, collision
+review, timed rollback, and separate authorization. This selection does not
+advance the Tailscale migration or implement desktop-mode switching.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -222,7 +258,8 @@ validation.
 
 ## Open decisions
 
-- Choose and validate the non-NixOS root configuration manager.
+- Run the root-assisted isolated canary test, then decide whether to promote the
+  selected System Manager candidate to a separately authorized host pilot.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -248,6 +285,9 @@ The repository-only policy alignment was completed and evaluated on
   apps set permits exactly `lmstudio`;
 - the permanent role is exactly current `ncdu`, `lazydocker`, and Devbox
   0.18.0; Devbox and Tailscale passed scoped no-link ARM64 builds;
+- System Manager 1.1.0 is pinned as an inactive root-manager candidate; its
+  109-path / 230.0 MiB canary and closure policy passed no-link builds with a
+  private Nix 2.35.2 runtime and no real `userborn` closure;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

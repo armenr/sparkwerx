@@ -37,6 +37,8 @@ live in the [decision register](decision-register.md).
 - Named user overlays, including Armen's personal graphical applications
 - Switchable desktop roles and their user configuration after each pilot
 - Host roles and per-host differences
+- Bounded System Manager root integration after its isolated and host pilot
+  gates
 - Host access services such as Tailscale after their reviewed migration
 - Pinned workload definitions, wrappers, and validation commands
 
@@ -59,6 +61,22 @@ catches up.
 
 The last category remains version-controlled and idempotent even though it must
 write into the host OS.
+
+## Root-manager pilot
+
+System Manager 1.1.0 on its matching `release-26.05` branch is the selected
+candidate for small non-NixOS root integration. Its repository canary is
+intentionally narrower than upstream's empty defaults: no host Nix ownership,
+users, wrappers, global packages/PATH, tmpfiles, `/run/current-system`, boot
+link, port, or factory/Tailscale/desktop unit. Its private engine uses exact Nix
+2.35.2 so the root closure cannot reintroduce the stale 2.34.8 runtime.
+
+The built canary owns only `/etc/dgx-setup/canary`, a no-network oneshot, and
+System Manager's two control targets. Low-level activation would leave its
+rollback record under `/var/lib/system-manager/state`; registration/profile
+roots are a separate action. Nothing is active or registered on the pilot. Read
+[the root-manager runbook](../root/system-manager/README.md) before evaluating,
+testing, registering, or activating it.
 
 ## Tailscale access plane
 
@@ -120,10 +138,11 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The root controller, Tailscale ownership migration, personal app packages,
-workload roles, and Home/desktop/workload activation remain deliberately
-unimplemented. The separately gated pilot Nix runtime update to 2.35.2 is
-complete. Devbox and Tailscale package/unit no-link builds do not authorize
+The inert System Manager canary now implements only a bounded root-manager
+prototype; it is built but neither registered nor activated. Desktop-mode root
+control, Tailscale ownership migration, personal app packages, workload roles,
+and all Home/desktop/workload activation remain deliberately unimplemented. The separately
+gated pilot Nix runtime update to 2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not authorize
 `home-manager switch`, a systemd service link/restart, or another root-runtime
 change. Host mode switching and service changes require their own later
 approval.

@@ -35,6 +35,15 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Never run plain `nix upgrade-nix` from an availability result. Audit its
   Nixpkgs fallback target separately from upstream stable and follow
   `root/nix/README.md`; the current default target is a blocked downgrade.
+- Read `root/system-manager/README.md` before changing the System Manager pin,
+  overlays, root module, test, state, registration, or activation. The candidate
+  is built but inactive/unregistered; its private wrapper must stay on reviewed
+  Nix 2.35.2, and the closure must contain neither Nix 2.34.8 nor real
+  `userborn`.
+- Do not run the root-canary helper or any System Manager activation merely to
+  complete an audit. The helper is a separately approved disposable-container
+  build; host activation additionally requires local recovery, collisions,
+  snapshots, timed rollback, and explicit authorization.
 - Validate on `aarch64-linux` and pilot on one host before fleet rollout.
 
 Follow the skill's routed references rather than duplicating update policy in

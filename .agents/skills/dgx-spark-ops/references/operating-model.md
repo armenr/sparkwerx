@@ -16,6 +16,7 @@ components.
 | Firmware, boot chain, kernel, NVIDIA driver, system CUDA | NVIDIA DGX OS and DGX Dashboard | Dashboard and NVIDIA release guidance |
 | Docker engine and NVIDIA Container Toolkit | NVIDIA DGX OS | Dashboard/vendor packages |
 | Nix daemon installation | Official NixOS `nix-installer` plus reviewed bootstrap | Root Nix profile with guarded upgrade |
+| Non-NixOS root integration | This repository after pilot approval | Pinned System Manager canary with reviewed state, registration, and rollback |
 | Fleet access: Tailscale package, daemon unit, and headless enablement | This repository after migration | Pinned Nix package plus reviewed root configuration; control-plane policy remains separate |
 | Exact permanent fleet CLI base | This repository | Locked `ncdu`, `lazydocker`, and current `devbox` packages |
 | Desktop mode and desktop-specific XDG/portal/session configuration | This repository plus reviewed root integration | One of headless/GNOME/Hyprland/KDE |
@@ -109,6 +110,13 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
+- System Manager 1.1.0 is the selected but inactive/unregistered root-manager
+  candidate; its 109-path / 230.0 MiB canary is forced to private Nix 2.35.2,
+  rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control
+  surface documented in `root/system-manager/README.md`;
+- low-level System Manager activation would create a state record under
+  `/var/lib/system-manager/state`, while generation profile/GC-root registration
+  is separate; neither has occurred on the pilot;
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
@@ -141,6 +149,10 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   nearby catalog products.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
+- Keep the System Manager candidate inactive and unregistered until its
+  root-assisted container test and separately approved host canary pass; never
+  let it own host Nix, users, wrappers, global PATH, boot links, or factory
+  services.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

@@ -166,6 +166,115 @@ compare_branch_input() {
     "$detail"
 }
 
+audit_root_integration() {
+  local manifest manager_node manager_ref manager_locked_rev
+  local manager_version manager_branch manager_rev private_nix_version
+  local private_nix_rev release_version release_rev current candidate
+  local policy_ok host_artifact artifact status detail
+  local -a nix_args
+
+  if [[ ! -r root/nix/release.json ]] || ! command -v jq >/dev/null 2>&1; then
+    emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
+      "UNKNOWN" "UNKNOWN" "HOLD" "repo:root/system-manager/README.md" \
+      "The machine-readable release pin or jq is unavailable."
+    return
+  fi
+
+  nix_args=(
+    --extra-experimental-features "nix-command flakes"
+    eval
+    --json
+    --no-write-lock-file
+  )
+  if [[ "$offline" -eq 1 ]]; then
+    nix_args+=(--offline)
+  fi
+  manifest="$(
+    timeout 60s nix "${nix_args[@]}" \
+      .#lib.dgxRootManagerManifest.aarch64-linux 2>/dev/null || true
+  )"
+  if ! jq -e '.schemaVersion == 1' >/dev/null 2>&1 <<<"$manifest"; then
+    emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
+      "INVALID_OR_UNAVAILABLE" "review manifest" "HOLD" \
+      "repo:flake.nix" \
+      "The inert root-manager manifest did not evaluate; no activation was attempted."
+    return
+  fi
+
+  manager_node="$(root_input_node "system-manager")"
+  manager_ref="$(lock_value "$manager_node" \
+    '.nodes[$node].locked.ref // .nodes[$node].original.ref')"
+  manager_locked_rev="$(lock_value "$manager_node" '.nodes[$node].locked.rev')"
+  manager_version="$(jq -r '.manager.version // empty' <<<"$manifest")"
+  manager_branch="$(jq -r '.manager.branch // empty' <<<"$manifest")"
+  manager_rev="$(jq -r '.manager.rev // empty' <<<"$manifest")"
+  private_nix_version="$(jq -r '.privateNixRuntime.version // empty' <<<"$manifest")"
+  private_nix_rev="$(jq -r '.privateNixRuntime.rev // empty' <<<"$manifest")"
+  release_version="$(jq -r '.version // empty' root/nix/release.json)"
+  release_rev="$(jq -r '.tagCommit // empty' root/nix/release.json)"
+
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev")"
+  candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
+  policy_ok="$(jq -r '
+    (.system == "aarch64-linux") and
+    (.manager.activated == false) and
+    (.registration.performed == false) and
+    (.privateNixRuntime.ownsHostInstallation == false) and
+    (.managerState.path == "/var/lib/system-manager/state/system-manager-state.json") and
+    (.policy.ownsNix == false) and
+    (.policy.ownsUsers == false) and
+    (.policy.enablesSetuidWrappers == false) and
+    (.policy.exportsGlobalPath == false) and
+    (.policy.linksCurrentSystem == false) and
+    (.policy.replaceExisting == false) and
+    (.policy.startsAtBoot == false) and
+    (.policy.globalPackages == []) and
+    (.policy.ports == []) and
+    (.policy.etcEntries == ["dgx-setup/canary", "systemd/system"]) and
+    (.policy.services == [
+      "dgx-setup-canary.service",
+      "sysinit-reactivation.target",
+      "system-manager.target"
+    ])
+  ' <<<"$manifest")"
+
+  host_artifact=""
+  for artifact in \
+    /nix/var/nix/profiles/system-manager-profiles/system-manager \
+    /nix/var/nix/gcroots/system-manager-current \
+    /etc/dgx-setup/canary \
+    /etc/systemd/system/dgx-setup-canary.service \
+    /var/lib/system-manager/state/system-manager-state.json; do
+    if [[ -e "$artifact" || -L "$artifact" ]]; then
+      host_artifact="$artifact"
+      break
+    fi
+  done
+
+  if [[ -z "$manager_node" || "$manager_rev" != "$manager_locked_rev" ||
+        "$manager_branch" != "$manager_ref" ]]; then
+    status="HOLD"
+    detail="Manifest and System Manager lock metadata disagree; no activation was attempted."
+  elif [[ "$private_nix_version" != "$release_version" ||
+          "$private_nix_rev" != "$release_rev" ]]; then
+    status="HOLD"
+    detail="System Manager's private Nix engine differs from the verified repository release pin."
+  elif [[ "$policy_ok" != "true" ]]; then
+    status="HOLD"
+    detail="The candidate exceeds the approved inert ownership policy."
+  elif [[ -n "$host_artifact" ]]; then
+    status="HOLD"
+    detail="Unexpected live-host root-manager artifact detected at $host_artifact."
+  else
+    status="CURRENT"
+    detail="Manifest, lock, and private Nix pin agree; no live-host activation or registration artifacts were detected."
+  fi
+
+  emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
+    "$current" "$candidate" "$status" \
+    "repo:root/system-manager/README.md" "$detail"
+}
+
 printf '# dgx-spark-ops update audit\n'
 printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf '# repository=%s\n' "$repo_dir"
@@ -658,7 +767,10 @@ fi
 
 if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
   compare_branch_input "nixpkgs" "Nixpkgs"
+  compare_branch_input "nixpkgs-apps" "Nixpkgs apps"
   compare_branch_input "home-manager" "Home Manager"
+  compare_branch_input "system-manager" "System Manager"
+  audit_root_integration
 
   devbox_current="$(jq -r '.version // empty' packages/devbox/source.json 2>/dev/null || true)"
   if [[ -z "$devbox_current" ]]; then

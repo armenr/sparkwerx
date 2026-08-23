@@ -61,7 +61,7 @@ if [[ "$pinned_hyprland" != "$latest_hyprland" ]]; then
   exit 2
 fi
 
-"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
+"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager system-manager
 ./scripts/update-tailscale.sh --apply
 
 "${nix_command[@]}" fmt
@@ -73,6 +73,8 @@ fi
   .#checks.aarch64-linux.home-hyprland \
   .#checks.aarch64-linux.home-hyprland-with-portal \
   .#checks.aarch64-linux.profile-policy \
+  .#checks.aarch64-linux.root-manager-policy \
+  .#checks.aarch64-linux.root-system-canary \
   .#checks.aarch64-linux.devbox-package \
   .#checks.aarch64-linux.devbox-policy \
   .#checks.aarch64-linux.tailscale-package \
@@ -84,3 +86,7 @@ fi
   .#tailscaled-unit \
   .#xdg-desktop-portal-hyprland \
   --no-link
+
+printf '%s\n' \
+  "Root-canary activation/rollback test remains a separate reviewed gate:" \
+  "  sudo ./scripts/test-root-canary.sh"

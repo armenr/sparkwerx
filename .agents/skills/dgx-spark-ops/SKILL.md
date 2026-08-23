@@ -17,7 +17,9 @@ configuration above it reproducible, reviewable, and fleet-ready.
    recommending or changing ownership boundaries, packages, profiles, desktop
    modes, user overlays, or workloads.
 3. Read the [pre-install software manifest](../../../docs/software-manifest.md)
-   before proposing a package realization or workload build.
+   before proposing a package realization or workload build. For System Manager
+   or any root integration, also read the
+   [root-manager runbook](../../../root/system-manager/README.md).
 4. Select the smallest applicable mode below and read only its routed
    references.
 5. Treat an unqualified request to "check", "audit", or "see what is outdated"
@@ -72,6 +74,28 @@ at any compatibility or downgrade ambiguity.
 
 Never combine DGX OS/driver updates, Nix runtime updates, flake updates,
 container-image changes, and workload activation into one opaque operation.
+
+### Audit, test, or change root integration
+
+Read the [root-manager runbook](../../../root/system-manager/README.md),
+[decision register](../../../docs/decision-register.md), and
+[software manifest](../../../docs/software-manifest.md). Read
+`../../../root/nix/README.md` as well before changing the private Nix input.
+
+An audit may evaluate `lib.dgxRootManagerManifest`, policy assertions, lock
+metadata, and dry-run plans. It must not run the root-assisted container helper,
+register a profile, create state, or activate the host. Keep System Manager on
+the branch matching stable Nixpkgs and keep its private wrapper aligned with the
+separately reviewed current host Nix release. Treat any reappearance of stale
+Nix, real `userborn`, users, wrappers, global PATH, boot links, unexpected
+units, or replacement ownership as a stop condition.
+
+`sudo ./scripts/test-root-canary.sh` is a separately authorized disposable
+Ubuntu activation/deactivation test, not a host activation. Actual host
+activation additionally requires independent local console access, exact
+collision/snapshot evidence, timed rollback, and explicit approval for the
+already-built output. If root integration affects Tailscale or desktop mode,
+route through those references and gates too.
 
 ### Audit, migrate, or update Tailscale
 
@@ -139,6 +163,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   a reviewed root-equivalent host change.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
+- System Manager is selected only as a bounded inactive candidate. Preserve its
+  exact service/`/etc` allowlists, state/registration disclosure, no-boot policy,
+  Nix 2.35.2 private runtime, and closure rejection of Nix 2.34.8 and real
+  `userborn`. A build or container test never implies host activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before
