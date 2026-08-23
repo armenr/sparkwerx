@@ -6,17 +6,25 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 ## Current status
 
 - `sparkle-01` is the pilot host.
-- A sanitized baseline has been captured under `inventory/sparkle-01/`.
+- The accepted pristine baseline is committed, with a sanitized inventory under
+  `inventory/sparkle-01/`.
 - Nix and the Nix daemon were already present before this repository was
   created.
-- The Home Manager configuration is evaluable but has **not** been activated.
-- Hyprland is represented by an opt-in module and is **disabled**.
-- The accepted fleet layers, desktop modes, Armen overlay, selected software,
-  exclusions, and pre-install review gate are now documented.
-- The current flake/base modules are provisional and intentionally blocked from
-  activation until they match those decisions.
-- No host integration, GDM session link, package installation, or system
-  configuration has been performed by this repository.
+- Repository-only Phase 1 policy alignment is complete and evaluates on
+  `aarch64-linux`; no Home Manager configuration has been activated.
+- The exported pilot Home profile is staged as user-layer `headless`, containing
+  exactly `ncdu`, `lazydocker`, and current Devbox plus Home Manager's intrinsic
+  session-variable file. Factory GNOME/GDM remains running and untouched.
+- GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
+  Ghostty is graphical-only, and the portal has its own independent gate.
+- Stable Nixpkgs remains the foundation. A separate lockfile-pinned apps input
+  supplies current Devbox and exposes reviewed current candidates for Zed,
+  LM Studio, and Chromium without adding them to a profile.
+- The `armen -> n0b0dy@sparkle-01` mapping exists, but no personal graphical
+  application has been wired or installed.
+- No Phase 1 package output was built or fetched, and no host integration, GDM
+  session link, package installation, service change, or system configuration
+  was performed.
 - Tailscale `1.102.3` and Tailscale SSH are currently working from a manual
   official apt installation. That installation is migration input; this
   repository has not yet replaced or restarted it.
@@ -54,9 +62,32 @@ hosts/                     Per-host Home Manager configuration
 inventory/                 Sanitized, non-secret baseline records
 modules/home/              Reusable user-level modules
 scripts/                   Inventory, validation, and dependency-update helpers
-flake.nix                  Fleet entry point
-flake.lock                 Pinned inputs, generated during validation
+flake.nix                  Fleet entry point and evaluation invariants
+flake.lock                 Exact stable/apps/Home Manager/Hyprland input pins
 ```
+
+## Read-only manifest and validation
+
+The installed Nix currently enables `nix-command` but not `flakes`, so commands
+pass the feature explicitly instead of changing `/etc/nix/nix.conf`.
+
+```bash
+./scripts/check.sh
+```
+
+This evaluates every profile and the policy invariants with `flake check
+--no-build`. It does not realize a package, run Home Manager activation, or
+modify GDM, systemd, services, or the Ubuntu package database.
+
+The machine-readable direct/effective package manifest is:
+
+```bash
+nix --extra-experimental-features "nix-command flakes" \
+  eval --json .#lib.dgxProfileManifests.aarch64-linux
+```
+
+The human-reviewed size and package findings are in the
+[software manifest](docs/software-manifest.md).
 
 ## Dependency updates
 
@@ -64,11 +95,13 @@ flake.lock                 Pinned inputs, generated during validation
 ./scripts/update-dependencies.sh
 ```
 
-The updater advances Nixpkgs and Home Manager to the current tips of their
-stable 26.05 branches, verifies that the separately pinned Hyprland tag is the
-latest upstream release, formats and evaluates the flake, and builds the ARM64
-Home Manager, Hyprland, and portal outputs with `--no-link`. It never activates
-a profile or desktop session.
+This is a mutating, build-authorized workflow, not the default audit command. It
+advances stable Nixpkgs, the independently scoped apps input, and Home Manager;
+verifies that the separately pinned Hyprland tag is still the latest upstream
+release; formats/evaluates the flake; and builds every ARM64 Home profile,
+Hyprland, and portal output with `--no-link`. It never activates a profile or
+desktop session, but it does rewrite `flake.lock`, fetch inputs, and realize
+packages, so run it only after those actions are explicitly approved.
 
 Hyprland release tags are bumped deliberately rather than automatically because
 each new compositor release must pass the NVIDIA/ARM64 build gate first.
@@ -95,26 +128,14 @@ The deterministic local/remote inventory pass can also be run directly:
 
 See the
 [prompt library](.agents/skills/dgx-spark-ops/references/prompt-library.md) for
-focused audits, update plans, workload scaffolding, and narrowly authorized
-pilot activation prompts.
-
-## Safe validation
-
-The installed Nix currently enables `nix-command` but not `flakes`, so commands
-pass the feature explicitly instead of changing `/etc/nix/nix.conf`.
-
-```bash
-./scripts/check.sh
-```
-
-That evaluates the flake and Home Manager activation package. It does not run
-Home Manager activation and does not modify GDM or the Ubuntu package database.
+focused audits, profile-SBOM reviews, update plans, workload scaffolding, and
+narrowly authorized pilot activation prompts.
 
 ## Deliberate hold point
 
-Do not run `home-manager switch`, install a selected application, install
-Hyprland into a system profile, or add a GDM session link yet. The current
-`allowUnfree` and base-module settings are known provisional conflicts listed
-in the decision register. Correct and review those in a repository-only change
-before any build or activation. GNOME remains the recovery desktop throughout
-every graphical pilot.
+Phase 1 stops before realization. Do not remove `--dry-run`, run the dependency
+updater, run `home-manager switch`, install a selected application, install
+Hyprland into a system profile, change GDM/systemd, or activate a portal yet.
+First review the measured closure costs—especially Ghostty and the portal—and
+grant the next build scope explicitly. GNOME remains the recovery desktop
+throughout every graphical pilot.

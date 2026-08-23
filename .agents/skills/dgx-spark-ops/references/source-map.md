@@ -62,6 +62,7 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Hyprland v0.56.2 Glaze packaging fix | https://github.com/hyprwm/Hyprland/commit/91f29f23bb691462f8aa6171b964069aebc37910 |
 | Codex CLI releases | https://github.com/openai/codex/releases |
 | Non-NixOS root configuration candidate | https://github.com/numtide/system-manager |
+| Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |
 
 Branches in this table match the repository's current policy. If the repository
 moves to a later stable release, update both `flake.nix` and this source map in

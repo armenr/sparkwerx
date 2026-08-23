@@ -40,6 +40,10 @@ live in the [decision register](decision-register.md).
 - Host access services such as Tailscale after their reviewed migration
 - Pinned workload definitions, wrappers, and validation commands
 
+The stable Nixpkgs input remains the foundation. A separately locked apps input
+is consumed narrowly for reviewed fast-moving packages, starting with current
+Devbox; it does not replace the fleet package set wholesale.
+
 ## Intentionally outside Nix ownership
 
 - UEFI and device firmware
@@ -72,11 +76,14 @@ rollback rules live in the
 
 ## Desktop modes
 
-A future root option selects exactly one of `headless`, `gnome`, `hyprland`,
-or `kde`. Headless stops graphical services without removing the factory
-desktop packages and must retain Tailscale. Graphical modes activate their
-matching session and portal set plus the shared Ghostty terminal; Armen's
-personal graphical overlay composes above that shared role. See the
+The implemented Home Manager enum selects exactly one of `headless`, `gnome`,
+`hyprland`, or `kde` for user-profile composition. A future root controller
+applies the same singular choice to systemd and GDM. Headless then stops
+graphical services without removing the factory desktop packages and must
+retain Tailscale. Graphical modes activate their matching session and portal
+set plus the shared Ghostty terminal; Armen's personal graphical overlay
+composes above that shared role. The current pilot Home profile is staged
+headless while the actual host remains in factory GNOME. See the
 [desktop-mode contract](desktop-modes.md).
 
 ## Hyprland pilot safety model
@@ -91,7 +98,7 @@ personal graphical overlay composes above that shared role. See the
 
 ## Fleet shape
 
-The flake will expose one Home Manager configuration per `<user>@<host>`. The
+The flake exposes one Home Manager configuration per `<user>@<host>`. The
 common permanent base contains exactly `ncdu`, `lazydocker`, and `devbox`.
 Logical user overlays are mapped explicitly to those identities; `armen`
 currently maps to `n0b0dy@sparkle-01` and is not a default for other users.
@@ -102,12 +109,16 @@ Selected applications and workloads pass the
 use a pilot-first sequence rather than having each host independently follow an
 unpinned channel.
 
-## Current implementation hold
+## Current implementation boundary
 
-The existing `config.allowUnfree = true` and current
-`modules/home/base.nix` package list predate the accepted policy. They are
-documented provisional conflicts, not approved configuration. No Home Manager
-activation may occur until a repository-only change adds exactly `ncdu`,
-`lazydocker`, and a current Devbox pin; removes the old base packages; and
-adds default-deny unfree handling, desktop/shared-graphical roles, and named
-overlays.
+Repository-only Phase 1 now implements the exact base, stable/apps pin split,
+default-deny unfree handling, desktop/shared-graphical composition, independent
+Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
+the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
+and VS Code from entering the reviewed profiles.
+
+The root controller, Tailscale migration, personal app packages, workload
+roles, and activation remain deliberately unimplemented. The next action is not
+`home-manager switch`: it is a separately authorized no-link build after the
+measured software manifest is accepted. Host mode switching and service
+changes require their own later approval.

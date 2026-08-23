@@ -41,8 +41,9 @@ Devbox installer to install, replace, or update Nix; this repository retains the
 Nix-runtime update procedure.
 
 The base does not enable Home Manager's CLI, manpage plumbing, XDG base
-directory management, MIME defaults, desktop portals, or graphical services.
-Those remain opt-in administrative, desktop, shared-graphical, or user roles.
+directory management, shared MIME machinery, MIME defaults, desktop portals,
+or graphical services. Those remain opt-in administrative, desktop,
+shared-graphical, or user roles.
 
 ### D-003: default-deny unfree Nix packages
 
@@ -54,8 +55,9 @@ free/unfree note exists only to make Nix evaluation and packaging behavior
 explicit; this project does not maintain a license registry.
 
 Current evidence says Chromium and Zed are free in locked Nixpkgs. LM Studio is
-unfree and will require a narrow exception if that package is used. Any future
-ChatGPT package is evaluated separately.
+unfree; the apps package set permits only the exact Nix package name
+`lmstudio`. The predicate installs nothing by itself. Any future ChatGPT
+package is evaluated separately.
 
 ### D-004: compose independent layers
 
@@ -79,7 +81,7 @@ desktop mode, and selecting an AI workload does not enable it at boot.
 
 **Status:** ACCEPTED
 
-The intended host option is:
+The single option is:
 
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
@@ -89,7 +91,10 @@ disk and keeping Tailscale available. GNOME means the factory Ubuntu desktop.
 Hyprland and KDE are independently gated Nix-managed alternatives. GNOME stays
 available as the local recovery session during graphical pilots.
 
-The implementation and root configuration manager remain OPEN.
+The Home Manager profile-composition half is implemented. It currently controls
+only user packages and user-level XDG ownership; it cannot stop GDM or change
+the host target. The non-NixOS root controller, actual switch command, and
+rollback implementation remain OPEN.
 
 ### D-006: keep Armen's tools in a personal overlay
 
@@ -161,6 +166,21 @@ vendor source-build workflows when NVIDIA validates a coupled CUDA/Python
 runtime that should not replace the factory GPU stack. Models and mutable
 application state stay outside the Nix store and container images.
 
+### D-012: keep stable foundations and fast-moving apps on separate pins
+
+**Status:** ACCEPTED
+
+Use the stable `nixos-26.05` Nixpkgs input for the fleet foundation, Home
+Manager, the base tools that are current there, and shared infrastructure. Use
+the independently locked `nixpkgs-apps` input only for reviewed fast-moving
+applications whose stable package trails the current release.
+
+The first such package is Devbox 0.17.5. The same apps pin currently exposes the
+reviewed Zed, LM Studio, and Chromium candidates, but their presence in the
+package set does not add them to Armen's overlay or authorize a build. A future
+update reviews both inputs separately; never replace the stable fleet package
+set wholesale with unstable.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -179,8 +199,10 @@ application state stay outside the Nix store and container images.
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
-- Choose current, reproducible package/update paths for ChatGPT, Zed, LM Studio,
-  Chromium, and both browser extensions.
+- Complete one-at-a-time package wiring and validation for the pinned Chromium,
+  Zed, and LM Studio candidates.
+- Choose reproducible package/update paths for ChatGPT and both browser
+  extensions.
 - Decide whether the already-installed Codex CLI moves into Armen's overlay or
   another role.
 - Decide whether headless `llmster` is wanted as an independent serving
@@ -189,19 +211,26 @@ application state stay outside the Nix store and container images.
 - Approve each workload's model choices, ports, service enablement, and
   scheduling independently.
 
-## Provisional scaffold conflicts
+## Phase 1 implementation checkpoint
 
-The current repository scaffold predates several accepted decisions and must
-not be activated as-is:
+The repository-only policy alignment was completed and evaluated on
+2026-08-23:
 
-- `flake.nix` currently permits all unfree packages.
-- `modules/home/base.nix` currently enables Home Manager's CLI and XDG handling
-  and installs `fd`, `jq`, and `ripgrep` instead of the approved
-  `ncdu`, `lazydocker`, and `devbox`.
-- locked Devbox `0.17.2` trails upstream `0.17.5`; do not wire the stale
-  package into the base.
-- no `dgx.desktop.mode`, shared Ghostty role, or `armen` overlay module
-  exists yet.
+- global unfree permission is gone; stable denies all unfree packages and the
+  apps set permits exactly `lmstudio`;
+- the permanent role is exactly current `ncdu`, `lazydocker`, and Devbox
+  0.17.5;
+- Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
+  support, MIME defaults, user directories, and portals have separate gates;
+- all four desktop enum values evaluate, Ghostty is shared-graphical only, and
+  the Hyprland portal is independently gated;
+- `armen` maps explicitly to `n0b0dy@sparkle-01`, persists while headless, and
+  has no application packages wired yet; and
+- evaluation invariants and dry-run plans cover headless, GNOME, Hyprland, and
+  Hyprland-with-portal.
 
-These are known implementation tasks, not reversals of the decisions above.
-Correct them and re-evaluate the closure before the first activation.
+The exported pilot Home profile remains staged as user-layer `headless` for the
+future exact-base activation. This does not change the running factory GNOME
+host. No Phase 1 work built a new package output, activated Home Manager,
+changed GDM/systemd, or changed a service. The software manifest remains the
+build/install approval gate.

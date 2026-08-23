@@ -100,11 +100,21 @@ Ghostty is absent from headless. Return manifest deltas only; make no changes.
 ```
 
 ```text
-$dgx-spark-ops Compare the accepted decision register with the current flake.
-Be repository-read-only. Report every provisional conflict, including the
-wrong base package list, stale Devbox pin, global unfree permission, missing
-desktop/shared-Ghostty roles, and missing Armen overlay. Do not build or
-activate anything.
+$dgx-spark-ops Compare the accepted decision register with the current flake
+and machine-readable profile manifest. Be repository-read-only. Evaluate the
+policy checks without building; report any drift in the exact base, stable/apps
+pin boundary, unfree predicate, desktop enum, shared Ghostty role, independent
+Hyprland portal gate, or explicit Armen mapping. Do not rewrite the lock, build,
+or activate anything.
+```
+
+```text
+$dgx-spark-ops Regenerate the read-only profile SBOM for headless, GNOME,
+Hyprland, and Hyprland-with-portal. Run ./scripts/check.sh, evaluate
+.#lib.dgxProfileManifests.aarch64-linux, and use only nix build --dry-run
+--no-link for missing-output plans. Compare sizes and direct/effective packages
+with docs/software-manifest.md. Do not remove --dry-run, realize an output,
+rewrite the lock, or change the host.
 ```
 
 ```text

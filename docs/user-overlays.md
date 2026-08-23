@@ -15,6 +15,12 @@ Pilot mapping:
 
 `armen -> n0b0dy@sparkle-01`
 
+The mapping and graphical/headless activity gate are implemented. The host
+declares the overlay selected, but the module intentionally contains zero
+application packages until each item completes its own manifest and closure
+review. In the staged headless profile, the selection persists in Git while
+its computed graphical activity is false.
+
 Every future mapping must be explicit in that host's configuration. Creating
 another Unix user must not give that user Armen's applications, browser
 extensions, settings, accounts, or secrets.

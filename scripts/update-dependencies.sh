@@ -10,7 +10,7 @@ nix_command=(
   "nix-command flakes"
 )
 
-"${nix_command[@]}" flake update nixpkgs home-manager
+"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
 
 pinned_hyprland="$({
   sed -n 's|.*Hyprland/v\([0-9][0-9.]*\)";|\1|p' flake.nix
@@ -40,6 +40,11 @@ fi
 ./scripts/check.sh
 "${nix_command[@]}" build \
   .#checks.aarch64-linux.home-sparkle-01 \
+  .#checks.aarch64-linux.home-base \
+  .#checks.aarch64-linux.home-graphical \
+  .#checks.aarch64-linux.home-hyprland \
+  .#checks.aarch64-linux.home-hyprland-with-portal \
+  .#checks.aarch64-linux.profile-policy \
   .#hyprland \
   .#xdg-desktop-portal-hyprland \
   --no-link

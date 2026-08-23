@@ -5,8 +5,10 @@ loosely related booleans:
 
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
-This document is the behavior contract. The option and root integration are not
-implemented yet.
+The enum and its Home Manager package composition are implemented. The
+root-level systemd/GDM controller is not. Until that controller is reviewed and
+activated, changing this option evaluates a different user profile but cannot
+change what the host boots or stop factory desktop services.
 
 ## Mode behavior
 
@@ -21,11 +23,18 @@ Only one mode owns the default session, portal selection, and graphical
 autostarts at a time. Ghostty is the shared terminal in `gnome`, `hyprland`,
 and `kde`; it is absent from the active `headless` profile. Installed desktop
 packages may coexist on disk; that costs disk space, not idle RAM. The selected
-mode controls what runs.
+mode controls what runs after root integration exists.
+
+During the repository-only Phase 1 checkpoint, the exported pilot Home profile
+is deliberately staged as user-layer `headless`. That makes the eventual first
+Home Manager activation an exact-base candidate. The actual machine remains in
+factory GNOME: no code in the current Home Manager layer disables GDM, changes
+the default target, or claims the host has already switched.
 
 ## What headless means
 
-Headless is a reversible runtime state, not an Ubuntu-desktop uninstall:
+Once the root controller exists, headless is a reversible runtime state, not an
+Ubuntu-desktop uninstall:
 
 - the graphical target and display manager are inactive;
 - GNOME, Hyprland, KDE, XDG portals, and graphical autostarts do not run;
@@ -48,19 +57,32 @@ RAM. We keep it out of the small CLI base because enabling it makes Home
 Manager take ownership of environment behavior before a profile needs that
 ownership.
 
-The XDG features that do matter to desktop behavior are separate:
+The XDG features that matter to the package graph or desktop behavior are
+separate:
 
+- `xdg.mime.enable` defaults to true on Linux in Home Manager. It adds
+  `shared-mime-info`, two directory-sentinel derivations, and profile-build
+  commands that regenerate the shared MIME and desktop databases. It does not
+  choose default applications or run a persistent daemon.
 - `xdg.mimeApps.enable` writes a read-only `mimeapps.list` and therefore takes
-  ownership of default applications and file associations;
-- `xdg.userDirs.enable` takes ownership of user-directory definitions;
-- `xdg.portal.enable` installs and configures portal packages and user services
-  for file pickers, opening URLs, screenshots, screen sharing, and secrets.
+  ownership of default applications and file associations.
+- `xdg.userDirs.enable` takes ownership of user-directory definitions.
+- `xdg.portal.enable` adds portal packages, configuration, environment, and
+  user services for file pickers, opening URLs, screenshots, screen sharing,
+  and secrets.
 
-Therefore `xdg.mimeApps.enable = false` is the safe base default: until the
-chosen desktop, Chromium, and Zed are present, the repository has no correct
-MIME defaults to declare, and it should not overwrite Ubuntu's existing
-choices. Each graphical mode or user overlay enables only the XDG pieces it
-actually needs. Headless keeps MIME and portal management off.
+The implemented policy therefore sets both `xdg.enable` and `xdg.mime.enable`
+false in `headless`, and true in graphical profiles. It leaves
+`xdg.mimeApps.enable`, `xdg.userDirs.enable`, and `xdg.portal.enable` false
+until a specific role owns them. This is why headless evaluates to only the
+three selected base tools plus Home Manager's intrinsic session-variable
+package, while graphical profiles explicitly show the additional MIME
+machinery in the manifest.
+
+Hyprland's Home Manager module normally enables its portal implicitly. This
+repository sets its `portalPackage` to `null`; the independent
+`dgx.desktop.hyprland.portal.enable` option is the only way to add the reviewed
+Hyprland/GTK portal graph.
 
 ## Switching contract
 
@@ -84,11 +106,12 @@ not authorize the switch.
 ## Implementation hold points
 
 - Select and review the non-NixOS root configuration manager.
-- Model mode selection as one enum and reject contradictory combinations.
+- Implement the already-modeled enum at the systemd/GDM layer without
+  introducing contradictory booleans.
 - Keep host-level systemd/GDM ownership separate from Home Manager.
-- Keep shared graphical and personal application selection separate from
-  desktop selection.
-- Validate Ghostty under factory GNOME and each approved Wayland mode.
+- Review Ghostty's measured graphical closure before building it, then validate
+  it under factory GNOME and each approved Wayland mode.
+- Review and build the Hyprland portal independently from Hyprland.
 - Test `headless -> gnome -> hyprland -> gnome -> headless` on `sparkle-01`
   before adding KDE or rolling out to another Spark.
 - Add KDE only after its package, portal, GDM/session, closure, and rollback are

@@ -93,6 +93,14 @@ an update audit.
 
 The dated inventory under `inventory/sparkle-01/` is evidence, not an eternal
 fact. Re-audit before acting. The initial 2026-08-23 pilot established:
+- repository-only Phase 1 pins stable Nixpkgs separately from the narrow apps
+  input and uses current Devbox 0.17.5 without invoking its installer;
+- the evaluated headless role is exactly `ncdu`, `lazydocker`, and `devbox`,
+  with XDG/MIME/portal, manpage, Home Manager CLI, and graphical roles off;
+- the flake's `lib.dgxProfileManifests.aarch64-linux` output and
+  `./scripts/check.sh` are the canonical no-build profile audit;
+- Ghostty is current but its cache closure is roughly 1.1 GiB, so its build
+  remains behind explicit graphical-role approval;
 
 - DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
 - Nix was provisioned by the official NixOS `nix-installer` as a multi-user

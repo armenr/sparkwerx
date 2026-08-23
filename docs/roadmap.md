@@ -8,23 +8,26 @@
 - [x] Add an ARM64 flake and Home Manager host definition
 - [x] Capture ownership, desktop-mode, user-overlay, software-selection, and
       pre-install manifest decisions
-- [ ] Commit the accepted pristine baseline
+- [x] Commit the accepted pristine baseline
 
 ## Phase 1: align the repository with accepted policy
 
 Repository-only work; no builds, installs, or activation.
 
-- [ ] Replace global `allowUnfree` with default-deny and exact package
+- [x] Replace global `allowUnfree` with default-deny and exact package
       predicates
-- [ ] Replace the provisional base with exactly `ncdu`, `lazydocker`, and a
+- [x] Replace the provisional base with exactly `ncdu`, `lazydocker`, and a
       current Devbox pin; remove `fd`, `jq`, and `ripgrep` from the base
-- [ ] Make Home Manager CLI/manpage plumbing opt-in
-- [ ] Move XDG, MIME, user-directory, and portal ownership to relevant roles
-- [ ] Add the `dgx.desktop.mode` enum and shared Ghostty graphical role without
+- [x] Make Home Manager CLI/manpage plumbing opt-in
+- [x] Move XDG, MIME, user-directory, and portal ownership to relevant roles
+- [x] Add the `dgx.desktop.mode` enum and shared Ghostty graphical role without
       changing the host
-- [ ] Add an explicit `armen -> n0b0dy@sparkle-01` overlay mapping
-- [ ] Ensure excluded software cannot enter convenience roles
-- [ ] Evaluate the exact base, shared graphical, and per-role closures
+- [x] Add an explicit `armen -> n0b0dy@sparkle-01` overlay mapping
+- [x] Ensure excluded software cannot enter convenience roles
+- [x] Evaluate the exact base, shared graphical, and per-role closure plans
+
+Completed 2026-08-23. The next gate is explicit build approval after reviewing
+the measured software manifest; evaluation did not authorize realization.
 
 ## Phase 2: bootstrap and root-manager review
 
@@ -72,10 +75,10 @@ Repository-only work; no builds, installs, or activation.
 Each item gets its own manifest record, current pin, closure review, build
 approval, graphical validation, activation approval, and rollback.
 
-- [ ] Chromium plus the 1Password Chromium extension
+- [ ] Wire and validate pinned Chromium plus the 1Password Chromium extension
 - [ ] Firefox 1Password extension without replacing the existing browser profile
-- [ ] Current Zed package; do not install the stale locked version
-- [ ] Current LM Studio desktop package and exact unfree exception
+- [ ] Wire and validate the pinned current Zed candidate
+- [ ] Wire and validate the pinned current LM Studio candidate and exact unfree exception
 - [ ] ChatGPT desktop package/provenance migration
 - [ ] Decide where the existing Codex CLI belongs
 - [ ] Verify the entire graphical overlay becomes inactive in headless mode
