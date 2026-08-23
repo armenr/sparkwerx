@@ -206,8 +206,10 @@ works.
 
 For a System Manager host canary, the prompt must name the already-built output,
 independent local console, exact collision/snapshot evidence, state and
-registration scope, timed deactivation command, and accepted residual state
-file. The disposable root-assisted container test is not host activation.
+registration scope, exact pilot GC-root path and lifecycle, timed deactivation
+command, and accepted residual state file. Low-level activation is otherwise
+unrooted; never remove the pilot root before verified deactivation. The
+disposable root-assisted container test is not host activation.
 
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.

@@ -177,5 +177,6 @@ profile, Tailscale service migration, or desktop activation. Do not run
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 The exact System Manager container gate passed, but do not activate or register
 the canary on the host. First satisfy the independent-console, collision,
-snapshot, and timed-rollback gates and obtain explicit activation authorization.
+snapshot, exact pilot-GC-root, and timed-rollback gates and obtain explicit
+activation authorization.
 GNOME remains the recovery desktop throughout every graphical pilot.

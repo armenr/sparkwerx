@@ -59,6 +59,15 @@ would separately write:
 Both paths must remain absent until generation registration receives explicit
 approval.
 
+Low-level activation does not create either registration path and does not
+otherwise GC-root its store output. A live pilot must therefore retain the exact
+reviewed closure with the manifest-declared direct root
+`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` before its rollback timer is
+armed. This root is a deliberately temporary pilot mechanism, not a substitute
+for upstream generation registration. It must remain until deactivation is
+verified; removing it while active can strand `/etc` links, unit programs, and
+the rollback executable after a Nix garbage collection.
+
 ## Defaults we rejected
 
 Upstream's nominally empty configuration is broader than this project's empty
@@ -254,8 +263,21 @@ same maintenance window:
 3. snapshots of the relevant `/etc`, System Manager state, profile, and GC-root
    paths;
 4. live checks for Tailscale, GDM/GNOME, Nix daemon, Docker, and NVIDIA services;
-5. a timed rollback plan and the exact already-built output path; and
-6. Armen's explicit authorization for this activation only.
+5. the manifest-declared pilot GC root retaining the exact already-built output;
+6. a timed rollback plan using that exact retained output; and
+7. Armen's explicit authorization for this activation only.
+
+The reusable automatic inspection is:
+
+```bash
+./scripts/preflight-root-canary.sh
+```
+
+It is read-only and deliberately leaves the manual console gate on HOLD. The
+dated [host preflight record](validation/2026-08-24-host-preflight.md) contains
+the current collision/health evidence, private snapshot helper, exact candidate,
+and prepared ten-minute transient rollback sequence. None of those prepared
+commands is activation authorization.
 
 Low-level deactivation for an already-activated, exact built output is:
 

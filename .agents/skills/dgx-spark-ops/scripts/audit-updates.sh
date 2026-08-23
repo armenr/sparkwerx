@@ -226,6 +226,11 @@ audit_root_integration() {
     (.manager.patches[0].path == "patches/system-manager/skip-empty-tmpfiles.patch") and
     (.manager.patches[0].sha256 == "32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a") and
     (.registration.performed == false) and
+    (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
+    (.pilotRetention.created == false) and
+    (.pilotRetention.requiredForLowLevelActivation == true) and
+    (.pilotRetention.removeOnlyAfterDeactivation == true) and
+    (.pilotRetention.replacesRegistration == false) and
     (.isolatedTest.result == "passed") and
     (.isolatedTest.evidence == "root/system-manager/validation/2026-08-24-container-test.md") and
     (.isolatedTest.matchesCurrent == true) and
@@ -257,6 +262,7 @@ audit_root_integration() {
   for artifact in \
     /nix/var/nix/profiles/system-manager-profiles/system-manager \
     /nix/var/nix/gcroots/system-manager-current \
+    /nix/var/nix/gcroots/dgx-setup-root-canary-pilot \
     /etc/dgx-setup/canary \
     /etc/systemd/system/dgx-setup-canary.service \
     /etc/systemd/system/sysinit-reactivation.target \

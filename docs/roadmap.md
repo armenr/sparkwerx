@@ -51,6 +51,13 @@ the measured software manifest; evaluation did not authorize realization.
       prove bounded activation/deactivation, an untouched unmanaged tmpfiles
       sentinel, and clean host postflight without activating or registering the
       host
+- [x] Pass the non-configuring host collision/service preflight and prove from
+      pinned source that low-level activation needs an explicit pilot GC root;
+      declare that root and the snapshot/retention/timed-rollback gates without
+      creating it or activating the host
+- [ ] Run the one-host live canary only with independent console access, a
+      same-window private snapshot, explicit activation authorization, the exact
+      pilot GC root, and a verified transient rollback timer
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

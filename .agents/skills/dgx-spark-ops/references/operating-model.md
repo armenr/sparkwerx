@@ -125,6 +125,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - low-level System Manager activation would create a state record under
   `/var/lib/system-manager/state`, while generation profile/GC-root registration
   is separate; neither has occurred on the pilot;
+- low-level activation does not itself retain the store output. A live pilot
+  must first create the manifest-declared direct root at
+  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`; it is not upstream
+  generation registration, does not replace that future decision, and must
+  survive until verified deactivation;
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
@@ -161,7 +166,8 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   and unregistered until a separately approved host canary passes. Never let it
   own host Nix, users, wrappers, global PATH, boot links, or factory services or
   process global factory tmpfiles rules when its managed set is empty; preserve
-  the exact-version patch, regression sentinel, and current-test match.
+  the exact-version patch, regression sentinel, current-test match, and explicit
+  pilot store-retention root.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

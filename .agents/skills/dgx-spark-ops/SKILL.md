@@ -95,9 +95,13 @@ tmpfiles sentinel as a stop condition.
 `sudo ./scripts/test-root-canary.sh` is a separately authorized disposable
 Ubuntu activation/deactivation test, not a host activation. Actual host
 activation additionally requires independent local console access, exact
-collision/snapshot evidence, timed rollback, and explicit approval for the
-already-built output. If root integration affects Tailscale or desktop mode,
-route through those references and gates too.
+collision/snapshot evidence, an exact retained store output, timed rollback, and
+explicit approval for the already-built output. Low-level activation does not
+GC-root its closure. The live pilot therefore requires the manifest-declared
+`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink before rollback is
+armed; do not remove it while active, substitute a floating output, or infer
+permission to run `register-profile`. If root integration affects Tailscale or
+desktop mode, route through those references and gates too.
 
 The exact recorded patched derivation passed on 2026-08-24 with clean host
 postflight. Require `isolatedTest.result == "passed"` and
@@ -189,7 +193,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   `userborn`. Preserve the exact-version `skip-empty-tmpfiles` patch, its
   manifest hash/policy, and the unmanaged-rule regression sentinel; never allow
   an empty managed set to trigger global factory tmpfiles processing. Preserve
-  the exact passed-test evidence only while it matches the currently evaluated
+  the explicit pilot GC-root disclosure: low-level activation is unregistered
+  and otherwise unrooted, so its exact closure and rollback program must remain
+  retained until verified deactivation. Preserve the exact passed-test evidence
+  only while it matches the currently evaluated
   derivation. A build or container test never implies host activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable

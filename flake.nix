@@ -136,6 +136,7 @@
       rootCanaryClosureInfo = pkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
+      rootCanaryPilotGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot";
 
       expectedRootCanaryServiceNames = [
         "dgx-setup-canary.service"
@@ -427,6 +428,14 @@
           performed = false;
           profile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
           gcRoot = "/nix/var/nix/gcroots/system-manager-current";
+        };
+
+        pilotRetention = {
+          path = rootCanaryPilotGcRoot;
+          created = false;
+          requiredForLowLevelActivation = true;
+          removeOnlyAfterDeactivation = true;
+          replacesRegistration = false;
         };
 
         isolatedTest =

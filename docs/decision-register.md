@@ -249,11 +249,21 @@ but does not remove that bookkeeping file. The canary test does not register
 `/nix/var/nix/gcroots/system-manager-current`. Those registration paths remain
 a separate gate.
 
+Source inspection during the host preflight confirmed that low-level activation
+also does not retain its store output. The host pilot therefore selects one
+explicit direct root,
+`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`, created only after the
+same-window snapshot and before rollback is armed. It is not upstream generation
+registration and does not replace that future decision. It must remain for the
+entire active/rollback interval and may be removed only after verified
+deactivation under separately explicit cleanup authority.
+
 The patched runtime and closure-policy no-link builds passed. The exact
 root-assisted disposable Ubuntu activation/deactivation derivation then passed,
 including the unmanaged tmpfiles regression sentinel and clean host postflight.
 Host activation still requires independent console access, collision review,
-snapshots, timed rollback, and separate authorization. This selection does not
+snapshots, exact store retention, timed rollback, and separate authorization.
+This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 
 ## Explicit non-selections
@@ -270,8 +280,8 @@ advance the Tailscale migration or implement desktop-mode switching.
 ## Open decisions
 
 - Decide whether to authorize a System Manager host canary after independent
-  console access, collision/snapshot evidence, and a timed rollback procedure
-  are in place.
+  console access, collision/snapshot evidence, exact pilot store retention, and
+  a timed rollback procedure are in place.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

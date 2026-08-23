@@ -44,7 +44,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
-  snapshots, timed rollback, and explicit authorization.
+  snapshots, timed rollback, retained store closure, and explicit authorization.
+- Low-level System Manager activation does not register or GC-root its output.
+  For the live pilot, preserve the exact candidate with only the documented
+  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink before arming
+  rollback. Never remove that root while the canary is active or rollback is
+  unverified, and never infer permission to run upstream `register-profile`.
 - Preserve the helper's root-only `--store local` path: Nix 2.35 strips
   experimental-feature overrides on daemon connections, while this test needs
   temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings
