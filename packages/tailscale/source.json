@@ -1,0 +1,8 @@
+{
+  "architecture": "arm64",
+  "hash": "sha256-oPobFUr4xh+GKiJZ9Vn3OW2WwCJfSoY+riMz4VRrviU=",
+  "track": "stable",
+  "upstreamSha256": "a0fa1b154af8c61f862a2259f559f7396d96c0225f4a863eae2333e1546bbe25",
+  "url": "https://pkgs.tailscale.com/stable/tailscale_1.102.3_arm64.tgz",
+  "version": "1.102.3"
+}

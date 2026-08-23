@@ -68,23 +68,47 @@ nix --extra-experimental-features "nix-command flakes" \
 
 Parse and compare the installed and proposed versions. If the proposed version
 is lower, report `HOLD` and do not run the real command. The default
-`upgrade-nix` metadata is manually maintained and may lag a newer installer.
+`upgrade-nix` metadata is manually maintained and may lag a newer installer or
+tagged release. The command does not implement a downgrade guard and its dry-run
+message always says “upgrade.” Treat this result as the **Nixpkgs fallback
+candidate**, never as independent proof of current upstream stable.
 
-A newer upstream source tag is not enough. Confirm that a supported binary
-candidate exists for `aarch64-linux` through the intended update path.
+Audit the newest final semantic tag and official `aarch64-linux` artifact as a
+second result. A newer tag is not enough: confirm its published checksum, exact
+top-level store path, and signed-cache availability through the intended update
+path. The deterministic audit emits the fallback candidate and upstream stable
+candidate as separate rows.
 
-When an actual update is explicitly approved and the candidate is newer:
+At the 2026-08-23 checkpoint, the installer release remains 2.35.1, the active
+default-profile client/daemon is 2.35.2, the fallback file points ARM64 to
+2.34.8, and upstream stable is 2.35.2. The default command is a blocked
+downgrade. [`root/nix/README.md`](../../../../root/nix/README.md) records the
+source-level diagnosis, checksum/cache-verified release path, pilot activation,
+observed profile topology, and exact retained 2.35.1 rollback environment.
+
+When an actual update is explicitly approved and the repository candidate is
+newer:
 
 1. Record the current profile target and root profile generations.
-2. Run `sudo -i nix upgrade-nix`.
-3. Run `sudo systemctl daemon-reload`.
-4. Restart `nix-daemon.service`.
-5. Clear the calling shell's command hash and verify client plus daemon.
-6. Run this repository's checks.
-7. Do not garbage-collect the old generation until the update is accepted.
+2. Re-verify the final tag, official artifact checksum, exact store path, and
+   signed-cache metadata recorded under `root/nix/`.
+3. Dry-run `upgrade-nix` with the repository's explicit
+   `--nix-store-paths-url`; it must name the approved newer version.
+4. Run that exact custom-URL command as root without `--dry-run`.
+5. Run `sudo systemctl daemon-reload` and restart `nix-daemon.service`.
+6. Clear the calling shell's command hash and verify client plus daemon.
+7. Run this repository's checks.
+8. Do not garbage-collect the exact prior environment until the update is
+   accepted.
 
-Rollback uses the prior root profile generation followed by daemon reload and
-restart. Treat the official warning about possible store database schema changes
+Never substitute plain `sudo -i nix upgrade-nix` into step 4 unless its fresh
+dry-run target exactly equals the separately verified approved release.
+
+Rollback uses the exact prior environment recorded before mutation, followed by
+daemon reload and restart. Do not assume it belongs to the new profile's
+generation lineage: the pilot's explicit `default` path became its own lineage
+while the installer-created root-user profile retained 2.35.1 as a separate GC
+root. Treat the official warning about possible store database schema changes
 seriously; rollback is not a substitute for compatibility review.
 
 The installed `/nix/nix-installer` binary and `/nix/receipt.json` are
@@ -95,8 +119,9 @@ the Nix package.
 
 Read [tailscale.md](tailscale.md) before auditing, migrating, or updating
 Tailscale. It is repository-owned fleet infrastructure awaiting migration from
-an official apt package, not an NVIDIA-owned component and not a permanent
-manual exception.
+an official apt package, not an NVIDIA-owned component. Its current stable
+package and inert unit now exist and are build-validated; activation remains a
+separate migration gate.
 
 The first-pass audit reports only:
 

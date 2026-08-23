@@ -12,11 +12,13 @@ Nix evaluation, redistribution, or the installation method.
 
 Evidence date: **2026-08-23**
 
-The versions below came from read-only evaluation of the repository's locked
-`aarch64-linux` package sets and current official vendor pages. Phase 1 fetched
-the newly locked Nixpkgs input source and evaluated derivations, but it did not
-build or fetch any package output, install or activate a profile, launch an
-application, change a service, or switch the desktop.
+The versions below came from the current 2026-08-23 lock, exact upstream pins,
+and current official vendor sources. Stable Nixpkgs was advanced to its current
+branch head. Devbox 0.18.0 and Tailscale 1.102.3 plus its inert unit tree were
+built with `--no-link` and inspected. The root default profile and
+`nix-daemon` were explicitly advanced from Nix 2.35.1 to verified 2.35.2. No
+Home Manager profile or application was activated, Tailscale was not restarted
+or replaced, and the desktop was not switched.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -27,8 +29,8 @@ rebuilt in Phase 1.
 | Fleet base | Exact role | REQUIRED | Implemented as exactly `ncdu`, `lazydocker`, and `devbox`; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Review the measured three-root closure and activation collision report |
 | Fleet base | ncdu | SELECTED | Stable pin `ncdu` 2.9.2 is current, free, and ARM64-available | Build only as part of an explicitly approved base build |
 | Fleet base | lazydocker | SELECTED | Stable pin `lazydocker` 0.25.2 is current, free, and ARM64-available; the module adds only a user package | Do not add Docker group membership, socket ACLs, a service, or autostart |
-| Fleet base | Devbox | SELECTED | Apps pin `devbox` 0.17.5 matches upstream, is ARM64/free, and is built by Nix as a Go binary from the immutable 0.17.5 source tag | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix |
-| Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Declared only in `devShells.default`; not permanent | Keep out of the user profile unless separately selected |
+| Fleet base | Devbox | SELECTED; BUILD-PASSED | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. Built ARM64 binary reports 0.18.0; 8-path runtime closure is 65.8 MiB NAR | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; retain adapter until stock catches up |
+| Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.5.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
 | Factory desktop | Ubuntu GNOME/GDM | Recovery and future `gnome` host mode | Factory-owned, installed, and still running | Never replace or remove during another desktop pilot |
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
@@ -39,7 +41,8 @@ rebuilt in Phase 1.
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Existing Debian installation is migration input; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension is migration input; version and pin are not captured | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
-| Access overlay | Tailscale/Tailscale SSH | ACCEPTED; currently manual | Official apt `tailscale` 1.102.3 is migration input; locked stable Nixpkgs was older at baseline | Follow the dedicated anti-downgrade, recovery, identity-preservation, and reboot gates |
+| Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2 | Do not replace/restart the live daemon over Tailscale SSH; select root manager and pass console, rollback, state/identity, reboot, and reconnect gates |
+| Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -59,10 +62,10 @@ does not exist yet.
 
 | Profile | Effective direct Home Manager additions | Missing-output dry-run on this pilot | Complete closure evidence available without a build |
 | --- | --- | --- | --- |
-| `headless` | `ncdu`, `lazydocker`, `devbox`, intrinsic `hm-session-vars.sh` | 6 derivations; 6 cache paths; 14.1 MiB download / 44.4 MiB unpacked | Three selected roots: 21 unique cache paths; 40 MiB compressed / 156 MiB NAR |
-| `gnome` | Headless base, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | 3 derivations; 229 cache paths; 242.7 MiB download / 724.6 MiB unpacked | Base + Ghostty roots: 322 unique cache paths; 394 MiB compressed / 1.2 GiB NAR |
-| `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | 5 derivations; 244 cache paths; 245.2 MiB download / 732.8 MiB unpacked | Existing custom Hyprland root: 177 local paths / 584 MiB NAR; this is not a combined-profile total |
-| `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | 8 derivations; 276 cache paths; 266.6 MiB download / 872.0 MiB unpacked | Existing custom portal root, including its overridden Hyprland dependency: 349 local paths / 1.7 GiB NAR; this is not a combined-profile total |
+| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, intrinsic `hm-session-vars.sh` | 6 derivations; 2 missing cache paths; 4.6 MiB download / 12.3 MiB unpacked | Three roots: 21 de-duplicated paths / 142.5 MiB NAR; Devbox is already local, others measured from signed cache metadata |
+| `gnome` | Headless base, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | 3 derivations; 224 missing paths; 233.2 MiB download / 692.4 MiB unpacked | Ghostty remains dominant; combined profile is not built |
+| `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | 5 derivations; 239 missing paths; 235.6 MiB download / 700.6 MiB unpacked | Existing custom Hyprland root: 177 local paths / 584 MiB NAR; this is not a combined-profile total |
+| `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | 8 derivations; 271 missing paths; 257.1 MiB download / 839.8 MiB unpacked | Existing custom portal root, including its overridden Hyprland dependency: 349 local paths / 1.7 GiB NAR; this is not a combined-profile total |
 
 `nix build --dry-run` reports only outputs missing from the pilot's current
 store, so its totals vary with local store state and are not total closure
@@ -75,6 +78,21 @@ Ghostty is the dominant new graphical cost. Its root alone reports roughly
 predominantly GTK, GStreamer, audio/video codecs, fonts, and graphics
 libraries. Evaluation found no Ghostty autostart, service, socket, or permission
 change.
+
+The Devbox build fetched a Go/compiler build toolchain because upstream 0.18.0
+is not yet in the binary cache; those build-time paths are not its runtime
+closure. The output is a 16.1 MiB root NAR with an 8-path, 65.8 MiB closure and
+no service or autostart. No Home Manager profile was installed or activated.
+
+The Tailscale source archive is 35,733,085 bytes with published SHA-256
+`a0fa1b154af8c61f862a2259f559f7396d96c0225f4a863eae2333e1546bbe25`.
+The output contains only the byte-identical `tailscale` and `tailscaled`
+binaries. The generated daemon, optional wait-online service, and online target
+all passed `systemd-analyze verify`. The daemon unit preserves the current
+state/socket paths and `multi-user.target`; the two online-wait artifacts remain
+opt-in and all three are unlinked. The active service still has
+`/usr/lib/systemd/system/tailscaled.service` as its fragment and
+`/usr/{bin,sbin}` binaries.
 
 The portal remains an independent option. Selecting Hyprland sets Home
 Manager's implicit `portalPackage` to `null`; only

@@ -14,3 +14,7 @@ contain hostnames and software versions, but must not contain:
 
 Use `scripts/collect-baseline.sh` to print the bounded JSON snapshot reviewed by
 this project. Raw diagnostic bundles belong outside Git.
+
+Keep the original dated baseline intact. Record later approved host changes as
+separate sanitized checkpoints, such as
+[`sparkle-01`'s Nix 2.35.2 activation](sparkle-01/2026-08-23-nix-2.35.2.md).

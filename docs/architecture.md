@@ -41,8 +41,10 @@ live in the [decision register](decision-register.md).
 - Pinned workload definitions, wrappers, and validation commands
 
 The stable Nixpkgs input remains the foundation. A separately locked apps input
-is consumed narrowly for reviewed fast-moving packages, starting with current
-Devbox; it does not replace the fleet package set wholesale.
+is consumed narrowly for reviewed fast-moving packages. Exact current-release
+adapters cover Devbox and Tailscale only while both package sets lag; they do
+not replace the fleet package set wholesale and must be retired when stock
+catches up.
 
 ## Intentionally outside Nix ownership
 
@@ -63,9 +65,10 @@ write into the host OS.
 Tailscale is a repository-owned overlay, not factory substrate. The current
 official apt package is retained only until an approved Nix package and root
 service can take over without downgrading the daemon or replacing its mutable
-identity. The locked Nixpkgs package is currently older than the installed
-release, which is why a small official-artifact derivation may temporarily be
-needed.
+identity. The official current-stable ARM64 package and inert unit are now
+exactly pinned, no-link built, and SBOM-reviewed. Locked stable/apps packages
+remain older. The live apt service is deliberately unchanged until the root
+manager, recovery, rollback, reboot, and reconnect gates pass.
 
 The service must remain wanted by `multi-user.target` in headless mode. Its
 package, unit, and Tailscale SSH desired state are declarative; node identity
@@ -117,8 +120,10 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The root controller, Tailscale migration, personal app packages, workload
-roles, and activation remain deliberately unimplemented. The next action is not
-`home-manager switch`: it is a separately authorized no-link build after the
-measured software manifest is accepted. Host mode switching and service
-changes require their own later approval.
+The root controller, Tailscale ownership migration, personal app packages,
+workload roles, and Home/desktop/workload activation remain deliberately
+unimplemented. The separately gated pilot Nix runtime update to 2.35.2 is
+complete. Devbox and Tailscale package/unit no-link builds do not authorize
+`home-manager switch`, a systemd service link/restart, or another root-runtime
+change. Host mode switching and service changes require their own later
+approval.

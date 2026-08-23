@@ -297,7 +297,7 @@ if [[ -n "$tailscale_path" ]]; then
         tailscale_status="HOLD"
         tailscale_detail="Official candidate is older than installed; refuse a downgrade."
       elif [[ "$tailscale_status" == "CURRENT" ]]; then
-        tailscale_detail="Installed release matches official stable; ownership migration and SBOM remain separate work."
+        tailscale_detail="Installed release matches official stable; repository package evidence and active service ownership are audited separately."
       else
         tailscale_detail="Availability only; review ARM64 artifact, checksum, changelog, security bulletins, SBOM, unit, and rollback."
       fi
@@ -377,13 +377,19 @@ if [[ -z "$tailscale_repo_pin" ]]; then
   tailscale_repo_pin="absent"
   tailscale_repo_status="NOT_PINNED"
   tailscale_repo_detail="No repository Tailscale package output exists yet; apt ownership remains migration input."
-elif [[ "$tailscale_current" =~ ^[0-9] && "$tailscale_repo_pin" =~ ^[0-9] ]]; then
-  tailscale_repo_status="$(version_status "$tailscale_current" "$tailscale_repo_pin")"
-  if [[ "$tailscale_repo_status" == "AHEAD" ]]; then
+elif [[ "$tailscale_repo_pin" =~ ^[0-9] && "$tailscale_candidate" =~ ^[0-9] ]]; then
+  tailscale_repo_status="$(version_status "$tailscale_repo_pin" "$tailscale_candidate")"
+  if [[ "$tailscale_current" =~ ^[0-9] &&
+        "$(version_status "$tailscale_current" "$tailscale_repo_pin")" == "AHEAD" ]]; then
     tailscale_repo_status="HOLD"
     tailscale_repo_detail="Repository pin is older than installed Tailscale; do not activate it."
+  elif [[ "$tailscale_repo_status" == "AHEAD" ]]; then
+    tailscale_repo_status="HOLD"
+    tailscale_repo_detail="Repository pin is ahead of the official stable channel; investigate provenance before activation."
+  elif [[ "$tailscale_repo_status" == "UPDATE_AVAILABLE" ]]; then
+    tailscale_repo_detail="Repository pin trails official stable; run the checksum-verified updater, then rebuild/review without activation."
   else
-    tailscale_repo_detail="Repository pin exists; build/SBOM and active service ownership remain separate gates."
+    tailscale_repo_detail="Repository pin matches official stable; revalidate its build/SBOM after every change, and treat active service ownership as a separate gate."
   fi
 else
   tailscale_repo_status="UNKNOWN"
@@ -458,6 +464,9 @@ else
   installer_version="NOT_FOUND"
 fi
 nix_profile_target="$(readlink -f /nix/var/nix/profiles/default 2>/dev/null || true)"
+nix_root_user_profile_target="$(
+  readlink -f /nix/var/nix/profiles/per-user/root/profile 2>/dev/null || true
+)"
 daemon_state="$(systemctl show nix-daemon.service -p ActiveState --value 2>/dev/null || true)"
 daemon_reload="$(systemctl show nix-daemon.service -p NeedDaemonReload --value 2>/dev/null || true)"
 emit "NIX_RUNTIME" "official nix-installer" "installer provenance" \
@@ -466,7 +475,17 @@ emit "NIX_RUNTIME" "official nix-installer" "installer provenance" \
   "Devbox triggered this installer; Devbox does not own runtime updates."
 emit "NIX_RUNTIME" "root Nix profile" "default profile target" \
   "${nix_profile_target:-UNKNOWN}" "n/a" "INFO" "local:readlink" \
-  "Runtime ownership and rollback anchor."
+  "Active machine-wide runtime profile target."
+if [[ -z "$nix_root_user_profile_target" ]]; then
+  root_user_profile_detail="No root-user profile target was resolved."
+elif [[ "$nix_root_user_profile_target" != "$nix_profile_target" ]]; then
+  root_user_profile_detail="This is distinct from the active default profile; retain and classify it before garbage collection or rollback."
+else
+  root_user_profile_detail="This resolves to the same environment as the active default profile."
+fi
+emit "NIX_RUNTIME" "root user profile" "root-user profile target" \
+  "${nix_root_user_profile_target:-UNKNOWN}" "n/a" "INFO" "local:readlink" \
+  "$root_user_profile_detail"
 emit "NIX_RUNTIME" "systemd/root Nix profile" "nix-daemon" \
   "state=${daemon_state:-UNKNOWN};need-reload=${daemon_reload:-UNKNOWN}" \
   "n/a" "INFO" "local:systemctl-show" \
@@ -475,55 +494,217 @@ emit "NIX_RUNTIME" "systemd/root Nix profile" "nix-daemon" \
 if command -v nix >/dev/null 2>&1; then
   nix_version="$(nix --version 2>/dev/null | awk '{print $NF}')"
   if [[ "$offline" -eq 1 ]]; then
-    emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+    emit "NIX_RUNTIME" "Nixpkgs manual fallback pointer" \
+      "Nix upgrade-nix fallback candidate" "$nix_version" \
       "REMOTE_SUPPRESSED" "UNKNOWN" \
-      "https://nix.dev/manual/nix/latest/command-ref/new-cli/nix3-upgrade-nix.html" \
-      "Offline audit; the upgrader dry-run was not called."
+      "https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/installer/tools/nix-fallback-paths.nix" \
+      "Offline audit; the fallback pointer used by upgrade-nix was not queried."
+    emit "NIX_RUNTIME" "upstream Nix release" "Nix stable release" \
+      "$nix_version" "REMOTE_SUPPRESSED" "UNKNOWN" \
+      "https://github.com/NixOS/nix/tags" \
+      "Offline audit; stable tags and the aarch64-linux release artifact were not queried."
   else
-    nix_audit_output="$(
+    nix_fallback_output="$(
       timeout 120s nix \
         --extra-experimental-features "nix-command flakes" \
         upgrade-nix --dry-run \
         --profile /nix/var/nix/profiles/default \
         --refresh 2>&1 || true
     )"
-    nix_candidate="$(
-      printf '%s\n' "$nix_audit_output" |
+    nix_fallback_candidate="$(
+      printf '%s\n' "$nix_fallback_output" |
         sed -nE 's/.*would (upgrade|downgrade)( Nix)? to version ([0-9][0-9.]*).*/\3/ip' |
         head -n 1
     )"
-    if [[ -n "$nix_candidate" ]]; then
-      nix_status="$(version_status "$nix_version" "$nix_candidate")"
-      if [[ "$nix_status" == "AHEAD" ]]; then
-        nix_status="HOLD"
-        nix_detail="The built-in candidate is older than installed Nix; refuse the downgrade."
+    if [[ -n "$nix_fallback_candidate" ]]; then
+      nix_fallback_status="$(version_status "$nix_version" "$nix_fallback_candidate")"
+      if [[ "$nix_fallback_status" == "AHEAD" ]]; then
+        nix_fallback_status="HOLD"
+        nix_fallback_detail="The manually maintained Nixpkgs fallback pointer is older than installed Nix. upgrade-nix does not compare versions and would perform this downgrade; do not run it."
+      elif [[ "$nix_fallback_status" == "CURRENT" ]]; then
+        nix_fallback_detail="The fallback pointer happens to match installed Nix; it is not proof that this is the latest upstream stable release."
       else
-        nix_detail="Dry-run candidate only; confirm an aarch64-linux binary and rollback before applying."
+        nix_fallback_detail="Fallback candidate only; compare it with upstream stable and verify the aarch64-linux artifact plus rollback before applying."
       fi
-      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
-        "$nix_candidate" "$nix_status" \
-        "https://nix.dev/manual/nix/latest/installation/upgrading.html" "$nix_detail"
-    elif grep -Eqi 'already (up.?to.?date|the newest|latest)' <<<"$nix_audit_output"; then
-      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
-        "$nix_version" "CURRENT" \
-        "https://nix.dev/manual/nix/latest/installation/upgrading.html" \
-        "The explicit-profile upgrader dry-run reports no change."
+      emit "NIX_RUNTIME" "Nixpkgs manual fallback pointer" \
+        "Nix upgrade-nix fallback candidate" "$nix_version" \
+        "$nix_fallback_candidate" "$nix_fallback_status" \
+        "https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/installer/tools/nix-fallback-paths.nix" \
+        "$nix_fallback_detail"
     else
-      nix_excerpt="$(printf '%s\n' "$nix_audit_output" | tail -n 2)"
-      emit "NIX_RUNTIME" "root Nix profile" "Nix" "$nix_version" \
+      nix_fallback_excerpt="$(printf '%s\n' "$nix_fallback_output" | tail -n 2)"
+      emit "NIX_RUNTIME" "Nixpkgs manual fallback pointer" \
+        "Nix upgrade-nix fallback candidate" "$nix_version" \
         "UNKNOWN" "UNKNOWN" \
-        "https://nix.dev/manual/nix/latest/installation/upgrading.html" \
-        "Unable to parse upgrader dry-run: $nix_excerpt"
+        "https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/installer/tools/nix-fallback-paths.nix" \
+        "Unable to parse the fallback-pointer dry-run: $nix_fallback_excerpt"
+    fi
+
+    nix_release_tags="$(
+      timeout 30s git \
+        -c http.lowSpeedLimit=1 \
+        -c http.lowSpeedTime=15 \
+        ls-remote --tags --refs https://github.com/NixOS/nix.git \
+        'refs/tags/*' 2>/dev/null || true
+    )"
+    nix_upstream_candidate="$(
+      printf '%s\n' "$nix_release_tags" |
+        awk '{sub("refs/tags/", "", $2); print $2}' |
+        grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+        sort -V |
+        tail -n 1
+    )"
+    if [[ -n "$nix_upstream_candidate" ]]; then
+      nix_upstream_status="$(version_status "$nix_version" "$nix_upstream_candidate")"
+      nix_release_artifact="https://releases.nixos.org/nix/nix-${nix_upstream_candidate}/nix-${nix_upstream_candidate}-aarch64-linux.tar.xz"
+      if timeout 30s curl --fail --silent --show-error --head --location \
+        "$nix_release_artifact" >/dev/null 2>&1; then
+        nix_artifact_detail="The official aarch64-linux binary artifact exists."
+      else
+        nix_artifact_detail="The official aarch64-linux binary artifact could not be verified; hold any update."
+        if [[ "$nix_upstream_status" == "UPDATE_AVAILABLE" ]]; then
+          nix_upstream_status="HOLD"
+        fi
+      fi
+      if [[ "$nix_upstream_status" == "AHEAD" ]]; then
+        nix_upstream_status="HOLD"
+        nix_upstream_detail="Installed Nix is ahead of the newest final upstream tag; investigate provenance and do not downgrade."
+      elif [[ "$nix_upstream_status" == "CURRENT" ]]; then
+        nix_upstream_detail="Installed Nix matches the newest final upstream tag."
+      else
+        nix_upstream_detail="A real upstream update is available; the stale fallback pointer cannot install it, so use only a separately validated explicit update path."
+      fi
+      emit "NIX_RUNTIME" "upstream Nix release" "Nix stable release" \
+        "$nix_version" "$nix_upstream_candidate" "$nix_upstream_status" \
+        "$nix_release_artifact" \
+        "$nix_upstream_detail $nix_artifact_detail"
+    else
+      emit "NIX_RUNTIME" "upstream Nix release" "Nix stable release" \
+        "$nix_version" "UNKNOWN" "UNKNOWN" \
+        "https://github.com/NixOS/nix/tags" \
+        "Unable to determine the newest final semantic release tag."
     fi
   fi
+
+  nix_repo_release_file="root/nix/release.json"
+  if [[ -r "$nix_repo_release_file" ]] && command -v jq >/dev/null 2>&1; then
+    nix_repo_candidate="$(jq -r '.version // empty' "$nix_repo_release_file")"
+    nix_repo_store_path="$(jq -r '.storePath // empty' "$nix_repo_release_file")"
+    nix_repo_artifact="$(jq -r '.artifactUrl // empty' "$nix_repo_release_file")"
+    nix_repo_declared_store="$(
+      timeout 30s nix eval --impure --raw --expr \
+        '(import ./root/nix/store-paths.nix).aarch64-linux' 2>/dev/null || true
+    )"
+    if [[ "$nix_repo_candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ &&
+          "$nix_repo_store_path" =~ ^/nix/store/[0-9a-z]{32}-nix-[0-9.]+$ &&
+          "$nix_repo_declared_store" == "$nix_repo_store_path" ]]; then
+      nix_repo_status="$(version_status "$nix_version" "$nix_repo_candidate")"
+      nix_repo_profile_active=0
+      if [[ "$nix_profile_target" == /nix/store/* ]]; then
+        nix_profile_references="$(
+          nix-store --query --references "$nix_profile_target" 2>/dev/null || true
+        )"
+        if grep -Fqx "$nix_repo_store_path" <<<"$nix_profile_references"; then
+          nix_repo_profile_active=1
+        fi
+      fi
+      if [[ "$nix_repo_status" == "AHEAD" ]]; then
+        nix_repo_status="HOLD"
+        nix_repo_detail="Repository candidate is older than installed Nix; refuse a downgrade."
+      elif [[ "$offline" -eq 0 && -n "${nix_upstream_candidate:-}" &&
+              "$nix_repo_candidate" != "$nix_upstream_candidate" ]]; then
+        nix_repo_status="HOLD"
+        nix_repo_detail="Repository candidate does not match the newest final upstream tag; re-audit before use."
+      elif [[ "$offline" -eq 1 ]]; then
+        if [[ "$nix_repo_status" == "CURRENT" &&
+              "$nix_repo_profile_active" -eq 1 ]]; then
+          nix_repo_detail="Exact release/store-path files agree and the root default profile actively references this Nix store path; remote artifact and signed-cache checks were suppressed."
+        else
+          nix_repo_detail="Exact candidate/store-path files agree; remote artifact and signed-cache checks were suppressed."
+        fi
+      elif timeout 30s nix path-info --store https://cache.nixos.org/ \
+        "$nix_repo_store_path" >/dev/null 2>&1; then
+        if [[ "$nix_repo_status" == "CURRENT" &&
+              "$nix_repo_profile_active" -eq 1 ]]; then
+          nix_repo_detail="Exact release/store-path files agree, match upstream stable, are available from the signed Nix cache, and are active through the root default profile."
+        elif [[ "$nix_repo_status" == "CURRENT" ]]; then
+          nix_repo_status="HOLD"
+          nix_repo_detail="The client version matches the release pin, but the root default profile does not reference its exact Nix store path; investigate runtime ownership."
+        else
+          nix_repo_detail="Exact candidate/store-path files agree, match upstream stable, and are available from the signed Nix cache. Root-profile activation remains separately unapproved."
+        fi
+      else
+        nix_repo_status="HOLD"
+        nix_repo_detail="The exact store path was not verified in the signed Nix cache; do not activate it."
+      fi
+      emit "NIX_RUNTIME" "repository" "Nix runtime release pin" \
+        "$nix_version" "$nix_repo_candidate" "$nix_repo_status" \
+        "${nix_repo_artifact:-repo:$nix_repo_release_file}" \
+        "$nix_repo_detail"
+    else
+      emit "NIX_RUNTIME" "repository" "Nix runtime release pin" \
+        "$nix_version" "INVALID" "HOLD" "repo:$nix_repo_release_file" \
+        "release.json and store-paths.nix are missing, invalid, or inconsistent."
+    fi
+  else
+    emit "NIX_RUNTIME" "repository" "Nix runtime release pin" \
+      "$nix_version" "absent" "NOT_PINNED" "repo:root/nix/" \
+      "No reviewed repository Nix runtime candidate is available."
+  fi
 else
-  emit "NIX_RUNTIME" "root Nix profile" "Nix" "NOT_FOUND" "UNKNOWN" \
+  emit "NIX_RUNTIME" "root Nix profile" "Nix runtime" "NOT_FOUND" "UNKNOWN" \
     "UNKNOWN" "https://nixos.org/download/" "Nix is not on PATH."
 fi
 
 if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
   compare_branch_input "nixpkgs" "Nixpkgs"
   compare_branch_input "home-manager" "Home Manager"
+
+  devbox_current="$(jq -r '.version // empty' packages/devbox/source.json 2>/dev/null || true)"
+  if [[ -z "$devbox_current" ]]; then
+    emit "NIX_PACKAGE" "repository" "Devbox" "absent" "UNKNOWN" \
+      "NOT_PINNED" "repo:packages/devbox/source.json" \
+      "The permanent fleet-base Devbox release pin is missing."
+  elif [[ "$offline" -eq 1 ]]; then
+    emit "NIX_PACKAGE" "repository" "Devbox" "$devbox_current" \
+      "REMOTE_SUPPRESSED" "UNKNOWN" \
+      "https://github.com/jetify-com/devbox/releases" \
+      "Offline audit; final upstream release tags were not queried."
+  else
+    devbox_tags="$(
+      timeout 30s git \
+        -c http.lowSpeedLimit=1 \
+        -c http.lowSpeedTime=15 \
+        ls-remote --tags --refs https://github.com/jetify-com/devbox.git \
+        'refs/tags/*' 2>/dev/null || true
+    )"
+    devbox_latest="$(
+      printf '%s\n' "$devbox_tags" |
+        awk '{sub("refs/tags/", "", $2); print $2}' |
+        grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' |
+        sort -V |
+        tail -n 1
+    )"
+    if [[ -n "$devbox_latest" ]]; then
+      devbox_status="$(version_status "$devbox_current" "$devbox_latest")"
+      if [[ "$devbox_status" == "AHEAD" ]]; then
+        devbox_status="HOLD"
+        devbox_detail="The upstream result is older than the repository pin; do not downgrade."
+      elif [[ "$devbox_status" == "CURRENT" ]]; then
+        devbox_detail="The exact source and Go vendor hashes pin the newest final upstream release."
+      else
+        devbox_detail="Update the source and Go vendor hashes, then build/SBOM the ARM64 package before activation."
+      fi
+      emit "NIX_PACKAGE" "repository" "Devbox" "$devbox_current" \
+        "$devbox_latest" "$devbox_status" \
+        "https://github.com/jetify-com/devbox/releases" "$devbox_detail"
+    else
+      emit "NIX_PACKAGE" "repository" "Devbox" "$devbox_current" \
+        "UNKNOWN" "UNKNOWN" \
+        "https://github.com/jetify-com/devbox/releases" \
+        "Unable to determine the newest final upstream release tag."
+    fi
+  fi
 
   hypr_node="$(root_input_node "hyprland")"
   if [[ -n "$hypr_node" ]]; then

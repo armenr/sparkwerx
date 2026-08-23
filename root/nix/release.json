@@ -1,0 +1,9 @@
+{
+  "artifactSha256": "4d0302a2910f5eec1c33b8deef634f04899a75737e7001ec49908d003ae5efda",
+  "artifactUrl": "https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-aarch64-linux.tar.xz",
+  "cacheNarHash": "sha256-MWoq9DY2q/saSPXz5zXUriIPY2dUEYRpaCUmucgQ0TE=",
+  "storePath": "/nix/store/fw98swa1g4ysvmv6p6m6xf51kzhvpp6p-nix-2.35.2",
+  "system": "aarch64-linux",
+  "tagCommit": "2c73b59da29606068c0c98db015dd3a66955525d",
+  "version": "2.35.2"
+}

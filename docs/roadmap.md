@@ -33,7 +33,12 @@ the measured software manifest; evaluation did not authorize realization.
 
 - [ ] Decide whether to enable `flakes` persistently
 - [ ] Review Nix trust and build-user settings
-- [ ] Resolve the systemd daemon-reload warning without changing other units
+- [x] Diagnose the stale `upgrade-nix` fallback, separate it from upstream
+      stable, and pin a verified 2.35.2 ARM64 candidate without activation
+- [x] Explicitly approve and activate Nix 2.35.2 on the pilot; retain the exact
+      2.35.1 rollback environment and verify daemon/build/Tailscale continuity
+- [x] Resolve the Nix systemd daemon-reload warning during the approved runtime
+      rollout; restart only nix-daemon and verify GDM/Tailscale continuity
 - [ ] Review the SBOM and operational maturity of the non-NixOS root manager
       candidate; do not let it take ownership of the existing Nix installer
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
@@ -41,8 +46,8 @@ the measured software manifest; evaluation did not authorize realization.
 
 ## Phase 3: Tailscale migration
 
-- [ ] Review the proposed exact Tailscale ARM64 package and closure before build
-- [ ] Build and validate the Tailscale package/unit without activation
+- [x] Review the exact current-stable Tailscale ARM64 package and closure
+- [x] Build and validate the Tailscale package/unit without activation
 - [ ] Migrate from apt only with independent recovery, a timed rollback,
       preserved `/var/lib/tailscale` state, and a reboot/reconnect test
 - [ ] Remove the Tailscale apt package/source only after Nix ownership is proven

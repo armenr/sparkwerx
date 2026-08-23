@@ -10,7 +10,32 @@ nix_command=(
   "nix-command flakes"
 )
 
-"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
+if ! command -v jq >/dev/null 2>&1; then
+  printf '%s\n' "jq is required to audit the pinned Devbox release." >&2
+  exit 1
+fi
+
+pinned_devbox="$(jq -er '.version' packages/devbox/source.json)"
+latest_devbox="$({
+  git ls-remote --tags --refs https://github.com/jetify-com/devbox.git \
+    'refs/tags/*'
+} | awk '{ sub("refs/tags/", "", $2); print $2 }' \
+  | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+  | sort -V \
+  | tail -n 1)"
+
+if [[ -z "$pinned_devbox" || -z "$latest_devbox" ]]; then
+  printf '%s\n' "Unable to determine pinned/latest Devbox versions." >&2
+  exit 1
+fi
+
+if [[ "$pinned_devbox" != "$latest_devbox" ]]; then
+  printf 'Devbox update available: pinned=%s latest=%s\n' \
+    "$pinned_devbox" "$latest_devbox" >&2
+  printf '%s\n' \
+    "Update the source and Go vendor hashes, then build the ARM64 package." >&2
+  exit 2
+fi
 
 pinned_hyprland="$({
   sed -n 's|.*Hyprland/v\([0-9][0-9.]*\)";|\1|p' flake.nix
@@ -36,6 +61,9 @@ if [[ "$pinned_hyprland" != "$latest_hyprland" ]]; then
   exit 2
 fi
 
+"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
+./scripts/update-tailscale.sh --apply
+
 "${nix_command[@]}" fmt
 ./scripts/check.sh
 "${nix_command[@]}" build \
@@ -45,6 +73,14 @@ fi
   .#checks.aarch64-linux.home-hyprland \
   .#checks.aarch64-linux.home-hyprland-with-portal \
   .#checks.aarch64-linux.profile-policy \
+  .#checks.aarch64-linux.devbox-package \
+  .#checks.aarch64-linux.devbox-policy \
+  .#checks.aarch64-linux.tailscale-package \
+  .#checks.aarch64-linux.tailscale-policy \
+  .#checks.aarch64-linux.tailscaled-unit \
+  .#devbox \
   .#hyprland \
+  .#tailscale \
+  .#tailscaled-unit \
   .#xdg-desktop-portal-hyprland \
   --no-link

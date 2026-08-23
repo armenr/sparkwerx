@@ -20,3 +20,8 @@ console/recovery access and a timed rollback guard. It must preserve
 `/var/lib/tailscale` and may not remove apt ownership until the Nix-managed
 service passes reboot and reconnect validation. See the
 [Tailscale operations reference](../.agents/skills/dgx-spark-ops/references/tailscale.md).
+
+The Nix daemon is also a reviewed root concern. The default `upgrade-nix`
+candidate is currently a downgrade and must not be run. Read the exact
+[Nix runtime diagnosis and candidate](../root/nix/README.md); its files are
+inert evidence, not bootstrap authorization.

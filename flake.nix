@@ -48,6 +48,8 @@
         };
       };
 
+      devboxPackage = appsPkgs.callPackage ./packages/devbox { };
+
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
       hyprlandPackage = hyprland.packages.${system}.hyprland.overrideAttrs (oldAttrs: {
@@ -60,6 +62,11 @@
 
       hyprlandPortalPackage = hyprland.packages.${system}.xdg-desktop-portal-hyprland.override {
         hyprland = hyprlandPackage;
+      };
+
+      tailscalePackage = pkgs.callPackage ./packages/tailscale { };
+      tailscaleService = pkgs.callPackage ./root/tailscale/unit.nix {
+        tailscale = tailscalePackage;
       };
 
       mkHome =
@@ -76,6 +83,7 @@
             inherit
               appsPkgs
               approvedUnfreePackageNames
+              devboxPackage
               hostName
               userName
               hyprlandPackage
@@ -239,7 +247,7 @@
           fleetBase = [
             (mkPackageRecord "nixpkgs-stable" pkgs.ncdu)
             (mkPackageRecord "nixpkgs-stable" pkgs.lazydocker)
-            (mkPackageRecord "nixpkgs-apps" appsPkgs.devbox)
+            (mkPackageRecord "official Devbox release override on nixpkgs-apps" devboxPackage)
           ];
           sharedGraphical = [ (mkPackageRecord "nixpkgs-stable" pkgs.ghostty) ];
           hyprland = [ (mkPackageRecord "hyprland input" hyprlandPackage) ];
@@ -247,6 +255,29 @@
             (mkPackageRecord "hyprland input" hyprlandPortalPackage)
             (mkPackageRecord "nixpkgs-stable" pkgs.xdg-desktop-portal-gtk)
           ];
+          fleetAccess = [
+            (mkPackageRecord "official Tailscale stable ARM64 artifact" tailscalePackage)
+          ];
+          repositoryDevShell = [
+            (mkPackageRecord "nixpkgs-apps" appsPkgs.git)
+            (mkPackageRecord "nixpkgs-stable" pkgs.jq)
+            (mkPackageRecord "nixpkgs-stable" pkgs.nixfmt-tree)
+            (mkPackageRecord "nixpkgs-apps" appsPkgs.ripgrep)
+          ];
+        };
+
+        services.tailscale = {
+          availableUnits = [
+            "tailscaled.service"
+            "tailscale-wait-online.service"
+            "tailscale-online.target"
+          ];
+          packageOutputPath = tailscalePackage.outPath;
+          unitOutputPath = tailscaleService.package.outPath;
+          wantedBy = [ "multi-user.target" ];
+          statePath = "/var/lib/tailscale/tailscaled.state";
+          socketPath = "/run/tailscale/tailscaled.sock";
+          activated = false;
         };
 
         evaluatedProfiles = {
@@ -292,6 +323,31 @@
           touch "$out"
         '';
 
+      tailscalePolicyCheck =
+        assert tailscalePackage.version == tailscalePackage.passthru.release.version;
+        assert tailscalePackage.passthru.release.architecture == "arm64";
+        assert tailscalePackage.passthru.release.track == "stable";
+        assert
+          tailscalePackage.passthru.release.url
+          == "https://pkgs.tailscale.com/stable/tailscale_${tailscalePackage.version}_arm64.tgz";
+        assert lib.hasInfix "/var/lib/tailscale/tailscaled.state" tailscaleService.unitText;
+        assert lib.hasInfix "/run/tailscale/tailscaled.sock" tailscaleService.unitText;
+        assert lib.hasInfix "WantedBy=multi-user.target" tailscaleService.unitText;
+        assert lib.hasInfix "/bin/tailscale wait" tailscaleService.waitOnlineUnitText;
+        assert lib.hasInfix "Requires=tailscale-wait-online.service" tailscaleService.onlineTargetText;
+        pkgs.runCommand "dgx-tailscale-policy" { } ''
+          touch "$out"
+        '';
+
+      devboxPolicyCheck =
+        assert devboxPackage.version == devboxPackage.passthru.release.version;
+        assert devboxPackage.passthru.release.tag == devboxPackage.version;
+        assert devboxPackage.passthru.release.owner == "jetify-com";
+        assert devboxPackage.passthru.release.repo == "devbox";
+        pkgs.runCommand "dgx-devbox-policy" { } ''
+          touch "$out"
+        '';
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -300,27 +356,35 @@
       inherit homeConfigurations;
 
       packages.${system} = {
+        devbox = devboxPackage;
         hyprland = hyprlandPackage;
+        tailscale = tailscalePackage;
+        tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
       };
 
       checks.${system} = {
+        devbox-package = devboxPackage;
+        devbox-policy = devboxPolicyCheck;
         home-sparkle-01 = sparkleHome.activationPackage;
         home-base = baseProfile.activationPackage;
         home-graphical = graphicalProfile.activationPackage;
         home-hyprland = hyprlandProfile.activationPackage;
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
         profile-policy = profilePolicyCheck;
+        tailscale-package = tailscalePackage;
+        tailscale-policy = tailscalePolicyCheck;
+        tailscaled-unit = tailscaleService.package;
       };
 
       lib.dgxProfileManifests.${system} = profileManifests;
 
       devShells.${system}.default = pkgs.mkShellNoCC {
-        packages = with pkgs; [
-          git
-          jq
-          nixfmt-tree
-          ripgrep
+        packages = [
+          appsPkgs.git
+          pkgs.jq
+          pkgs.nixfmt-tree
+          appsPkgs.ripgrep
         ];
       };
 

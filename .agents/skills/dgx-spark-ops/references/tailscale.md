@@ -13,12 +13,16 @@ Do not casually replace it with `pkgs.tailscale`. At the 2026-08-23 baseline:
 - Tailscale SSH is enabled and working;
 - `tailscaled.service` is active, enabled, and wanted by
   `multi-user.target`; and
-- this repository's locked `nixos-26.05` Nixpkgs provides Tailscale `1.98.10`.
+- this repository's locked stable/apps Nixpkgs provide only `1.98.10` and
+  `1.102.2`, respectively; and
+- `packages.aarch64-linux.tailscale` pins current stable `1.102.3` from the
+  official ARM64 tarball, and both it and the inert unit output have passed a
+  no-link build/SBOM review.
 
 Those are dated observations, not eternal pins. Re-audit before planning a
-change. They explain why a reviewed custom derivation may temporarily be
-necessary: using the locked stock package today would be a downgrade of the
-machine's remote-access daemon.
+change. They explain why the reviewed custom derivation currently exists:
+using either locked stock package today would downgrade the machine's
+remote-access daemon. Building the adapter did not migrate service ownership.
 
 ## Intended ownership
 
@@ -51,6 +55,14 @@ small version-gap adapter, not a fork:
 - expose the approved package as `packages.aarch64-linux.tailscale` so the audit
   can read its `.version` without building or activating it; and
 - keep service configuration separate from the package expression.
+
+The implemented adapter reads `packages/tailscale/source.json`; the official
+version, URL, published hex SHA-256, and Nix SRI hash are all exact pins.
+`scripts/update-tailscale.sh --check` discovers the official stable candidate
+without mutation. `--apply` rewrites only that JSON for a strictly newer
+version; it refuses downgrades and refuses same-version checksum changes. The
+normal dependency updater then build-validates the package and unit without
+activation.
 
 The custom expression must carry an adjacent comment with this meaning:
 
@@ -107,9 +119,10 @@ Before an update or the initial apt-to-Nix migration:
    root configuration generation. Do not export node identity or daemon state.
 2. Check whether locked `pkgs.tailscale` has caught up. Prefer it when it is an
    approved non-downgrade and passes validation.
-3. If the adapter is still needed, change only its exact version, official
-   ARM64 URL, and hash. Read the changelog and all intervening security
-   bulletins.
+3. If the adapter is still needed, run `scripts/update-tailscale.sh --check`,
+   read the changelog and all intervening security bulletins, and use its
+   explicitly authorized `--apply` mode only for a strictly newer stable
+   release. Never accept a same-version checksum mutation automatically.
 4. Produce and review the proposed SBOM/closure before installation. Build with
    no activation and verify `tailscale version` from the result.
 5. Review the service diff. Preserve `/var/lib/tailscale`, the local socket and
@@ -151,3 +164,5 @@ the approved root manager and belong in a separately reviewed runbook.
 - Tailscale SSH behavior: https://tailscale.com/docs/features/tailscale-ssh
 - Security practices: https://tailscale.com/docs/reference/best-practices/security
 - Candidate non-NixOS root manager: https://github.com/numtide/system-manager
+- Repository package pin: `packages/tailscale/source.json`
+- Repository inert unit: `root/tailscale/unit.nix`

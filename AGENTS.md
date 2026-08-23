@@ -29,7 +29,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Never expose secrets or place mutable model/application data in the Nix store.
 - Treat the existing apt-installed Tailscale as migration input, not a permanent
   exception. Read the skill's Tailscale reference before changing its package,
-  unit, state, SSH preference, or headless-mode behavior.
+  unit, state, SSH preference, or headless-mode behavior. The repository's
+  package/unit outputs are build-validated but deliberately inactive; never
+  replace or restart the live daemon without the explicit migration gates.
+- Never run plain `nix upgrade-nix` from an availability result. Audit its
+  Nixpkgs fallback target separately from upstream stable and follow
+  `root/nix/README.md`; the current default target is a blocked downgrade.
 - Validate on `aarch64-linux` and pilot on one host before fleet rollout.
 
 Follow the skill's routed references rather than duplicating update policy in

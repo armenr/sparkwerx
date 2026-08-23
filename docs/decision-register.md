@@ -156,6 +156,11 @@ The migration must preserve node identity and remote access and must keep
 `tailscaled.service` available in headless mode. The dedicated Tailscale
 reference controls this work.
 
+The repository now pins and build-validates the official current-stable 1.102.3
+ARM64 artifact plus a separately generated inert unit tree. That closes the
+package/SBOM gate, not the ownership migration gate: apt remains live and no
+daemon reload/restart or systemd link is authorized.
+
 ### D-011: Nix and containers are complementary
 
 **Status:** ACCEPTED
@@ -175,11 +180,34 @@ Manager, the base tools that are current there, and shared infrastructure. Use
 the independently locked `nixpkgs-apps` input only for reviewed fast-moving
 applications whose stable package trails the current release.
 
-The first such package is Devbox 0.17.5. The same apps pin currently exposes the
-reviewed Zed, LM Studio, and Chromium candidates, but their presence in the
-package set does not add them to Armen's overlay or authorize a build. A future
-update reviews both inputs separately; never replace the stable fleet package
-set wholesale with unstable.
+The apps pin supplies current dev-shell Git/ripgrep and exposes the reviewed
+Zed, LM Studio, and Chromium candidates. Both current Nixpkgs branches still
+trail Devbox at 0.17.5, so the fleet base uses a narrow exact override for the
+current 0.18.0 source and Go vendor graph. Retire that adapter when stock catches
+up and passes the same ARM64 checks. Candidate presence does not add a personal
+application to Armen's overlay. Never replace the stable fleet package set
+wholesale with unstable.
+
+### D-013: Nix runtime updates are repository-reviewed root changes
+
+**Status:** ACCEPTED
+
+Nix is outside the factory substrate. The official NixOS `nix-installer`
+provisioned it after Devbox triggered bootstrap, but Devbox does not own runtime
+updates. Repository root artifacts and the dedicated audit own version
+discovery, provenance, dry-run comparison, rollout, and rollback.
+
+Never assume `nix upgrade-nix` means a semantic upgrade. Its default target is
+a manually maintained Nixpkgs store-path file and the implementation has no
+downgrade guard. At the 2026-08-23 checkpoint, the installer release is 2.35.1,
+the default ARM64 fallback is 2.34.8, and final upstream stable is 2.35.2. The
+default command is blocked.
+
+Armen separately approved the checksum/cache-verified custom-path rollout on
+the pilot. The active default profile and daemon now run Nix 2.35.2, while the
+installer-created 2.35.1 environment remains an independent GC-rooted rollback
+anchor. Future hosts and releases require the same separate authorization and
+validation.
 
 ## Explicit non-selections
 
@@ -219,7 +247,7 @@ The repository-only policy alignment was completed and evaluated on
 - global unfree permission is gone; stable denies all unfree packages and the
   apps set permits exactly `lmstudio`;
 - the permanent role is exactly current `ncdu`, `lazydocker`, and Devbox
-  0.17.5;
+  0.18.0; Devbox and Tailscale passed scoped no-link ARM64 builds;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and
@@ -231,6 +259,9 @@ The repository-only policy alignment was completed and evaluated on
 
 The exported pilot Home profile remains staged as user-layer `headless` for the
 future exact-base activation. This does not change the running factory GNOME
-host. No Phase 1 work built a new package output, activated Home Manager,
-changed GDM/systemd, or changed a service. The software manifest remains the
-build/install approval gate.
+host. The Tailscale package/unit and Devbox outputs are realized only in the Nix
+store; Home Manager was not activated, the apt Tailscale daemon remains active,
+and GDM/desktop state were not changed. The separately approved root Nix
+runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
+Tailscale-continuity checks. The software manifest remains the
+application/service/desktop install and activation gate.

@@ -53,9 +53,12 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | --- | --- |
 | Official community installer and Nix upgrade command | https://github.com/NixOS/nix-installer#upgrading-nix |
 | `nix upgrade-nix` behavior | https://nix.dev/manual/nix/latest/command-ref/new-cli/nix3-upgrade-nix.html |
+| Nix 2.35.1 `upgrade-nix` implementation | https://github.com/NixOS/nix/blob/2.35.1/src/nix/upgrade-nix.cc |
 | Linux multi-user upgrade/restart procedure | https://nix.dev/manual/nix/latest/installation/upgrading.html |
 | Default stable-binary pointer used by `upgrade-nix` | https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/installer/tools/nix-fallback-paths.nix |
 | Nix releases | https://github.com/NixOS/nix/releases |
+| Nix 2.35.2 ARM64 release artifact | https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-aarch64-linux.tar.xz |
+| Repository Nix diagnosis and custom candidate | [root/nix/README.md](../../../../root/nix/README.md) |
 | Stable Nixpkgs branch | https://github.com/NixOS/nixpkgs/tree/nixos-26.05 |
 | Matching Home Manager branch | https://github.com/nix-community/home-manager/tree/release-26.05 |
 | Hyprland releases | https://github.com/hyprwm/Hyprland/releases |
@@ -81,6 +84,7 @@ the same reviewed change.
 | ncdu releases | https://dev.yorhel.nl/ncdu |
 | lazydocker releases | https://github.com/jesseduffield/lazydocker/releases |
 | Devbox releases | https://github.com/jetify-com/devbox/releases |
+| Repository Devbox source/vendor pin | [packages/devbox/source.json](../../../../packages/devbox/source.json) |
 | Zed Linux/ARM64 requirements | https://zed.dev/docs/linux |
 | Zed releases | https://github.com/zed-industries/zed/releases |
 | LM Studio desktop download/release | https://lmstudio.ai/download |

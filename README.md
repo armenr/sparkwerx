@@ -18,16 +18,23 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
 - Stable Nixpkgs remains the foundation. A separate lockfile-pinned apps input
-  supplies current Devbox and exposes reviewed current candidates for Zed,
+  supplies fast-moving packages. Because both current Nixpkgs branches still
+  trail Devbox, an exact upstream source/vendor-hash adapter supplies current
+  Devbox 0.18.0. The apps input also exposes reviewed candidates for Zed,
   LM Studio, and Chromium without adding them to a profile.
 - The `armen -> n0b0dy@sparkle-01` mapping exists, but no personal graphical
   application has been wired or installed.
-- No Phase 1 package output was built or fetched, and no host integration, GDM
-  session link, package installation, service change, or system configuration
-  was performed.
+- Devbox 0.18.0 and the official Tailscale 1.102.3 ARM64 package plus inert
+  systemd-unit tree were built with `--no-link` and SBOM-reviewed. They were not
+  installed into a profile or activated.
 - Tailscale `1.102.3` and Tailscale SSH are currently working from a manual
-  official apt installation. That installation is migration input; this
-  repository has not yet replaced or restarted it.
+  official apt installation. The repository now pins the same current stable
+  release and declares the future unit, but has not replaced or restarted the
+  live apt daemon.
+- Nix 2.35.2 is active in the machine-wide default profile and the restarted
+  daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
+  remains at its expected provisioning version, 2.35.1. The default
+  `upgrade-nix` fallback still targets stale 2.34.8 and remains blocked.
 
 ## Operating model
 
@@ -50,7 +57,8 @@ Start with the [decision register](docs/decision-register.md), then review the
 [docs/architecture.md](docs/architecture.md) for the ownership boundary,
 [docs/roadmap.md](docs/roadmap.md) for sequencing, and the
 [Tailscale operations reference](.agents/skills/dgx-spark-ops/references/tailscale.md)
-before auditing, packaging, migrating, restarting, or updating Tailscale.
+before auditing, packaging, migrating, restarting, or updating Tailscale. Read
+[the Nix runtime diagnosis](root/nix/README.md) before running `upgrade-nix`.
 
 ## Repository layout
 
@@ -61,6 +69,8 @@ docs/                      Architecture and rollout decisions
 hosts/                     Per-host Home Manager configuration
 inventory/                 Sanitized, non-secret baseline records
 modules/home/              Reusable user-level modules
+packages/                  Exact current-release adapters and source hashes
+root/                      Reviewed root-service/runtime artifacts and runbooks
 scripts/                   Inventory, validation, and dependency-update helpers
 flake.nix                  Fleet entry point and evaluation invariants
 flake.lock                 Exact stable/apps/Home Manager/Hyprland input pins
@@ -96,12 +106,14 @@ The human-reviewed size and package findings are in the
 ```
 
 This is a mutating, build-authorized workflow, not the default audit command. It
-advances stable Nixpkgs, the independently scoped apps input, and Home Manager;
-verifies that the separately pinned Hyprland tag is still the latest upstream
-release; formats/evaluates the flake; and builds every ARM64 Home profile,
-Hyprland, and portal output with `--no-link`. It never activates a profile or
-desktop session, but it does rewrite `flake.lock`, fetch inputs, and realize
-packages, so run it only after those actions are explicitly approved.
+preflights the exact Devbox and Hyprland release pins; advances stable Nixpkgs,
+the independently scoped apps input, and Home Manager; advances Tailscale only
+through its verified stable ARM64 artifact/checksum workflow; formats/evaluates
+the flake; and builds every ARM64 Home profile plus the Devbox, Tailscale,
+Hyprland, unit, and portal outputs with `--no-link`. It never activates a
+profile, service, or desktop session, but it does rewrite pins, fetch inputs,
+and realize packages, so run it only after those actions are explicitly
+approved.
 
 Hyprland release tags are bumped deliberately rather than automatically because
 each new compositor release must pass the NVIDIA/ARM64 build gate first.
@@ -133,9 +145,10 @@ narrowly authorized pilot activation prompts.
 
 ## Deliberate hold point
 
-Phase 1 stops before realization. Do not remove `--dry-run`, run the dependency
-updater, run `home-manager switch`, install a selected application, install
-Hyprland into a system profile, change GDM/systemd, or activate a portal yet.
-First review the measured closure costs—especially Ghostty and the portal—and
-grant the next build scope explicitly. GNOME remains the recovery desktop
-throughout every graphical pilot.
+The guarded Nix 2.35.2 runtime rollout is complete. Devbox and Tailscale have
+passed explicitly scoped no-link builds; that does not authorize a Home
+profile, Tailscale service migration, or desktop activation. Do not run
+`home-manager switch`, install Hyprland into a system profile, replace the apt
+Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
+First review the relevant closure and rollback gate. GNOME remains the recovery
+desktop throughout every graphical pilot.

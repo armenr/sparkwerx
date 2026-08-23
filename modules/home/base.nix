@@ -1,6 +1,6 @@
 {
-  appsPkgs,
   config,
+  devboxPackage,
   lib,
   pkgs,
   ...
@@ -22,12 +22,12 @@
     manual.manpages.enable = lib.mkDefault false;
 
     # Permanent fleet base: do not add convenience tools here. Devbox is taken
-    # from the separately locked apps package set; this installs the packaged Go
-    # binary and never invokes Devbox's Nix bootstrap installer.
+    # from the separately pinned current-release adapter; this installs the
+    # packaged Go binary and never invokes Devbox's Nix bootstrap installer.
     dgx.fleetBase.packages = [
       pkgs.ncdu
       pkgs.lazydocker
-      appsPkgs.devbox
+      devboxPackage
     ];
 
     home.packages = config.dgx.fleetBase.packages;

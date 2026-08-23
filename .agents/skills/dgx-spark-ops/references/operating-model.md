@@ -94,7 +94,8 @@ an update audit.
 The dated inventory under `inventory/sparkle-01/` is evidence, not an eternal
 fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - repository-only Phase 1 pins stable Nixpkgs separately from the narrow apps
-  input and uses current Devbox 0.17.5 without invoking its installer;
+  input and uses current Devbox 0.18.0 through an exact source/vendor adapter,
+  without invoking its installer;
 - the evaluated headless role is exactly `ncdu`, `lazydocker`, and `devbox`,
   with XDG/MIME/portal, manpage, Home Manager CLI, and graphical roles off;
 - the flake's `lib.dgxProfileManifests.aarch64-linux` output and
@@ -105,8 +106,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
 - Nix was provisioned by the official NixOS `nix-installer` as a multi-user
   daemon installation, even though Devbox triggered it;
-- `/nix/var/nix/profiles/default` resolves through root's Nix profile;
-- the built-in `nix upgrade-nix` candidate can be older than installed Nix;
+- the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
+  daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
+  remains a separate GC-rooted rollback anchor;
+- the built-in `nix upgrade-nix` target is a manually maintained literal store
+  path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
 - no Home Manager profile or GDM Hyprland session has been activated;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
@@ -114,8 +118,9 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - Tailscale `1.102.3` was manually installed from Tailscale's official apt
   repository, its daemon is enabled at multi-user boot, and Tailscale SSH is
   active; and
-- locked stable Nixpkgs exposes older Tailscale `1.98.10`, so replacing the
-  apt package directly would be a downgrade.
+- locked stable/apps Nixpkgs expose older Tailscale `1.98.10`/`1.102.2`, so the
+  repository now pins and build-validates official stable `1.102.3`; the apt
+  service still owns the live daemon and identity.
 
 The Tailscale versions above are dated baseline evidence. Re-audit them and read
 [the dedicated Tailscale reference](tailscale.md) before changing ownership.
