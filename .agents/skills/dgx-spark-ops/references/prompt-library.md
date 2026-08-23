@@ -37,8 +37,9 @@ $dgx-spark-ops Audit the System Manager root candidate read-only. Compare its
 matching release-26.05 head, private Nix release, machine-readable root manifest,
 service/etc/state/registration allowlists, the exact-version empty-tmpfiles
 patch/hash, unmanaged-rule regression sentinel, closure anti-downgrade rules,
-and runbook. Run evaluation and dry-run only; do not build, run the sudo
-container test, register a generation, create state, or activate the host.
+exact recorded container-test evidence, `isolatedTest.matchesCurrent`, and
+runbook. Run evaluation and dry-run only; do not build, rerun the sudo container
+test, register a generation, create state, or activate the host.
 ```
 
 ```text

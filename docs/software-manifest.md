@@ -17,10 +17,11 @@ and current official vendor sources. Stable Nixpkgs was advanced to its current
 branch head. Devbox 0.18.0 and Tailscale 1.102.3 plus its inert unit tree were
 built with `--no-link` and inspected. The patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
-activation. A disposable-container activation attempt failed closed on upstream
-global tmpfiles behavior and left the host untouched. System Manager was not
-registered or activated on the host, Tailscale was not restarted or replaced,
-and the desktop was not switched.
+activation. The first disposable-container activation failed closed on upstream
+global tmpfiles behavior; after the exact-version patch, the exact current
+activation/deactivation derivation passed and clean postflight proved the host
+untouched. System Manager was not registered or activated on the host, Tailscale
+was not restarted or replaced, and the desktop was not switched.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -45,7 +46,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2 | Do not replace/restart the live daemon over Tailscale SSH; validate the selected root-manager candidate and pass console, rollback, state/identity, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY BUILD-PASSED; container retry/activation OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The first disposable activation caught the upstream bug and left the host untouched | Rerun the patched root-assisted disposable-container test, then inspect collisions/state, establish independent console/timed rollback, and request separate canary activation approval |
+| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; host activation OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable activation/deactivation test passed and clean postflight found no host artifact | Inspect collisions/state, establish independent console/timed rollback, and request separate canary activation approval |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -115,21 +116,26 @@ requires it to remain unprocessed.
 
 The first root-local disposable-container activation reached System Manager and
 failed closed when the upstream global invocation tried to change journal modes.
-The container was destroyed. Postflight found all host canary, unit, state,
-profile, and GC-root paths absent; Nix, Tailscale, and GDM remained active with
-no pending reload. The patched runtime and closure policy subsequently rebuilt
-with `--no-link`; the container retry remains open.
+That container was destroyed and its host postflight was clean. The exact
+patched derivation then passed: the engine skipped global tmpfiles processing,
+the unmanaged sentinel remained absent, exactly five paths and three service
+keys were managed, protected files were unchanged, and deactivation removed the
+canary surface inside the disposable container. The valid output and clean host
+postflight are recorded in the
+[container validation record](../root/system-manager/validation/2026-08-24-container-test.md).
 
 Low-level activation would write
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. No profile or GC root
 has been registered. The helper supplies temporary root-local
-`auto-allocate-uids`/`cgroups` flags and ignores root's personal Nix config with
-`NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Its
-test-only plan was 943.7 MiB download / 3.9 GiB unpacked. Nix's UID lock, cgroup
-tracking, and stale temporary-root records are disclosed operational
-bookkeeping, not a manager generation, and were not manually removed. See the
-root-manager runbook.
+`auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
+with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
+2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but
+the warning was absent from the successful derivation log and the required
+UID-range/cgroup test completed. Its test-only plan was 943.7 MiB download /
+3.9 GiB unpacked. Nix's UID lock, cgroup tracking, and stale temporary-root
+records are disclosed operational bookkeeping, not a manager generation, and
+were not manually removed. See the root-manager runbook.
 
 The portal remains an independent option. Selecting Hyprland sets Home
 Manager's implicit `portalPackage` to `null`; only

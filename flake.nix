@@ -429,6 +429,25 @@
           gcRoot = "/nix/var/nix/gcroots/system-manager-current";
         };
 
+        isolatedTest =
+          let
+            observedDrvPath = "/nix/store/jcrdk9p9lz3qiya2l1021339lsdvyxcg-container-test-dgx-root-canary.drv";
+            observedOutputPath = "/nix/store/wn9dffp852vnvri1vcvz4mskmdgilnn0-container-test-dgx-root-canary";
+          in
+          {
+            performedAt = "2026-08-23T21:11:00Z";
+            result = "passed";
+            inherit observedDrvPath observedOutputPath;
+            currentDrvPath = rootCanaryContainerTest.drvPath;
+            evidence = "root/system-manager/validation/2026-08-24-container-test.md";
+            currentOutputPath = rootCanaryContainerTest.outPath;
+            matchesCurrent =
+              rootCanaryContainerTest.drvPath == observedDrvPath
+              && rootCanaryContainerTest.outPath == observedOutputPath;
+            hostActivationPerformed = false;
+            hostPostflight = "clean";
+          };
+
         canary = {
           etcPath = "/etc/dgx-setup/canary";
           service = "dgx-setup-canary.service";

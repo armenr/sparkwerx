@@ -20,6 +20,7 @@ System Manager configuration has been applied to the host.
 | Private Nix runtime | Official Nix 2.35.2 release flake at `2c73b59da29606068c0c98db015dd3a66955525d` |
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
+| Disposable container test | **PASS** for the exact recorded derivation |
 | Host activation | **Not performed** |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
@@ -100,6 +101,13 @@ without spawning `systemd-tmpfiles` when no managed config exists. The patch is
 part of the manager derivation and machine-readable manifest, and closure policy
 requires that exact patched package. A future manager version will not inherit
 the patch silently: evaluation/build policy must be reviewed and adjusted.
+
+The exact patched disposable test subsequently passed on 2026-08-24. It proved
+that the patch skips the global invocation, the unmanaged tmpfiles sentinel is
+never processed, protected files remain byte-identical, and activation plus
+deactivation stay within the reviewed canary boundary. See the
+[durable validation record](validation/2026-08-24-container-test.md) for the
+exact derivation, output, warning disposition, and clean host postflight.
 
 ## Runtime versus lock graph
 
@@ -197,24 +205,36 @@ path is explicit.
 
 The next root-local attempt reached activation and found the upstream empty-list
 tmpfiles bug documented above. Its container was also disposable and the host
-again remained untouched. The patched regression test must pass before this gate
-can be marked complete.
+again remained untouched.
 
-After reviewing the command, run this one test with a temporary root-local
-build setting:
+The exact patched derivation then passed on 2026-08-24. Activation managed only
+the five allowlisted paths and three service keys, skipped the unmanaged
+tmpfiles sentinel, preserved all protected-file hashes, registered no generation
+or GC root, and deactivated cleanly inside the disposable container. Read-only
+host postflight found no canary, unit, state, profile, or GC-root artifact and
+found Nix, Tailscale, and GDM healthy with no pending reload.
+
+The reviewed helper command for this separately authorized test is:
 
 ```bash
 sudo ./scripts/test-root-canary.sh
 ```
 
+Do not rerun it during an ordinary audit. A changed test derivation invalidates
+the recorded pass and requires separate authorization.
+
 The reviewed helper invokes `/nix/var/nix/profiles/default/bin/nix` against the
 local store with `auto-allocate-uids` and `cgroups` enabled only in that root
 process. It also sets `NIX_USER_CONF_FILES=/dev/null` for that command so root's
-personal Nix configuration cannot add warnings or hidden behavior; system-wide
+personal Nix configuration cannot add hidden settings; system-wide
 `/etc/nix/nix.conf` is still read, and all temporary features remain explicit.
-It does not edit `nix.conf`, stop/reconfigure/restart the daemon, create a
-profile, or activate the host. Like every build, it may add test paths and build
-records to the Nix store.
+That isolation does not suppress the observed top-level Nix 2.35.2 warning about
+`auto-allocate-uids`. The warning was absent from the successful derivation log
+and non-fatal; completion of the UID-range/cgroup container test proves the
+required capability was effective. The helper does not edit `nix.conf`,
+stop/reconfigure/restart the daemon, create a profile, or activate the host.
+Like every build, it may add test paths and build records to the Nix store.
+
 UID allocation uses persistent lock files under `/nix/var/nix/userpool2`;
 cgroup cleanup tracking may remain under
 `/nix/var/nix/cgroups/<uid>`. These are Nix operational bookkeeping, not a
@@ -255,8 +275,9 @@ update remains valid only while the exact-version overlay applies the reviewed
 patch and the manifest/audit retain its hash and no-global-tmpfiles policy. An
 upstream version change is a mandatory reassessment, not permission to drop or
 blindly carry the patch. The root-assisted container test remains the explicit
-helper above. Any changed ownership surface or closure fails review rather than
-being accepted automatically.
+helper above. Any input, patch, ownership surface, test, or closure change
+invalidates the recorded pass and requires a newly authorized disposable test
+rather than being accepted automatically.
 
 The `nix-release` input is an exact tag and is intentionally not auto-advanced.
 Audit and activate a new host Nix runtime through `root/nix/README.md` first;

@@ -118,6 +118,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   global empty-list tmpfiles behavior without touching the host; the candidate
   now carries an exact-version skip patch and an unmanaged-rule regression
   sentinel, and any version change requires patch reassessment;
+- the exact patched disposable activation/deactivation derivation passed on
+  2026-08-24, including the unmanaged tmpfiles sentinel, protected-file hashes,
+  bounded state, rollback, and clean host postflight; any derivation change
+  invalidates that evidence;
 - low-level System Manager activation would create a state record under
   `/var/lib/system-manager/state`, while generation profile/GC-root registration
   is separate; neither has occurred on the pilot;
@@ -153,11 +157,11 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   nearby catalog products.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
-- Keep the System Manager candidate inactive and unregistered until its
-  root-assisted container test and separately approved host canary pass; never
-  let it own host Nix, users, wrappers, global PATH, boot links, or factory
-  services or process global factory tmpfiles rules when its managed set is
-  empty; preserve the exact-version patch and regression sentinel.
+- The exact System Manager container test passed; keep the candidate inactive
+  and unregistered until a separately approved host canary passes. Never let it
+  own host Nix, users, wrappers, global PATH, boot links, or factory services or
+  process global factory tmpfiles rules when its managed set is empty; preserve
+  the exact-version patch, regression sentinel, and current-test match.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

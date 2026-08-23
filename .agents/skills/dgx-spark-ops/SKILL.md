@@ -99,6 +99,12 @@ collision/snapshot evidence, timed rollback, and explicit approval for the
 already-built output. If root integration affects Tailscale or desktop mode,
 route through those references and gates too.
 
+The exact recorded patched derivation passed on 2026-08-24 with clean host
+postflight. Require `isolatedTest.result == "passed"` and
+`isolatedTest.matchesCurrent == true` in the root manifest. A changed input,
+patch, or test derivation invalidates that evidence and requires a separately
+authorized disposable rerun; it still never authorizes host activation.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
@@ -106,7 +112,10 @@ those features or restart/reconfigure the daemon merely to run this test.
 Disclose `/nix/var/nix/userpool2` and `/nix/var/nix/cgroups` as Nix
 operational bookkeeping; do not delete their records casually.
 Keep `NIX_USER_CONF_FILES=/dev/null` in the helper so root-specific user config
-cannot add hidden settings; system `/etc/nix/nix.conf` is still read.
+cannot add hidden settings; system `/etc/nix/nix.conf` is still read. Do not
+claim this suppresses the observed non-fatal top-level Nix 2.35.2
+`auto-allocate-uids` warning. The successful derivation log and valid output,
+not that cosmetic warning, determine the test verdict.
 
 ### Audit, migrate, or update Tailscale
 
@@ -179,8 +188,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   Nix 2.35.2 private runtime, and closure rejection of Nix 2.34.8 and real
   `userborn`. Preserve the exact-version `skip-empty-tmpfiles` patch, its
   manifest hash/policy, and the unmanaged-rule regression sentinel; never allow
-  an empty managed set to trigger global factory tmpfiles processing. A build or
-  container test never implies host activation.
+  an empty managed set to trigger global factory tmpfiles processing. Preserve
+  the exact passed-test evidence only while it matches the currently evaluated
+  derivation. A build or container test never implies host activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

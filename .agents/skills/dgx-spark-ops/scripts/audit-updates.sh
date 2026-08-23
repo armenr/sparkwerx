@@ -170,7 +170,7 @@ audit_root_integration() {
   local manifest manager_node manager_ref manager_locked_rev
   local manager_version manager_branch manager_rev private_nix_version
   local private_nix_rev release_version release_rev current candidate
-  local policy_ok host_artifact artifact status detail
+  local test_result policy_ok host_artifact artifact status detail
   local -a nix_args
 
   if [[ ! -r root/nix/release.json ]] || ! command -v jq >/dev/null 2>&1; then
@@ -214,8 +214,9 @@ audit_root_integration() {
   manager_patch_hash="$(jq -r '.manager.patches[0].sha256 // empty' <<<"$manifest")"
   release_version="$(jq -r '.version // empty' root/nix/release.json)"
   release_rev="$(jq -r '.tagCommit // empty' root/nix/release.json)"
+  test_result="$(jq -r '.isolatedTest.result // empty' <<<"$manifest")"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -225,6 +226,11 @@ audit_root_integration() {
     (.manager.patches[0].path == "patches/system-manager/skip-empty-tmpfiles.patch") and
     (.manager.patches[0].sha256 == "32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a") and
     (.registration.performed == false) and
+    (.isolatedTest.result == "passed") and
+    (.isolatedTest.evidence == "root/system-manager/validation/2026-08-24-container-test.md") and
+    (.isolatedTest.matchesCurrent == true) and
+    (.isolatedTest.hostActivationPerformed == false) and
+    (.isolatedTest.hostPostflight == "clean") and
     (.privateNixRuntime.ownsHostInstallation == false) and
     (.managerState.path == "/var/lib/system-manager/state/system-manager-state.json") and
     (.policy.ownsNix == false) and
@@ -279,7 +285,7 @@ audit_root_integration() {
     detail="Unexpected live-host root-manager artifact detected at $host_artifact."
   else
     status="CURRENT"
-    detail="Manifest, local safety patch, lock, and private Nix pin agree; no live-host activation or registration artifacts were detected."
+    detail="Manifest, local safety patch, lock, private Nix pin, and exact disposable-test evidence agree; no live-host activation or registration artifacts were detected."
   fi
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \

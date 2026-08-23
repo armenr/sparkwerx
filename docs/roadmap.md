@@ -47,9 +47,10 @@ the measured software manifest; evaluation did not authorize realization.
       global empty-list tmpfiles behavior; pin an exact-version skip patch, add
       an unmanaged-rule regression sentinel, rebuild policy, and verify the host
       remained untouched
-- [ ] Rerun `sudo ./scripts/test-root-canary.sh` to prove patched
-      activation/deactivation inside the disposable Ubuntu container; do not
-      activate the host
+- [x] Pass the exact patched `sudo ./scripts/test-root-canary.sh` derivation;
+      prove bounded activation/deactivation, an untouched unmanaged tmpfiles
+      sentinel, and clean host postflight without activating or registering the
+      host
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

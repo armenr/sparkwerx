@@ -37,9 +37,10 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `root/nix/README.md`; the current default target is a blocked downgrade.
 - Read `root/system-manager/README.md` before changing the System Manager pin,
   overlays, root module, test, state, registration, or activation. The candidate
-  is built but inactive/unregistered; its private wrapper must stay on reviewed
-  Nix 2.35.2, and the closure must contain neither Nix 2.34.8 nor real
-  `userborn`.
+  is built and its exact recorded disposable container test passed, but it is
+  inactive/unregistered; its private wrapper must stay on reviewed Nix 2.35.2,
+  and the closure must contain neither Nix 2.34.8 nor real `userborn`. Any
+  change that alters the test derivation makes that pass stale.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
@@ -50,6 +51,8 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   or restart/reconfigure the daemon for the test.
 - Preserve `NIX_USER_CONF_FILES=/dev/null` in that helper so root-only user
   configuration cannot add hidden behavior; the system Nix config remains read.
+  This isolation does not suppress the observed non-fatal top-level Nix 2.35.2
+  `auto-allocate-uids` warning; use the derivation result as the test verdict.
 - System Manager 1.1.0 must retain the exact-version
   `skip-empty-tmpfiles` patch and unmanaged-rule regression sentinel. Treat any
   global tmpfiles invocation, missing patch, changed patch hash, or processed

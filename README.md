@@ -36,12 +36,13 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   remains at its expected provisioning version, 2.35.1. The default
   `upgrade-nix` fallback still targets stale 2.34.8 and remains blocked.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
-  109-path / 230.0 MiB ARM64 canary now contains the exact-version
-  `skip-empty-tmpfiles` safety patch as well as the anti-downgrade policy. The
-  first root-local disposable test exposed upstream global tmpfiles processing;
-  its container was destroyed and postflight proved the host unchanged. The
-  patched runtime/policy rebuilt with `--no-link`; host activation and
-  registration remain forbidden, and the patched container-test retry is open.
+  109-path / 230.0 MiB ARM64 canary contains the exact-version
+  `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
+  patched disposable Ubuntu activation/deactivation test passed: it managed only
+  five allowlisted paths, skipped global tmpfiles, preserved the unmanaged
+  sentinel and protected files, and rolled back inside the container. Postflight
+  proved the host unchanged. Host activation and generation registration remain
+  separate, forbidden gates.
 
 ## Operating model
 
@@ -137,9 +138,10 @@ approved.
 Hyprland release tags are bumped deliberately rather than automatically because
 each new compositor release must pass the NVIDIA/ARM64 build gate first.
 
-System Manager's disposable activation/deactivation test requires a restricted,
-temporary Nix build setting and remains a separate reviewed gate:
-`sudo ./scripts/test-root-canary.sh`.
+System Manager's exact current disposable activation/deactivation derivation
+passed. The helper remains outside the automated update workflow:
+`sudo ./scripts/test-root-canary.sh`. Any input, patch, or test change makes
+the recorded pass stale and requires a separately authorized rerun.
 
 ## Codex operations skill
 
@@ -173,6 +175,7 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-Do not activate or register the System Manager canary either. First review the
-relevant closure and rollback gate. GNOME remains the recovery desktop
-throughout every graphical pilot.
+The exact System Manager container gate passed, but do not activate or register
+the canary on the host. First satisfy the independent-console, collision,
+snapshot, and timed-rollback gates and obtain explicit activation authorization.
+GNOME remains the recovery desktop throughout every graphical pilot.

@@ -249,10 +249,11 @@ but does not remove that bookkeeping file. The canary test does not register
 `/nix/var/nix/gcroots/system-manager-current`. Those registration paths remain
 a separate gate.
 
-The patched runtime and closure-policy no-link builds passed. The disposable
-Ubuntu activation/deactivation retry still requires the explicit root-assisted
-helper. Host activation still requires independent console access, collision
-review, timed rollback, and separate authorization. This selection does not
+The patched runtime and closure-policy no-link builds passed. The exact
+root-assisted disposable Ubuntu activation/deactivation derivation then passed,
+including the unmanaged tmpfiles regression sentinel and clean host postflight.
+Host activation still requires independent console access, collision review,
+snapshots, timed rollback, and separate authorization. This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 
 ## Explicit non-selections
@@ -268,8 +269,9 @@ advance the Tailscale migration or implement desktop-mode switching.
 
 ## Open decisions
 
-- Run the root-assisted isolated canary test, then decide whether to promote the
-  selected System Manager candidate to a separately authorized host pilot.
+- Decide whether to authorize a System Manager host canary after independent
+  console access, collision/snapshot evidence, and a timed rollback procedure
+  are in place.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -297,7 +299,9 @@ The repository-only policy alignment was completed and evaluated on
   0.18.0; Devbox and Tailscale passed scoped no-link ARM64 builds;
 - System Manager 1.1.0 is pinned as an inactive root-manager candidate; its
   109-path / 230.0 MiB canary and closure policy passed no-link builds with a
-  private Nix 2.35.2 runtime and no real `userborn` closure;
+  private Nix 2.35.2 runtime and no real `userborn` closure; its exact patched
+  disposable activation/deactivation test later passed on 2026-08-24 without
+  host activation or registration;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

@@ -74,7 +74,9 @@ link, port, or factory/Tailscale/desktop unit. Its private engine uses exact Nix
 The built canary owns only `/etc/dgx-setup/canary`, a no-network oneshot, and
 System Manager's two control targets. Low-level activation would leave its
 rollback record under `/var/lib/system-manager/state`; registration/profile
-roots are a separate action. Nothing is active or registered on the pilot. Read
+roots are a separate action. Its exact patched disposable activation/deactivation
+test passed with the unmanaged tmpfiles sentinel untouched and clean host
+postflight. Nothing is active or registered on the pilot. Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
 
@@ -139,10 +141,11 @@ the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
 The inert System Manager canary now implements only a bounded root-manager
-prototype; it is built but neither registered nor activated. Desktop-mode root
-control, Tailscale ownership migration, personal app packages, workload roles,
-and all Home/desktop/workload activation remain deliberately unimplemented. The separately
-gated pilot Nix runtime update to 2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not authorize
-`home-manager switch`, a systemd service link/restart, or another root-runtime
-change. Host mode switching and service changes require their own later
-approval.
+prototype. Its exact disposable test passed, but it is neither registered nor
+activated. Desktop-mode root control, Tailscale ownership migration, personal
+app packages, workload roles, and all Home/desktop/workload activation remain
+deliberately unimplemented. The separately gated pilot Nix runtime update to
+2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not
+authorize `home-manager switch`, a systemd service link/restart, or another
+root-runtime change. Host mode switching and service changes require their own
+later approval.
