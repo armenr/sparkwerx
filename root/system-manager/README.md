@@ -145,22 +145,43 @@ deactivates the canary inside a disposable Nix build sandbox. It verifies:
 - deactivation removes the canary and units; and
 - the residual manager state is an empty version-0 record.
 
-The test harness requires Nix's `uid-range` system feature plus
-`auto-allocate-uids`. The daemon advertises `uid-range`, but
-`auto-allocate-uids` is a restricted setting and is not persistently enabled.
-The ordinary user therefore cannot run the test by silently overriding it.
+The test harness requires the Nix `uid-range` system feature plus
+`auto-allocate-uids`. UID-range builds are automatically isolated with cgroups,
+so the Nix `cgroups` experimental feature is also required. Neither experimental
+feature is persistently enabled for the daemon.
 
-After reviewing the command, run this one test with a temporary root-client
-setting:
+Nix 2.35 deliberately removes `experimental-features` from client-to-daemon
+setting overrides. Passing these flags through the running daemon therefore
+causes it to ignore `auto-allocate-uids` and reject `cgroups`. The reviewed
+helper avoids that mismatch by using the same store directly as root with
+`--store local`; the ordinary user cannot perform that direct-store build.
+
+The initial 2026-08-24 invocation used the daemon path and stopped before the
+container builder ran. It created no System Manager link, unit, profile, GC root,
+manager state, or service change. Nix did create its empty UID-allocation lock
+at `/nix/var/nix/userpool2/slot-0` and a stale temporary-root record under
+`/nix/var/nix/temproots/<exited-pid>`. The latter is not a permanent GC root;
+Nix removes stale temporary-root records during a future garbage-collection scan.
+No manual cleanup was attempted. That preflight failure is why the direct-store
+path is explicit.
+
+After reviewing the command, run this one test with a temporary root-local
+build setting:
 
 ```bash
 sudo ./scripts/test-root-canary.sh
 ```
 
-The reviewed helper invokes `/nix/var/nix/profiles/default/bin/nix` with
-`auto-allocate-uids` enabled only for that build. It does not edit `nix.conf` or
-restart the daemon. The test's one-time dry-run was 943.7 MiB download and
-3.9 GiB unpacked, primarily the Ubuntu rootfs, Rust/build tools, Python test
+The reviewed helper invokes `/nix/var/nix/profiles/default/bin/nix` against the
+local store with `auto-allocate-uids` and `cgroups` enabled only in that
+root process. It does not edit `nix.conf`, stop/reconfigure/restart the daemon,
+create a profile, or activate the host. Like every build, it may add test paths
+and build records to the Nix store. UID allocation uses persistent lock files
+under `/nix/var/nix/userpool2`; cgroup cleanup tracking may remain under
+`/nix/var/nix/cgroups/<uid>`. These are Nix operational bookkeeping, not a
+System Manager generation or host configuration. The one-time dry-run was
+943.7 MiB download
+and 3.9 GiB unpacked, primarily the Ubuntu rootfs, Rust/build tools, Python test
 driver, and systemd utilities. Those are test dependencies, not the 230.0 MiB
 runtime closure and not a system profile.
 

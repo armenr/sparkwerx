@@ -44,6 +44,10 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
   snapshots, timed rollback, and explicit authorization.
+- Preserve the helper's root-only `--store local` path: Nix 2.35 strips
+  experimental-feature overrides on daemon connections, while this test needs
+  temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings
+  or restart/reconfigure the daemon for the test.
 - Validate on `aarch64-linux` and pilot on one host before fleet rollout.
 
 Follow the skill's routed references rather than duplicating update policy in

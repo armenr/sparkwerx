@@ -16,12 +16,15 @@ if [[ ! -x "$nix_bin" ]]; then
   exit 1
 fi
 
-# The uid allocation setting is restricted, temporary, and scoped to this one
-# Nix build. The derivation runs activation/deactivation only inside a disposable
-# Ubuntu systemd-nspawn container; it does not activate the host configuration.
+# Nix 2.35 does not forward experimental-feature overrides from a client to the
+# daemon. Use the same local store directly as root so UID allocation and its
+# required cgroup isolation can be enabled for this build without changing the
+# daemon configuration or restarting it. The derivation activates/deactivates
+# only inside a disposable Ubuntu systemd-nspawn container.
 exec "$nix_bin" \
+  --store local \
   --extra-experimental-features \
-  "nix-command flakes auto-allocate-uids" \
+  "nix-command flakes auto-allocate-uids cgroups" \
   --option auto-allocate-uids true \
   build --no-link \
   .#checks.aarch64-linux.root-canary-container

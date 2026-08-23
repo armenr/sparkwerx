@@ -112,9 +112,14 @@ the managed links/units and leaves an empty state record. The canary has not
 been activated and no profile or GC root has been registered. The runtime and
 closure-policy builds passed with `--no-link`. The disposable Ubuntu activation
 and rollback test remains pending because its temporary `auto-allocate-uids`
-setting is restricted to a root Nix client. Run only the reviewed
-`sudo ./scripts/test-root-canary.sh` gate; its test-only dry-run is 943.7 MiB
-download / 3.9 GiB unpacked. See `root/system-manager/README.md`.
+and `cgroups` features require a root-local Nix process; Nix 2.35 does not
+forward those experimental-feature overrides to the daemon. Run only the
+reviewed `sudo ./scripts/test-root-canary.sh` gate; its test-only dry-run is
+943.7 MiB download / 3.9 GiB unpacked. See
+`root/system-manager/README.md`. The rejected daemon-path preflight started no
+container and left every System Manager host/registration path absent; it did
+create Nix internal UID-lock/stale-temporary-root bookkeeping disclosed in the
+runbook.
 
 The portal remains an independent option. Selecting Hyprland sets Home
 Manager's implicit `portalPackage` to `null`; only

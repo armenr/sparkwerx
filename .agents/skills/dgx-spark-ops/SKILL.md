@@ -97,6 +97,13 @@ collision/snapshot evidence, timed rollback, and explicit approval for the
 already-built output. If root integration affects Tailscale or desktop mode,
 route through those references and gates too.
 
+Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
+experimental-feature overrides to the daemon, while the test's `uid-range`
+build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
+those features or restart/reconfigure the daemon merely to run this test.
+Disclose `/nix/var/nix/userpool2` and `/nix/var/nix/cgroups` as Nix
+operational bookkeeping; do not delete their records casually.
+
 ### Audit, migrate, or update Tailscale
 
 Read [references/tailscale.md](references/tailscale.md),
