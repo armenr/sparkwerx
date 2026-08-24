@@ -251,12 +251,13 @@ assert_preactivation_state() {
 assert_symlink_target() {
   local path="$1"
   local expected="$2"
-  local observed
+  local observed expected_resolved
 
   [[ -L "$path" ]] || die "expected managed symlink is missing: $path"
-  observed="$(readlink -- "$path")"
-  [[ "$observed" == "$expected" ]] || \
-    die "managed symlink target mismatch at $path (expected $expected; observed $observed)"
+  observed="$(readlink -f -- "$path")"
+  expected_resolved="$(readlink -f -- "$expected")"
+  [[ -n "$observed" && "$observed" == "$expected_resolved" ]] || \
+    die "managed symlink payload mismatch at $path (expected $expected_resolved; observed ${observed:-UNKNOWN})"
 }
 
 assert_postactivation_state() {
@@ -267,7 +268,7 @@ assert_postactivation_state() {
   sysinit_source="$(jq -r '.["sysinit-reactivation.target"].storePath' "$candidate/services/services.json")"
   manager_source="$(jq -r '.["system-manager.target"].storePath' "$candidate/services/services.json")"
 
-  assert_symlink_target /etc/dgx-setup/canary "$canary_source"
+  assert_symlink_target /etc/dgx-setup/canary "$canary_source/dgx-setup/canary"
   assert_symlink_target /etc/systemd/system/dgx-setup-canary.service "$service_source"
   assert_symlink_target /etc/systemd/system/sysinit-reactivation.target "$sysinit_source"
   assert_symlink_target /etc/systemd/system/system-manager.target "$manager_source"
@@ -382,7 +383,10 @@ systemctl show "$rollback_unit.service" -p ExecStart --value --no-pager | \
   grep -F -- "$candidate/bin/deactivate" >/dev/null || \
   die "rollback service does not contain the exact deactivation path"
 pass rollback "timer is active/waiting and bound to the exact deactivation program"
-info rollback_deadline "$(systemctl show "$rollback_unit.timer" -p NextElapseUSecMonotonic --value --no-pager)"
+info rollback_schedule "$(
+  systemctl list-timers --all --no-legend --no-pager "$rollback_unit.timer" |
+    sed 's/^[[:space:]]*//; s/[[:space:]][[:space:]]*/ /g'
+)"
 
 activation_started=true
 "$candidate/bin/activate"
