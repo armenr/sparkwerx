@@ -266,6 +266,15 @@ snapshots, exact store retention, timed rollback, and separate authorization.
 This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 
+The first separately authorized live canary activated on 2026-08-24 and proved
+the exact five-path/three-service boundary. Its helper then failed closed on an
+incorrect wrapper-versus-payload symlink assertion, so the ten-minute guard ran
+exact deactivation. Rollback exited 0, removed the full canary surface, left the
+documented empty version-0 state, preserved the exact pilot root, and passed all
+protected-file, service, GPU, system, and sanitized Tailscale postflight checks.
+No generation was registered. The verifier is corrected, but the canary is
+currently inactive; a retained retry remains separately authorized work.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -279,9 +288,9 @@ advance the Tailscale migration or implement desktop-mode switching.
 
 ## Open decisions
 
-- Decide whether to authorize a System Manager host canary after independent
-  console access, collision/snapshot evidence, exact pilot store retention, and
-  a timed rollback procedure are in place.
+- Decide whether to authorize the corrected System Manager host-canary retry
+  after a fresh same-window snapshot. The first live attempt proved activation
+  scope and timed rollback but did not retain the canary.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

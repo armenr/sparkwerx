@@ -5,8 +5,10 @@ existing Ubuntu-based DGX OS substrate. The configuration is defined by
 `hosts/sparkle-01/system.nix` and `modules/system/minimal-root.nix`.
 
 Nothing in this directory, the flake input, or a successful build activates the
-manager. As of 2026-08-24, no System Manager profile has been registered and no
-System Manager configuration has been applied to the host.
+manager. On 2026-08-24, the first separately authorized live canary activated
+and then rolled back on its timed guard after a verifier false positive. No
+System Manager profile has been registered, and no configuration is currently
+active. The exact empty rollback state and pilot retention root remain.
 
 ## Reviewed candidate
 
@@ -21,11 +23,35 @@ System Manager configuration has been applied to the host.
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Disposable container test | **PASS** for the exact recorded derivation |
-| Host activation | **Not performed** |
+| Host activation | Attempt 1 activated, timed rollback passed; currently inactive |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
 it is not allowed to turn the machine into NixOS or own NVIDIA components.
+
+## Host canary attempt 1
+
+The exact candidate activated on `sparkle-01` at `2026-08-24T06:25:55Z` with
+the retained output and ten-minute rollback timer in place. Its version-1 state
+contained only the five reviewed paths and three service keys, and all protected
+service, system, GPU, and sanitized Tailscale checks passed.
+
+The first live helper then compared the canary link with its wrapper directory
+instead of the immutable payload nested below that wrapper. It failed closed
+and left rollback armed. Exact deactivation ran at `06:35:55Z`, exited 0, and
+removed the complete canary surface. Postflight found the exact empty version-0
+state, no registration, unchanged protected-file hashes, zero failed units, and
+all factory/access services healthy.
+
+The rollback journal also exposed an upstream duplicate stop request for
+`system-manager.target`: the saved service map already contains the target and
+System Manager 1.1.0 appends it again. The first stop succeeds; the duplicate
+logs a non-fatal “unit not loaded” error which upstream intentionally does not
+propagate. The warning and exact pinned-source disposition are retained in the
+[host attempt record](validation/2026-08-24-host-canary-attempt-1.md).
+
+The resolved-payload verifier is corrected. A retry remains a distinct host
+activation and requires a fresh snapshot plus explicit authorization.
 
 ## Exact canary ownership
 
@@ -301,9 +327,15 @@ sudo ./scripts/activate-root-canary-pilot.sh \
 ```
 
 The helper is intentionally hard-coded to the exact tested store output and
-refuses another host, candidate, snapshot location, existing artifact, or
-non-interactive terminal. It never calls `register-profile`. Any failure after
-the timer is armed leaves the timer in control and preserves the pilot GC root.
+refuses another host, candidate, snapshot location, unexpected artifact, or
+non-interactive terminal. It accepts a prior residual state only when it is the
+exact empty version-0 rollback record, and accepts a retained pilot root only
+when it points directly to this exact candidate. A fresh snapshot records those
+two exact conditions without deleting them. The activation helper requires that
+snapshot to match the live residuals and be no more than 30 minutes old. It
+never calls `register-profile`.
+Any failure after the timer is armed leaves the timer in control and preserves
+the pilot GC root.
 After automatic postflight passes, it allows five minutes for a person to test
 the independent local console and type the exact `KEEP CANARY` confirmation;
 only then does it rerun postflight and stop the rollback timer. The pilot root

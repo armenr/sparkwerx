@@ -15,7 +15,7 @@ fail() {
   failures=$((failures + 1))
 }
 
-for command_name in jq nix nix-store systemctl loginctl nvidia-smi tailscale timeout; do
+for command_name in jq nix nix-store readlink systemctl loginctl nvidia-smi tailscale timeout; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     fail "command" "$command_name is unavailable"
   fi
@@ -94,11 +94,12 @@ guarded_paths=(
   /etc/systemd/system/sysinit-reactivation.target
   /etc/systemd/system/system-manager.target
   /etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service
-  /var/lib/system-manager/state/system-manager-state.json
   /nix/var/nix/profiles/system-manager-profiles/system-manager
   /nix/var/nix/gcroots/system-manager-current
-  /nix/var/nix/gcroots/dgx-setup-root-canary-pilot
 )
+
+state_path=/var/lib/system-manager/state/system-manager-state.json
+pilot_root=/nix/var/nix/gcroots/dgx-setup-root-canary-pilot
 
 protected_absent_paths=(
   /etc/profile.d/system-manager-path.sh
@@ -117,6 +118,33 @@ for path in "${guarded_paths[@]}" "${protected_absent_paths[@]}"; do
     pass "collision" "$path is absent"
   fi
 done
+
+if [[ -e "$state_path" || -L "$state_path" ]]; then
+  if [[ -f "$state_path" && ! -L "$state_path" ]] && jq -e '
+    ((keys | sort) == ["fileTree", "services", "version"]) and
+    (. == {
+      "fileTree": {"files": [], "backedUpFiles": []},
+      "services": {},
+      "version": 0
+    })
+  ' "$state_path" >/dev/null; then
+    pass "residual_state" "$state_path is the exact empty version-0 rollback record"
+  else
+    fail "residual_state" "$state_path exists but is not the exact empty rollback record"
+  fi
+else
+  pass "residual_state" "$state_path is absent"
+fi
+
+if [[ -e "$pilot_root" || -L "$pilot_root" ]]; then
+  if [[ -L "$pilot_root" && "$(readlink -- "$pilot_root")" == "$candidate" ]]; then
+    pass "pilot_root" "$pilot_root retains the exact candidate"
+  else
+    fail "pilot_root" "$pilot_root exists but does not point directly to the exact candidate"
+  fi
+else
+  pass "pilot_root" "$pilot_root is absent"
+fi
 
 check_unit() {
   local unit="$1"
@@ -213,4 +241,4 @@ if ((failures != 0)); then
 fi
 
 printf 'PASS|automatic_preflight|all machine-readable checks passed\n'
-printf 'HOLD|activation|snapshot, exact pilot GC root, timed rollback, manual console confirmation, and explicit authorization are still required\n'
+printf 'HOLD|activation|fresh same-window snapshot, exact pilot-root verification, timed rollback, manual console confirmation, and explicit authorization are still required\n'

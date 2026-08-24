@@ -6,6 +6,7 @@ candidate=/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
 pilot_root=/nix/var/nix/gcroots/dgx-setup-root-canary-pilot
 rollback_unit=dgx-root-canary-rollback
 nix_store_bin=/nix/var/nix/profiles/default/bin/nix-store
+state_path=/var/lib/system-manager/state/system-manager-state.json
 
 protected_units=(
   nix-daemon.service
@@ -25,12 +26,9 @@ managed_paths=(
   /etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service
 )
 
-guarded_paths=(
-  "${managed_paths[@]}"
-  /var/lib/system-manager/state/system-manager-state.json
+registration_paths=(
   /nix/var/nix/profiles/system-manager-profiles/system-manager
   /nix/var/nix/gcroots/system-manager-current
-  "$pilot_root"
 )
 
 protected_absent_paths=(
@@ -89,7 +87,7 @@ require_commands() {
   local command_name
 
   for command_name in \
-    awk diff grep hostname jq nvidia-smi readlink sed sha256sum stat \
+    awk date grep hostname jq nvidia-smi readlink sed sha256sum stat \
     systemctl systemd-run tailscale timeout; do
     command -v "$command_name" >/dev/null 2>&1 || \
       die "required command is unavailable: $command_name"
@@ -102,6 +100,19 @@ assert_path_absent() {
   if [[ -e "$path" || -L "$path" ]]; then
     die "collision or forbidden path exists: $path"
   fi
+}
+
+is_exact_empty_state() {
+  [[ -f "$state_path" && ! -L "$state_path" ]] || return 1
+
+  jq -e '
+    ((keys | sort) == ["fileTree", "services", "version"]) and
+    (. == {
+      "fileTree": {"files": [], "backedUpFiles": []},
+      "services": {},
+      "version": 0
+    })
+  ' "$state_path" >/dev/null
 }
 
 snapshot_fragment_path() {
@@ -190,7 +201,9 @@ assert_tailscale_health() {
 }
 
 assert_snapshot() {
-  local expected_absent
+  local index snapshot_timestamp snapshot_epoch now_epoch snapshot_age
+  local expected_state_record expected_pilot_record
+  local -a snapshot_guarded
 
   [[ -f "$snapshot/SNAPSHOT_COMPLETE" ]] || \
     die "snapshot completion marker is missing"
@@ -211,14 +224,45 @@ assert_snapshot() {
   grep -Fx "candidate=$candidate" "$snapshot/context.txt" >/dev/null || \
     die "snapshot candidate does not match the exact reviewed output"
 
-  expected_absent="$(printf 'ABSENT|%s\n' "${guarded_paths[@]}")"
-  diff -u <(printf '%s\n' "$expected_absent") "$snapshot/guarded-paths.before.tsv" >/dev/null || \
-    die "snapshot guarded-path inventory is not the exact expected set"
+  snapshot_timestamp="$(awk -F= '$1 == "timestamp_utc" { print $2; exit }' "$snapshot/context.txt")"
+  snapshot_epoch="$(date -d "$snapshot_timestamp" +%s 2>/dev/null || true)"
+  now_epoch="$(date +%s)"
+  [[ -n "$snapshot_epoch" ]] || die "snapshot timestamp is missing or invalid"
+  snapshot_age=$((now_epoch - snapshot_epoch))
+  ((snapshot_age >= 0 && snapshot_age <= 1800)) || \
+    die "snapshot is not in the current 30-minute activation window (age=${snapshot_age}s)"
+
+  mapfile -t snapshot_guarded <"$snapshot/guarded-paths.before.tsv"
+  [[ "${#snapshot_guarded[@]}" -eq 9 ]] || \
+    die "snapshot guarded-path inventory does not contain exactly nine records"
+
+  for index in "${!managed_paths[@]}"; do
+    [[ "${snapshot_guarded[$index]}" == "ABSENT|${managed_paths[$index]}" ]] || \
+      die "snapshot does not record the exact managed path as absent: ${managed_paths[$index]}"
+  done
+  if [[ -e "$state_path" || -L "$state_path" ]]; then
+    expected_state_record="EMPTY_STATE|$state_path"
+  else
+    expected_state_record="ABSENT|$state_path"
+  fi
+  [[ "${snapshot_guarded[5]}" == "$expected_state_record" ]] || \
+    die "snapshot state record does not match the current preactivation state"
+  [[ "${snapshot_guarded[6]}" == "ABSENT|${registration_paths[0]}" ]] || \
+    die "snapshot does not record the System Manager profile as absent"
+  [[ "${snapshot_guarded[7]}" == "ABSENT|${registration_paths[1]}" ]] || \
+    die "snapshot does not record the upstream System Manager GC root as absent"
+  if [[ -e "$pilot_root" || -L "$pilot_root" ]]; then
+    expected_pilot_record="EXACT_SYMLINK|$pilot_root|$candidate"
+  else
+    expected_pilot_record="ABSENT|$pilot_root"
+  fi
+  [[ "${snapshot_guarded[8]}" == "$expected_pilot_record" ]] || \
+    die "snapshot pilot-root record does not match current retention state"
 
   sha256sum -c "$snapshot/protected-files.before.sha256" >/dev/null || \
     die "protected files already differ from the snapshot"
 
-  pass snapshot "$snapshot is complete, private, checksum-valid, and bound to the exact candidate"
+  pass snapshot "$snapshot is complete, private, checksum-valid, ${snapshot_age}s old, and bound to the exact candidate/current residuals"
 }
 
 assert_preactivation_state() {
@@ -231,9 +275,25 @@ assert_preactivation_state() {
   [[ -x "$candidate/bin/activate" && -x "$candidate/bin/deactivate" ]] || \
     die "exact candidate lacks activation or deactivation"
 
-  for path in "${guarded_paths[@]}" "${protected_absent_paths[@]}"; do
+  for path in "${managed_paths[@]}" "${registration_paths[@]}" "${protected_absent_paths[@]}"; do
     assert_path_absent "$path"
   done
+
+  if [[ -e "$state_path" || -L "$state_path" ]]; then
+    is_exact_empty_state || \
+      die "existing System Manager state is not the exact empty version-0 rollback record"
+    pass prior_state "$state_path is the exact empty version-0 rollback record"
+  else
+    pass prior_state "$state_path is absent"
+  fi
+
+  if [[ -e "$pilot_root" || -L "$pilot_root" ]]; then
+    [[ -L "$pilot_root" && "$(readlink -- "$pilot_root")" == "$candidate" ]] || \
+      die "existing pilot GC root does not point directly to the exact candidate"
+    pass prior_retention "$pilot_root already retains the exact candidate"
+  else
+    pass prior_retention "$pilot_root is absent and will be created before rollback is armed"
+  fi
 
   for unit in "$rollback_unit.timer" "$rollback_unit.service"; do
     load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
@@ -298,7 +358,7 @@ assert_postactivation_state() {
       "sysinit-reactivation.target",
       "system-manager.target"
     ])
-  ' /var/lib/system-manager/state/system-manager-state.json >/dev/null || \
+  ' "$state_path" >/dev/null || \
     die "System Manager state exceeds or differs from the exact canary allowlist"
 
   for path in "${protected_absent_paths[@]}"; do
@@ -359,11 +419,15 @@ info rollback "$rollback_unit.timer;10 minutes;exact candidate deactivate"
 assert_snapshot
 assert_preactivation_state
 
-ln -s -- "$candidate" "$pilot_root"
-pilot_root_created=true
+if [[ -L "$pilot_root" ]]; then
+  pass pilot_root "reusing retained exact root: $pilot_root -> $candidate"
+else
+  ln -s -- "$candidate" "$pilot_root"
+  pilot_root_created=true
+  pass pilot_root "created exact root: $pilot_root -> $candidate"
+fi
 [[ "$(readlink -- "$pilot_root")" == "$candidate" ]] || \
   die "pilot GC root target verification failed"
-pass pilot_root "$pilot_root -> $candidate"
 
 systemd-run \
   --unit="$rollback_unit" \
