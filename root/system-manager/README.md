@@ -289,6 +289,30 @@ Deactivation is not an uninstall: the empty state file remains, and any future
 registered generation/profile requires separate cleanup review. Never replace
 the placeholder with a floating flake reference in a rollback command.
 
+### Guarded live-pilot helper
+
+For the exact `sparkle-01` candidate recorded above, the reviewed live helper
+combines the snapshot check, collision and health gates, direct pilot GC root,
+ten-minute rollback timer, low-level activation, and exact postflight:
+
+```bash
+sudo ./scripts/activate-root-canary-pilot.sh \
+  "$PWD/inventory/sparkle-01/raw/system-manager-canary/<snapshot-timestamp>"
+```
+
+The helper is intentionally hard-coded to the exact tested store output and
+refuses another host, candidate, snapshot location, existing artifact, or
+non-interactive terminal. It never calls `register-profile`. Any failure after
+the timer is armed leaves the timer in control and preserves the pilot GC root.
+After automatic postflight passes, it allows five minutes for a person to test
+the independent local console and type the exact `KEEP CANARY` confirmation;
+only then does it rerun postflight and stop the rollback timer. The pilot root
+remains while the canary is active.
+
+A candidate change makes this helper stale. Update its exact path only together
+with the manifest, closure review, newly authorized disposable test, host
+preflight, and a fresh same-window snapshot.
+
 ## Updates
 
 `scripts/update-dependencies.sh` advances the matching System Manager release
