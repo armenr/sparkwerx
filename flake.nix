@@ -164,6 +164,8 @@
         rootPaths = [ rootCanary ];
       };
       rootCanaryPilotGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot";
+      rootRegistrationTransactionProgram = ./scripts/root-registration-transaction.sh;
+      reviewedRootRegistrationTransactionSha256 = "86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9";
 
       expectedRootCanaryServiceNames = [
         "dgx-setup-canary.service"
@@ -497,6 +499,40 @@
               hostActivationPerformed = false;
               hostPostflight = "clean";
             };
+
+          guardedFirstGeneration = {
+            status = "designed-not-executed";
+            transactionProgram = {
+              repositoryPath = "scripts/root-registration-transaction.sh";
+              sha256 = builtins.hashFile "sha256" rootRegistrationTransactionProgram;
+            };
+            profileDirectory = "/nix/var/nix/profiles/system-manager-profiles";
+            generationOne = "/nix/var/nix/profiles/system-manager-profiles/system-manager-1-link";
+            exactCandidate = rootCanary.outPath;
+            requiresActiveUnregisteredCanary = true;
+            preservesLiveActivation = true;
+            preservesPilotRetention = true;
+            createsBootLink = false;
+            restartsServices = false;
+            liveRegistrationPerformed = false;
+            rollback = {
+              timerUnit = "dgx-root-registration-rollback.timer";
+              delayMinutes = 10;
+              restoresProfileState = "absent";
+              restoresExtraGcRootState = "absent";
+              leavesLiveActivation = "exact retained canary";
+              leavesPilotRetention = "exact candidate";
+            };
+            isolatedTransactionTest = {
+              result = "not-run";
+              currentDrvPath = rootCanaryRegistrationTransactionContainerTest.drvPath;
+              currentOutputPath = rootCanaryRegistrationTransactionContainerTest.outPath;
+              matchesCurrent = false;
+              hostRegistrationPerformed = false;
+              hostActivationPerformed = false;
+              evidence = "root/system-manager/validation/2026-09-01-first-registration-transaction-plan.md";
+            };
+          };
         };
 
         pilotRetention = {
@@ -621,6 +657,23 @@
         assert rootManagerManifest.registration.isolatedLifecycleTest.hostPostflight == "clean";
         assert !rootManagerManifest.registration.isolatedLifecycleTest.hostRegistrationPerformed;
         assert !rootManagerManifest.registration.isolatedLifecycleTest.hostActivationPerformed;
+        assert
+          builtins.hashFile "sha256" rootRegistrationTransactionProgram
+          == reviewedRootRegistrationTransactionSha256;
+        assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
+        assert rootManagerManifest.registration.guardedFirstGeneration.preservesLiveActivation;
+        assert rootManagerManifest.registration.guardedFirstGeneration.preservesPilotRetention;
+        assert !rootManagerManifest.registration.guardedFirstGeneration.createsBootLink;
+        assert !rootManagerManifest.registration.guardedFirstGeneration.restartsServices;
+        assert !rootManagerManifest.registration.guardedFirstGeneration.liveRegistrationPerformed;
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.result == "not-run";
+        assert
+          !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.matchesCurrent;
+        assert
+          !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostRegistrationPerformed;
+        assert
+          !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostActivationPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
@@ -983,6 +1036,17 @@
         '';
       };
 
+      rootCanaryRegistrationTransactionContainerTest =
+        import ./root/system-manager/registration-transaction-test.nix
+          {
+            inherit
+              pkgs
+              rootCanary
+              rootRegistrationTransactionProgram
+              system-manager
+              ;
+          };
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -1012,6 +1076,7 @@
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
         root-canary-registration-container = rootCanaryRegistrationContainerTest;
+        root-canary-registration-transaction-container = rootCanaryRegistrationTransactionContainerTest;
         root-manager-policy = rootManagerPolicyCheck;
         root-system-canary = rootCanary;
         tailscale-package = tailscalePackage;

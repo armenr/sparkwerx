@@ -36,11 +36,14 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   Nixpkgs fallback target separately from upstream stable and follow
   `root/nix/README.md`; the current default target is a blocked downgrade.
 - Read `root/system-manager/README.md` before changing the System Manager pin,
-  overlays, root module, test, state, registration, or activation. The candidate
-  is built and its exact recorded disposable container test passed, but it is
-  inactive/unregistered; its private wrapper must stay on reviewed Nix 2.35.2,
-  and the closure must contain neither Nix 2.34.8 nor real `userborn`. Any
-  change that alters the test derivation makes that pass stale.
+  overlays, root module, test, state, registration, or activation. The exact
+  candidate's bounded host canary is active, directly retained, unregistered,
+  and not boot-linked. Its recorded activation and lifecycle container tests
+  passed; the distinct guarded first-registration failure-injection test is
+  staged with static evaluation PASS but root-assisted execution pending. Its
+  private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
+  neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that
+  test's prior evidence stale.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,

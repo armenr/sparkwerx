@@ -286,6 +286,15 @@ authorizes design of the live registration/rollback transaction only. It does
 not authorize live registration, boot linkage, Tailscale migration, desktop
 switching, or pilot-root removal.
 
+The exact first-generation transaction is now designed and statically
+evaluated. It wraps the upstream helper with an absent-profile precondition,
+exact post-state checks, bounded partial-failure cleanup, a root-owned
+same-window snapshot, and a ten-minute registration-only rollback. The distinct
+failure-injection container derivation is staged but has not yet received its
+root-assisted execution PASS. Therefore the host remains `ACTIVE_RETAINED`,
+unregistered, and not boot-linked. Neither the staged design nor a future
+container PASS authorizes the live wrapper.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -299,10 +308,11 @@ switching, or pilot-root removal.
 
 ## Open decisions
 
-- Design the exact live generation-registration transaction and rollback,
-  treating the Nix profile, extra GC root, and live activation as three
-  separately verified states. The passed disposable test authorizes no host
-  registration.
+- Complete and record the distinct disposable failure-injection PASS for the
+  staged first-generation transaction, then review its exact live SBOM and
+  same-window rollback gate. Profile selection, extra-root synchronization, and
+  live activation remain three separately verified states; no test authorizes
+  host registration.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -334,7 +344,9 @@ The repository-only policy alignment was completed and evaluated on
   disposable activation/deactivation test passed on 2026-08-24, its third
   guarded host attempt was retained on 2026-09-01, and the exact disposable
   generation-registration lifecycle test then passed without host registration
-  or boot linkage;
+  or boot linkage; the guarded first-generation transaction and its distinct
+  failure-injection test are staged with static evaluation PASS and
+  root-assisted execution pending;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

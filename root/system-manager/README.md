@@ -28,6 +28,7 @@ root role is active.
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; host remained unregistered |
+| Guarded first-registration transaction test | **PENDING** root-assisted disposable execution; design/static evaluation pass |
 | Host activation | Attempt 3 retained and independently postflight-verified; active, unregistered, not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
@@ -194,6 +195,42 @@ pass authorizes design of the live registration/rollback transaction only; it
 does not authorize host registration, activation, boot linkage, or removal of
 the pilot root.
 
+## Guarded first-generation transaction: staged, test pending
+
+The reviewed design now wraps the exact upstream helper with a strict
+first-generation transaction. Its mutation program is
+`scripts/root-registration-transaction.sh`, SHA-256
+`86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9`.
+It starts only from an absent dedicated profile directory and absent upstream
+extra root, requires the exact pilot retention root, verifies the exact two-link
+generation-one profile plus direct extra root, and removes only exact
+transaction-owned artifacts on failure. It never activates/deactivates the
+manager, changes boot linkage, reloads systemd, restarts a service, or removes
+the pilot root. Unknown profile entries and foreign collisions fail closed and
+are not deleted.
+
+The distinct disposable failure-injection derivation currently evaluates to
+`/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv`.
+Its design is recorded in the
+[first-registration transaction plan](validation/2026-09-01-first-registration-transaction-plan.md).
+Static evaluation passes, the prior two passed derivations remain unchanged,
+and the live host remains `ACTIVE_RETAINED`. Root-assisted execution is still
+pending:
+
+```bash
+sudo ./scripts/test-root-registration-transaction.sh
+```
+
+Do not run the private snapshot or live wrapper merely because this disposable
+test later passes. After a recorded hash-valid PASS, a live attempt would still
+require a clean committed tree, a fresh root-owned registration snapshot,
+independent console access, an exact ten-minute registration-only rollback, and
+new authorization bound to that snapshot. The staged helpers are
+`scripts/snapshot-root-registration.sh` and
+`scripts/register-root-canary-pilot.sh`. The live wrapper creates no boot link
+and performs no activation; it retains registration only after repeated
+postflight and the exact `KEEP REGISTRATION` confirmation.
+
 ## Defaults we rejected
 
 Upstream's nominally empty configuration is broader than this project's empty
@@ -293,7 +330,8 @@ nix --extra-experimental-features "nix-command flakes" \
   .#root-system-canary \
   .#checks.aarch64-linux.root-manager-policy \
   .#checks.aarch64-linux.root-canary-container \
-  .#checks.aarch64-linux.root-canary-registration-container
+  .#checks.aarch64-linux.root-canary-registration-container \
+  .#checks.aarch64-linux.root-canary-registration-transaction-container
 ```
 
 An explicitly approved no-link runtime build is:
