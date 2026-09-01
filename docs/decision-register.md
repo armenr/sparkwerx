@@ -266,14 +266,17 @@ snapshots, exact store retention, timed rollback, and separate authorization.
 This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 
-The first separately authorized live canary activated on 2026-08-24 and proved
-the exact five-path/three-service boundary. Its helper then failed closed on an
-incorrect wrapper-versus-payload symlink assertion, so the ten-minute guard ran
-exact deactivation. Rollback exited 0, removed the full canary surface, left the
-documented empty version-0 state, preserved the exact pilot root, and passed all
-protected-file, service, GPU, system, and sanitized Tailscale postflight checks.
-No generation was registered. The verifier is corrected, but the canary is
-currently inactive; a retained retry remains separately authorized work.
+Two separately authorized live canaries activated on 2026-08-24 and proved the
+exact five-path/three-service boundary. Attempt 1 failed closed on an incorrect
+wrapper-versus-payload verifier assertion; its ten-minute guard ran exact
+deactivation. The corrected attempt 2 passed full automatic postflight, then
+left rollback armed because the exact `KEEP CANARY` human confirmation was not
+entered. Its timed deactivation also completed successfully. The 2026-09-01
+post-reboot audit found the complete canary surface absent, exact empty
+version-0 state, retained exact pilot root, no registration, zero failed units,
+and healthy factory/access services. No generation has been registered. The
+canary is currently inactive; a retained activation remains separately
+authorized work.
 
 ## Explicit non-selections
 
@@ -288,9 +291,9 @@ currently inactive; a retained retry remains separately authorized work.
 
 ## Open decisions
 
-- Decide whether to authorize the corrected System Manager host-canary retry
-  after a fresh same-window snapshot. The first live attempt proved activation
-  scope and timed rollback but did not retain the canary.
+- Decide whether to authorize a retained System Manager host-canary attempt
+  after a fresh same-window snapshot. Two live attempts proved the activation
+  scope and timed rollback, but neither retained the canary.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

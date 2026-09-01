@@ -10,7 +10,9 @@ Nix evaluation, redistribution, or the installation method.
 
 ## Status of this snapshot
 
-Evidence date: **2026-08-24**
+Package/version evidence date: **2026-08-24**
+
+Root-canary operational evidence updated: **2026-09-01**
 
 The versions below came from the current 2026-08-23 lock, exact upstream pins,
 and current official vendor sources. Stable Nixpkgs was advanced to its current
@@ -21,9 +23,16 @@ activation. The first disposable-container activation failed closed on upstream
 global tmpfiles behavior; after the exact-version patch, the exact current
 activation/deactivation derivation passed and clean postflight proved the host
 untouched. The first later live canary activated within its exact boundary and
-then rolled back cleanly on its timed guard after a verifier false positive.
-System Manager was never registered and is currently inactive; Tailscale was
-not restarted or replaced, and the desktop was not switched.
+then rolled back cleanly on its timed guard after a verifier false positive. A
+second live canary passed corrected automatic postflight and rolled back on the
+same guard after the exact human retention confirmation was accidentally not
+entered. A later reboot audit confirmed the canary surface absent, exact empty
+state, no registration, retained exact candidate, and healthy protected
+services. A subsequent factory Firefox Snap refresh temporarily set a pending
+systemd daemon reload. Armen acknowledged the generated unit graph without a
+protected-service restart, and the full preflight passed again. System Manager
+is currently inactive; Tailscale was not restarted or replaced, and the desktop
+was not switched.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -48,7 +57,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2 | Do not replace/restart the live daemon over Tailscale SSH; validate the selected root-manager candidate and pass console, rollback, state/identity, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; HOST ATTEMPT ROLLED BACK CLEANLY; retry OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable test passed. The first live canary then activated with exactly five managed paths and three service keys. A wrapper-versus-payload verifier defect deliberately left rollback armed; exact timed deactivation exited 0 and passed link/state/registration/protected-hash/service/GPU/system/Tailscale postflight. The canary is inactive and unregistered. Its exact empty version-0 state and direct pilot root remain intentionally; the payload verifier is corrected | Rerun current preflight, create a fresh private snapshot that records the exact residual state/root, reconfirm console access, obtain explicit retry authorization, and arm the same exact timed rollback |
+| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; TWO HOST ATTEMPTS ROLLED BACK CLEANLY; retained activation OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable test passed. Attempt 1 proved the five-path/three-service boundary and rolled back after a verifier false positive. Attempt 2 passed the corrected automatic postflight and rolled back after the exact human retention confirmation was not entered. The 2026-09-01 reboot audit confirmed absent managed paths, exact empty state, no registration, retained candidate, and healthy protected services. The canary is inactive and unregistered | Rerun current preflight, create a fresh private snapshot that records the exact residual state/root, reconfirm console access, obtain explicit activation authorization, and arm the same exact timed rollback |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |

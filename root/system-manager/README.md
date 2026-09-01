@@ -5,10 +5,13 @@ existing Ubuntu-based DGX OS substrate. The configuration is defined by
 `hosts/sparkle-01/system.nix` and `modules/system/minimal-root.nix`.
 
 Nothing in this directory, the flake input, or a successful build activates the
-manager. On 2026-08-24, the first separately authorized live canary activated
-and then rolled back on its timed guard after a verifier false positive. No
-System Manager profile has been registered, and no configuration is currently
-active. The exact empty rollback state and pilot retention root remain.
+manager. On 2026-08-24, two separately authorized live canaries activated and
+then rolled back on their timed guards: attempt 1 followed a verifier false
+positive, while attempt 2 passed corrected automatic postflight but did not
+receive the exact human retention confirmation. No System Manager profile has
+been registered, and no configuration is currently active. A 2026-09-01 reboot
+audit confirmed the exact empty rollback state, retained pilot root, and healthy
+factory/access services.
 
 ## Reviewed candidate
 
@@ -23,7 +26,7 @@ active. The exact empty rollback state and pilot retention root remain.
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Disposable container test | **PASS** for the exact recorded derivation |
-| Host activation | Attempt 1 activated, timed rollback passed; currently inactive |
+| Host activation | Attempts 1 and 2 activated and timed rollback passed; currently inactive |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -50,8 +53,33 @@ logs a non-fatal “unit not loaded” error which upstream intentionally does n
 propagate. The warning and exact pinned-source disposition are retained in the
 [host attempt record](validation/2026-08-24-host-canary-attempt-1.md).
 
-The resolved-payload verifier is corrected. A retry remains a distinct host
-activation and requires a fresh snapshot plus explicit authorization.
+The resolved-payload verifier was corrected before attempt 2 and passed against
+the live host.
+
+## Host canary attempt 2 and reboot confirmation
+
+The corrected helper activated the same exact candidate at
+`2026-08-24T07:07:28Z`. Its automatic postflight passed the resolved five-path,
+three-service boundary, protected-file hashes, factory/access services, system,
+GPU, and sanitized Tailscale checks. The prompt then received an accidental
+empty line instead of exactly `KEEP CANARY`, so it failed closed and left the
+ten-minute timer armed. An immediate rerun correctly refused the already-active
+canary collision. Timed exact deactivation ran at `07:17:29Z` and completed
+successfully.
+
+The [attempt 2 record](validation/2026-08-24-host-canary-attempt-2.md) preserves
+the exact timeline, passed checks, known duplicate-stop warning, and completed
+post-rollback protected-file hash check. The later
+[post-reboot audit](validation/2026-09-01-post-reboot-audit.md) confirmed all
+managed and forbidden paths absent, exact empty version-0 state, no
+registration, the candidate still directly retained, zero failed units, and
+healthy Nix, Tailscale/Tailscale SSH, desktop, Docker, DGX, NVIDIA, and GPU
+state. It also records a later factory Firefox Snap refresh that temporarily set
+`NeedDaemonReload=yes`. Armen acknowledged the generated unit graph with a
+daemon reload; no protected service restarted, and full preflight passed again.
+
+A retained retry remains a distinct host activation and requires a new fresh
+snapshot plus explicit authorization.
 
 ## Exact canary ownership
 

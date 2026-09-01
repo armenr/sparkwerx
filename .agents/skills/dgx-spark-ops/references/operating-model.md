@@ -122,14 +122,22 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   2026-08-24, including the unmanaged tmpfiles sentinel, protected-file hashes,
   bounded state, rollback, and clean host postflight; any derivation change
   invalidates that evidence;
-- low-level System Manager activation would create a state record under
+- two separately authorized low-level host canaries activated within the exact
+  five-path/three-service boundary and timed rollback completed successfully;
+  the current residual is the exact empty version-0 state under
   `/var/lib/system-manager/state`, while generation profile/GC-root registration
-  is separate; neither has occurred on the pilot;
+  remains separate and has never occurred;
 - low-level activation does not itself retain the store output. A live pilot
   must first create the manifest-declared direct root at
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`; it is not upstream
   generation registration, does not replace that future decision, and must
   survive until verified deactivation;
+- the 2026-09-01 reboot audit confirmed the canary inactive and unregistered,
+  all managed and forbidden paths absent, the exact candidate still retained,
+  and the factory/access services healthy; a factory Firefox Snap refresh one
+  minute later changed the unit graph and correctly invalidated the earlier
+  preflight until a daemon reload and full recheck passed without restarting
+  protected services;
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
