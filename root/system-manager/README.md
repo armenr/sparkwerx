@@ -26,7 +26,8 @@ root role is active.
 | Private Nix runtime | Official Nix 2.35.2 release flake at `2c73b59da29606068c0c98db015dd3a66955525d` |
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
-| Disposable container test | **PASS** for the exact recorded derivation |
+| Activation/deactivation container test | **PASS** for the exact recorded derivation |
+| Registration lifecycle container test | **PASS** for the exact recorded derivation; host remained unregistered |
 | Host activation | Attempt 3 retained and independently postflight-verified; active, unregistered, not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
@@ -148,7 +149,7 @@ for upstream generation registration. It must remain until deactivation is
 verified; removing it while active can strand `/etc` links, unit programs, and
 the rollback executable after a Nix garbage collection.
 
-## Generation-registration lifecycle: test pending
+## Generation-registration lifecycle: test passed
 
 Source inspection of pinned System Manager 1.1.0 found four behaviors that the
 fleet wrapper must not hide:
@@ -171,19 +172,27 @@ semantics. Its current derivation is
 The design and exact assertions are recorded in the
 [registration test plan](validation/2026-09-01-registration-test-plan.md).
 
-The test is **pending**, not passed. Evaluation and a no-build dry-run do not
-authorize its root-assisted builder. The separately gated command is:
+The exact derivation **passed** on 2026-09-01. Nix realized the expected,
+hash-valid output only after all nine subtests completed. Independent host
+postflight found the canary still `ACTIVE_RETAINED`, both host registration
+paths absent, all protected services healthy with no pending reload, systemd
+running with zero failed units, a healthy GPU, and healthy sanitized Tailscale
+SSH state. The exact evidence is in the
+[registration container-test record](validation/2026-09-01-registration-container-test.md).
+
+The reviewed helper remains:
 
 ```bash
 sudo ./scripts/test-root-registration.sh
 ```
 
-That helper registers and switches generations only inside the disposable
-Ubuntu container. It classifies the live host with
-`scripts/audit-root-canary-state.sh` before and after and requires the same
-state class on both sides. Do not run the helper during an ordinary audit, and
-do not propose live registration until its exact derivation has passed and a
-clean host postflight is durably recorded.
+It registers and switches generations only inside the disposable Ubuntu
+container and requires the same exact safe host-state class before and after.
+Do not rerun it during an ordinary audit. Any changed lifecycle derivation
+invalidates this pass and requires new review plus separate authorization. This
+pass authorizes design of the live registration/rollback transaction only; it
+does not authorize host registration, activation, boot linkage, or removal of
+the pilot root.
 
 ## Defaults we rejected
 

@@ -137,8 +137,9 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - source inspection found System Manager 1.1.0 registration is non-transactional:
   its Nix profile can advance before a later extra-GC-root collision fails, and
   selecting a generation changes neither live activation nor that extra root.
-  The exact two-generation disposable lifecycle test is designed and
-  evaluation-valid but unrun; no live registration follows from that status;
+  The exact two-generation disposable lifecycle derivation passed on
+  2026-09-01 with a hash-valid output and clean host postflight; it authorizes
+  design of a live transaction but no live registration;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until

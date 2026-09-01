@@ -201,9 +201,10 @@ Resolve the exact current root-canary output, then run the repository's
 
 While retained, do not run the inactive preflight or activation helper.
 Registration profile links and the upstream extra GC root must remain absent.
-The separately designed generation-registration container test is documented
-under `root/system-manager/validation/`; evaluation or dry-run status is not a
-test pass and a test pass would not authorize live registration.
+The exact generation-registration container test and its result are documented
+under `root/system-manager/validation/`. Require its manifest result to be
+`passed`, its recorded/current derivations to match, and host postflight to be
+clean. The pass does not authorize live registration.
 
 ### NVIDIA playbooks
 

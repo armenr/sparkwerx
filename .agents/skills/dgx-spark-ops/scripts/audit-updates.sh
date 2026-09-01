@@ -396,7 +396,8 @@ audit_root_integration() {
   local manifest manager_node manager_ref manager_locked_rev
   local manager_version manager_branch manager_rev private_nix_version
   local private_nix_rev release_version release_rev current candidate
-  local test_result policy_ok live_state root_output status detail
+  local test_result registration_test_result registration_test_matches
+  local policy_ok live_state root_output status detail
   local -a nix_args
 
   if [[ ! -r root/nix/release.json ]] || ! command -v jq >/dev/null 2>&1; then
@@ -441,8 +442,14 @@ audit_root_integration() {
   release_version="$(jq -r '.version // empty' root/nix/release.json)"
   release_rev="$(jq -r '.tagCommit // empty' root/nix/release.json)"
   test_result="$(jq -r '.isolatedTest.result // empty' <<<"$manifest")"
+  registration_test_result="$(
+    jq -r '.registration.isolatedLifecycleTest.result // empty' <<<"$manifest"
+  )"
+  registration_test_matches="$(
+    jq -r '.registration.isolatedLifecycleTest.matchesCurrent // false' <<<"$manifest"
+  )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -452,6 +459,12 @@ audit_root_integration() {
     (.manager.patches[0].path == "patches/system-manager/skip-empty-tmpfiles.patch") and
     (.manager.patches[0].sha256 == "32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a") and
     (.registration.performed == false) and
+    (.registration.isolatedLifecycleTest.result == "passed") and
+    (.registration.isolatedLifecycleTest.matchesCurrent == true) and
+    (.registration.isolatedLifecycleTest.evidence == "root/system-manager/validation/2026-09-01-registration-container-test.md") and
+    (.registration.isolatedLifecycleTest.hostRegistrationPerformed == false) and
+    (.registration.isolatedLifecycleTest.hostActivationPerformed == false) and
+    (.registration.isolatedLifecycleTest.hostPostflight == "clean") and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
     (.pilotRetention.created == false) and
     (.pilotRetention.requiredForLowLevelActivation == true) and
@@ -503,7 +516,7 @@ audit_root_integration() {
     detail="The candidate exceeds the approved inert ownership policy."
   elif [[ "$live_state" == "ACTIVE_RETAINED" ]]; then
     status="CURRENT"
-    detail="The exact attempt-3 five-path/three-service canary is retained active, directly rooted, unregistered, and not boot-linked; declarative manifest side-effect flags remain inert."
+    detail="The exact activation and registration-lifecycle container tests pass; the attempt-3 five-path/three-service canary remains retained active, directly rooted, unregistered, and not boot-linked."
   elif [[ "$live_state" == "INACTIVE_EMPTY" ]]; then
     status="CURRENT"
     detail="The only live artifact is the exact empty version-0 state left by deactivation; registration and managed paths are absent."
@@ -518,7 +531,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-01-host-canary-attempt-3.md" \
+    "repo:root/system-manager/validation/2026-09-01-registration-container-test.md" \
     "$detail"
 }
 

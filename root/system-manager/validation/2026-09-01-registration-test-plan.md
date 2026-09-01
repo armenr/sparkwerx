@@ -1,13 +1,15 @@
-# System Manager registration lifecycle test plan — 2026-09-01
+# System Manager registration lifecycle test — 2026-09-01
 
 ## Status
 
-DESIGNED AND EVALUATED; ROOT-ASSISTED TEST NOT RUN.
+**PASS FOR THE EXACT DISPOSABLE DERIVATION; HOST REMAINS UNREGISTERED.**
 
-This record defines the disposable registration/switching test that must pass
-before any generation is registered on sparkle-01. Creating this test did not
-run register-profile on the host, create either upstream registration path,
-change the retained canary, reload systemd, or touch a service.
+This record defines the disposable registration/switching test that passed
+before any live generation-registration plan may be proposed for sparkle-01.
+The test ran every registration, switch, activation, and deactivation operation
+inside its Ubuntu container. It did not run `register-profile` on the host,
+create either host registration path, change the retained canary, reload host
+systemd, or touch a host service.
 
 ## Exact immutable inputs
 
@@ -16,17 +18,24 @@ change the retained canary, reload systemd, or touch a service.
 | Retained baseline generation | /nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager |
 | Disposable second generation | /nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager |
 | Registration-test derivation | /nix/store/m4zm42h6f8dch5mfm6aq6cpjp9jwzk90-container-test-dgx-root-canary-registration.drv |
-| Planned test output | /nix/store/jkl1lsqnvmv5iznk7q70xjk9l6xfvf6j-container-test-dgx-root-canary-registration |
+| Test output | /nix/store/jkl1lsqnvmv5iznk7q70xjk9l6xfvf6j-container-test-dgx-root-canary-registration |
+| Test output hash | sha256:0jkwb59zdilvdaadw826wfa6vkjmsj0agd58ns16gywsny1yf2mv |
 | Original activation-test derivation | /nix/store/jcrdk9p9lz3qiya2l1021339lsdvyxcg-container-test-dgx-root-canary.drv |
+| Repository commit at execution | 759997de70c92147204c120c900f03fca488f859 |
+| Read-only verification | 2026-09-01T12:54:16Z |
+| Host state before and after | ACTIVE_RETAINED |
 | System Manager | 1.1.0 at 05e08c6dd739d7f3204e71322594bb8095334cfb |
 | Private Nix | 2.35.2 |
 | Host registration performed | No |
 | Host activation performed by this work | No |
 
 Evaluation-only flake checks pass. The retained baseline output and original
-passing activation-test derivation are unchanged. A no-build dry-run reports
-eight derivations for the new test, all scoped to the second marker, closure
-metadata, test script, and disposable test output.
+passing activation-test derivation are unchanged. Before execution, a no-build
+dry-run reported eight derivations, all scoped to the second marker, closure
+metadata, test script, and disposable test output. After execution, Nix reports
+the exact planned output as valid and bound to the exact planned derivation.
+The detailed result and independent host postflight are in the
+[registration container-test record](2026-09-01-registration-container-test.md).
 
 ## Source-level lifecycle facts
 
@@ -56,8 +65,8 @@ synchronization, and activation as separate checked state transitions.
 
 ## Disposable test matrix
 
-The new test runs only inside the Ubuntu 24.04 systemd-nspawn build sandbox and
-will prove:
+The test ran only inside the Ubuntu 24.04 systemd-nspawn build sandbox and
+proved:
 
 - a forced regular-file collision at system-manager-current causes
   register-profile to fail after the profile has already been created;
@@ -81,19 +90,20 @@ will prove:
 
 ## Execution gate
 
-The only reviewed helper is:
+The separately authorized helper was:
 
     sudo ./scripts/test-root-registration.sh
 
-It uses the active root-profile Nix with process-local auto-allocate-uids and
-cgroups, the local store, and NIX_USER_CONF_FILES=/dev/null. It verifies the
+It used the active root-profile Nix with process-local auto-allocate-uids and
+cgroups, the local store, and `NIX_USER_CONF_FILES=/dev/null`. It verified the
 live host root-manager state immediately before and after the disposable build
-and requires the state class to be identical.
+and required the state class to be identical.
 
-Running that helper realizes store paths and executes a root-assisted container
-builder. It therefore requires separate explicit authorization. A passing
-result must be recorded here with the exact derivation/output and clean host
-postflight before any live registration plan is proposed.
+The invocation realized test-only store paths and completed the exact
+root-assisted container builder. Repeating it is not an ordinary audit action:
+a changed derivation requires new review and separate authorization. This pass
+permits design of a live-registration transaction and rollback; it does not
+authorize live registration.
 
 ## Stop conditions
 

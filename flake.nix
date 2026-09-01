@@ -476,16 +476,27 @@
           profile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
           gcRoot = "/nix/var/nix/gcroots/system-manager-current";
 
-          isolatedLifecycleTest = {
-            result = "pending";
-            baselineOutputPath = rootCanary.outPath;
-            secondGenerationOutputPath = rootCanaryRegistrationTestGeneration.outPath;
-            currentDrvPath = rootCanaryRegistrationContainerTest.drvPath;
-            currentOutputPath = rootCanaryRegistrationContainerTest.outPath;
-            evidence = "root/system-manager/validation/2026-09-01-registration-test-plan.md";
-            hostRegistrationPerformed = false;
-            hostActivationPerformed = false;
-          };
+          isolatedLifecycleTest =
+            let
+              observedDrvPath = "/nix/store/m4zm42h6f8dch5mfm6aq6cpjp9jwzk90-container-test-dgx-root-canary-registration.drv";
+              observedOutputPath = "/nix/store/jkl1lsqnvmv5iznk7q70xjk9l6xfvf6j-container-test-dgx-root-canary-registration";
+            in
+            {
+              verifiedAt = "2026-09-01T12:54:16Z";
+              result = "passed";
+              inherit observedDrvPath observedOutputPath;
+              baselineOutputPath = rootCanary.outPath;
+              secondGenerationOutputPath = rootCanaryRegistrationTestGeneration.outPath;
+              currentDrvPath = rootCanaryRegistrationContainerTest.drvPath;
+              currentOutputPath = rootCanaryRegistrationContainerTest.outPath;
+              matchesCurrent =
+                rootCanaryRegistrationContainerTest.drvPath == observedDrvPath
+                && rootCanaryRegistrationContainerTest.outPath == observedOutputPath;
+              evidence = "root/system-manager/validation/2026-09-01-registration-container-test.md";
+              hostRegistrationPerformed = false;
+              hostActivationPerformed = false;
+              hostPostflight = "clean";
+            };
         };
 
         pilotRetention = {
@@ -605,6 +616,11 @@
         assert !rootCanaryRegistrationTestConfig.security.enableWrappers;
         assert !rootCanaryRegistrationTestConfig.system-manager.linkCurrentSystem;
         assert rootCanaryRegistrationTestConfig.systemd.targets.system-manager.wantedBy == [ ];
+        assert rootManagerManifest.registration.isolatedLifecycleTest.result == "passed";
+        assert rootManagerManifest.registration.isolatedLifecycleTest.matchesCurrent;
+        assert rootManagerManifest.registration.isolatedLifecycleTest.hostPostflight == "clean";
+        assert !rootManagerManifest.registration.isolatedLifecycleTest.hostRegistrationPerformed;
+        assert !rootManagerManifest.registration.isolatedLifecycleTest.hostActivationPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;

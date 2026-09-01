@@ -276,13 +276,15 @@ active and directly retained by the pilot root. No generation is registered,
 no boot link exists, and no broader root role is active.
 
 The next selected design milestone is generation registration and switching,
-not a real service. A separate disposable lifecycle test is now defined and
-evaluation-valid but remains unrun. It explicitly tests partial registration,
-two generations, profile selection versus activation, extra-GC-root
-synchronization, rollback activation, and deactivation with retained history.
-This selection authorizes the repository test definition and no-build review
-only. It does not authorize the root-assisted test, live registration, boot
-linkage, Tailscale migration, desktop switching, or pilot-root removal.
+not a real service. The exact disposable lifecycle derivation passed on
+2026-09-01. It proved partial-registration behavior, two generations, profile
+selection versus activation, extra-GC-root synchronization, rollback
+activation, deactivation with retained history, protected-file preservation,
+and the existing tmpfiles boundary. Independent postflight found the retained
+host canary unchanged and all host registration paths absent. This pass
+authorizes design of the live registration/rollback transaction only. It does
+not authorize live registration, boot linkage, Tailscale migration, desktop
+switching, or pilot-root removal.
 
 ## Explicit non-selections
 
@@ -297,10 +299,10 @@ linkage, Tailscale migration, desktop switching, or pilot-root removal.
 
 ## Open decisions
 
-- Separately authorize and run the exact disposable generation-registration
-  lifecycle test, record its result and clean host postflight, then design the
-  live registration rollback. The retained canary and the pending test
-  authorize no host registration.
+- Design the exact live generation-registration transaction and rollback,
+  treating the Nix profile, extra GC root, and live activation as three
+  separately verified states. The passed disposable test authorizes no host
+  registration.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -329,9 +331,10 @@ The repository-only policy alignment was completed and evaluated on
 - System Manager 1.1.0 was pinned as an inactive root-manager candidate; its
   109-path / 230.0 MiB canary and closure policy passed no-link builds with a
   private Nix 2.35.2 runtime and no real `userborn` closure; its exact patched
-  disposable activation/deactivation test passed on 2026-08-24, and its third
-  guarded host attempt was retained on 2026-09-01 without registration or boot
-  linkage;
+  disposable activation/deactivation test passed on 2026-08-24, its third
+  guarded host attempt was retained on 2026-09-01, and the exact disposable
+  generation-registration lifecycle test then passed without host registration
+  or boot linkage;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and
