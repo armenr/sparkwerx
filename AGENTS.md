@@ -37,22 +37,28 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `root/nix/README.md`; the current default target is a blocked downgrade.
 - Read `root/system-manager/README.md` before changing the System Manager pin,
   overlays, root module, test, state, registration, or activation. The exact
-  candidate's bounded host canary is active, directly retained, unregistered,
-  and not boot-linked. Its recorded activation, registration-lifecycle, and
-  guarded first-registration failure-injection container tests all passed; live
-  registration remains unexecuted and separately gated. Its
-  private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
-  neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that
-  test's prior evidence stale.
+  candidate's bounded host canary is active and directly retained. Exact
+  generation one and the upstream extra GC root are also retained; no boot link
+  exists. Its recorded activation, registration-lifecycle, and guarded
+  first-registration failure-injection container tests all passed, and the
+  separately guarded live registration was retained after repeated postflight
+  and independent console confirmation. Do not rerun the one-time registration
+  helper, reboot, add boot linkage, switch generations, remove either root, or
+  broaden ownership without a separate plan and authorization. Its private
+  wrapper must stay on reviewed Nix 2.35.2, and the closure must contain neither
+  Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's prior
+  evidence stale.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
   snapshots, timed rollback, retained store closure, and explicit authorization.
 - Low-level System Manager activation does not register or GC-root its output.
-  For the live pilot, preserve the exact candidate with only the documented
-  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink before arming
-  rollback. Never remove that root while the canary is active or rollback is
-  unverified, and never infer permission to run upstream `register-profile`.
+  The live pilot therefore still requires the documented
+  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The later guarded
+  registration added the exact selected profile, generation-one link, and
+  `/nix/var/nix/gcroots/system-manager-current` root. Preserve all of them while
+  this state is retained; never infer permission to rerun upstream
+  `register-profile`, remove registration, or retire the pilot root.
 - Preserve the helper's root-only `--store local` path: Nix 2.35 strips
   experimental-feature overrides on daemon connections, while this test needs
   temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings

@@ -272,10 +272,11 @@ defect and a missing exact human confirmation, respectively; both timed
 rollbacks completed successfully. Attempt 3 on 2026-09-01 passed corrected
 postflight twice, independent local-console confirmation, and independent
 read-only postflight, then disarmed rollback. The exact canary is currently
-active and directly retained by the pilot root. No generation is registered,
-no boot link exists, and no broader root role is active.
+active and directly retained by the pilot root. At that activation milestone,
+no generation was registered, no boot link existed, and no broader root role
+was active.
 
-The next selected design milestone is generation registration and switching,
+The next selected design milestone was generation registration and switching,
 not a real service. The exact disposable lifecycle derivation passed on
 2026-09-01. It proved partial-registration behavior, two generations, profile
 selection versus activation, extra-GC-root synchronization, rollback
@@ -293,10 +294,10 @@ disposable cleanup scenarios completed against the exact reviewed transaction
 checksum. The prior two passed derivations remained unchanged. Independent
 postflight found the host still `ACTIVE_RETAINED`, unregistered, not
 boot-linked, and healthy. This pass makes the exact live SBOM and rollback gate
-eligible for review; it does not authorize the live wrapper. Live registration
-still requires a clean committed tree, same-window root-owned snapshot,
-independent console, armed ten-minute rollback, and authorization bound to the
-fresh snapshot.
+eligible for review; it did not authorize the live wrapper. The later live
+registration still required a clean committed tree, same-window root-owned
+snapshot, independent console, armed ten-minute rollback, and authorization
+bound to the fresh snapshot.
 
 The first live wrapper invocation on 2026-09-01 passed its snapshot gate and
 then failed closed before mutation on a false `nix-daemon.service` `MainPID`
@@ -309,6 +310,18 @@ passed synthetic plus all-seven-unit regression checks. The transaction
 checksum and disposable derivations are unchanged. The old commit-bound
 snapshot is retired; retry requires a new clean commit, snapshot, console
 check, and exact snapshot-bound authorization.
+
+Attempt 2 then refused an otherwise valid snapshot at 2,207 seconds old,
+before timer or mutation, and clean postflight again found `ACTIVE_RETAINED`
+with registration absent. Attempt 3 used corrected commit `0f03d01` and fresh
+snapshot `20260901T201613Z`. It passed the complete preflight, armed the exact
+registration-only rollback, registered generation one and the upstream extra
+root without activation, passed postflight, received exact
+`KEEP REGISTRATION` confirmation after independent console verification,
+passed repeated postflight, and disarmed rollback before its service ran.
+Independent postflight classified the host `ACTIVE_REGISTERED_RETAINED`. The
+registered generation, upstream extra root, and pilot root all resolve to the
+exact candidate; no boot link or broader ownership exists.
 
 ## Explicit non-selections
 
@@ -323,12 +336,11 @@ check, and exact snapshot-bound authorization.
 
 ## Open decisions
 
-- Run the corrected first-generation wrapper only from a new clean commit and
-  fresh same-window snapshot with repeated console verification and exact
-  snapshot-bound authorization. Profile selection, extra-root synchronization,
-  and live activation remain three separately verified states; no disposable
-  test authorizes host registration, and any changed transaction or derivation
-  requires a new disposable gate.
+- Design the next root milestone without disturbing retained generation one:
+  reboot/boot behavior, any second generation or switch, pilot-root retirement,
+  and the first real managed service remain separate decisions. Registration
+  is not activation or boot persistence; do not reboot or add boot linkage
+  without a separately guarded plan.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -363,8 +375,10 @@ The repository-only policy alignment was completed and evaluated on
   or boot linkage; the exact guarded first-generation failure-injection test
   then passed with clean host postflight; the first live registration wrapper
   attempt later failed closed before mutation because of an order-dependent
-  service-snapshot parser, which is now corrected and regression tested while
-  the host remains unregistered;
+  service-snapshot parser, which was corrected and regression tested; a second
+  attempt refused an expired snapshot before mutation, and the third retained
+  exact generation one after repeated postflight and local-console
+  confirmation while activation remained unchanged and no boot link appeared;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

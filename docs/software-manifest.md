@@ -39,18 +39,25 @@ systemd daemon reload. Armen acknowledged the generated unit graph without a
 protected-service restart, and the full preflight passed again. A third live
 canary then passed the complete guarded flow and was retained after independent
 local-console confirmation. System Manager is active only on the exact
-five-path/three-service surface, remains unregistered and not boot-linked, and
-owns no Tailscale or desktop state. The exact two-generation disposable
-registration lifecycle test subsequently passed with clean independent host
-postflight; it performed no host registration. The separate guarded
+five-path/three-service surface and owns no Tailscale or desktop state. At that
+activation milestone it remained unregistered and not boot-linked. The exact
+two-generation disposable registration lifecycle test subsequently passed with
+clean independent host postflight; it performed no host registration. The
+separate guarded
 first-generation transaction, private snapshot, timed rollback wrapper, and
 failure-injection container test were then completed through the exact
 disposable PASS with clean host postflight. The first live wrapper invocation
 then failed closed during protected-service preflight, before its rollback
 timer or registration transaction, because its parser associated a property
 with the next systemd unit. The parser is corrected and regression tested; the
-old snapshot is retired. The host remains unregistered, Tailscale was not
-restarted or replaced, and the desktop was not switched.
+old snapshot is retired. A second attempt refused a snapshot 407 seconds beyond
+the hard age limit and again changed nothing. Attempt 3 then retained exact
+generation one using corrected commit `0f03d01` and fresh snapshot
+`20260901T201613Z` after an armed registration-only rollback, repeated
+postflight, and independent local-console confirmation. Current state is
+`ACTIVE_REGISTERED_RETAINED`: both profile links, the upstream extra root, and
+the pilot root resolve to the exact candidate. No activation, boot linkage,
+service restart, Tailscale replacement, or desktop switch occurred.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -75,7 +82,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. The bounded System Manager canary is retained and healthy, but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact System Manager ownership diff and apt rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; ALL THREE DISPOSABLE TESTS PASSED; RETAINED HOST CANARY ACTIVE; LIVE REGISTRATION GATED/NOT AUTHORIZED | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The patched activation/deactivation test, two-generation registration lifecycle test at `m4zm42h…`, and guarded first-generation failure-injection test at `lxnykcyv…` all passed. Attempt 3 remains the exact five-path/three-service host canary, directly rooted, unregistered, and not boot-linked. The transaction SHA-256 is `86c4be22…`; its hash-valid output is recorded with clean host postflight. The first live wrapper attempt failed closed before mutation on an order-dependent service-snapshot parser; the corrected parser passed synthetic and real-unit regressions without changing the transaction or disposable derivations | Keep the pilot root; do not rerun inactive preflight/activation or register the host merely from a test PASS. A retry requires the corrected clean commit, new same-window root-owned snapshot, independent console, armed rollback, and fresh snapshot-bound authorization |
+| Root integration | System Manager | SELECTED; ALL THREE DISPOSABLE TESTS PASSED; HOST CANARY ACTIVE; GENERATION ONE REGISTERED/RETAINED; NO BOOT LINK | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The patched activation/deactivation test, two-generation registration lifecycle test at `m4zm42h…`, and guarded first-generation failure-injection test at `lxnykcyv…` all passed. The original five-path/three-service canary remains the unchanged live activation. Guarded registration attempt 3 retained exactly `system-manager -> system-manager-1-link -> alrc…` plus direct `system-manager-current -> alrc…`; the pilot root also remains exact. Current classifier result is `ACTIVE_REGISTERED_RETAINED`. Both postflights, independent console confirmation, protected process continuity, system/GPU health, and sanitized Tailscale SSH passed; rollback was disarmed before its service ran | Preserve both profile links and both exact roots. Do not rerun inactive activation or first-registration helpers, reboot, add boot linkage, switch generations, remove registration, retire the pilot root, or add a real managed service without a separately reviewed and authorized milestone |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |

@@ -194,17 +194,21 @@ installer. Never claim that all dependencies are current merely because
 ### Retained System Manager canary
 
 Resolve the exact current root-canary output, then run the repository's
-`scripts/audit-root-canary-state.sh` classifier. It emits only
-`INACTIVE_ABSENT`, `INACTIVE_EMPTY`, `ACTIVE_RETAINED`, or
-`DRIFT|reason`. The current retained attempt-3 authority should report
-`ACTIVE_RETAINED`; that is a healthy known state, not an unexpected install.
+`scripts/audit-root-canary-state.sh` classifier with the registration
+expectation declared for the local host. It emits only `INACTIVE_ABSENT`,
+`INACTIVE_EMPTY`, `ACTIVE_RETAINED`, `ACTIVE_REGISTERED_RETAINED`, or
+`DRIFT|reason`. On `sparkle-01`, pass `registered-first`; the current retained
+registration authority should report `ACTIVE_REGISTERED_RETAINED`. That is a
+healthy known state, not an unexpected install.
 
-While retained, do not run the inactive preflight or activation helper.
-Registration profile links and the upstream extra GC root must remain absent.
+While retained, do not run the inactive preflight, activation helper, or
+first-registration helper. On `sparkle-01`, the exact selected profile,
+generation-one link, upstream extra GC root, and pilot root must all remain.
 The exact generation-registration container test and its result are documented
 under `root/system-manager/validation/`. Require its manifest result to be
 `passed`, its recorded/current derivations to match, and host postflight to be
-clean. The pass does not authorize live registration.
+clean. The pass did not itself authorize the later live registration and never
+authorizes another host mutation.
 
 ### NVIDIA playbooks
 

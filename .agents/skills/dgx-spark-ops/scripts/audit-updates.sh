@@ -397,6 +397,7 @@ audit_root_integration() {
   local manager_version manager_branch manager_rev private_nix_version
   local private_nix_rev release_version release_rev current candidate
   local test_result registration_test_result registration_test_matches
+  local live_registration_host live_registration_state registration_mode
   local policy_ok live_state root_output status detail
   local -a nix_args
 
@@ -448,6 +449,12 @@ audit_root_integration() {
   registration_test_matches="$(
     jq -r '.registration.isolatedLifecycleTest.matchesCurrent // false' <<<"$manifest"
   )"
+  live_registration_host="$(
+    jq -r '.registration.guardedFirstGeneration.liveRegistration.host // empty' <<<"$manifest"
+  )"
+  live_registration_state="$(
+    jq -r '.registration.guardedFirstGeneration.liveRegistration.stateClass // empty' <<<"$manifest"
+  )"
 
   current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
@@ -465,6 +472,13 @@ audit_root_integration() {
     (.registration.isolatedLifecycleTest.hostRegistrationPerformed == false) and
     (.registration.isolatedLifecycleTest.hostActivationPerformed == false) and
     (.registration.isolatedLifecycleTest.hostPostflight == "clean") and
+    (.registration.guardedFirstGeneration.status == "live-first-generation-registered-retained") and
+    (.registration.guardedFirstGeneration.liveRegistrationPerformed == true) and
+    (.registration.guardedFirstGeneration.liveRegistration.host == "sparkle-01") and
+    (.registration.guardedFirstGeneration.liveRegistration.stateClass == "ACTIVE_REGISTERED_RETAINED") and
+    (.registration.guardedFirstGeneration.liveRegistration.evidence == "root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md") and
+    (.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed == true) and
+    (.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed == true) and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
     (.pilotRetention.created == false) and
     (.pilotRetention.requiredForLowLevelActivation == true) and
@@ -498,8 +512,13 @@ audit_root_integration() {
   ' <<<"$manifest")"
 
   root_output="$(jq -r '.manager.rootOutputPath // empty' <<<"$manifest")"
+  registration_mode=unregistered
+  if [[ "$host_name" == "$live_registration_host" &&
+        "$live_registration_state" == "ACTIVE_REGISTERED_RETAINED" ]]; then
+    registration_mode=registered-first
+  fi
   live_state="$(
-    "$repo_dir/scripts/audit-root-canary-state.sh" "$root_output" 2>/dev/null ||
+    "$repo_dir/scripts/audit-root-canary-state.sh" "$root_output" "$registration_mode" 2>/dev/null ||
       true
   )"
 
@@ -514,9 +533,17 @@ audit_root_integration() {
   elif [[ "$policy_ok" != "true" ]]; then
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
+  elif [[ "$host_name" == "$live_registration_host" &&
+          "$live_state" == "ACTIVE_REGISTERED_RETAINED" ]]; then
+    status="CURRENT"
+    detail="The exact tests and manifest agree; sparkle-01 retains the exact five-path/three-service activation, generation one, upstream extra root, and pilot root without a boot link."
+  elif [[ "$host_name" == "$live_registration_host" ]]; then
+    status="HOLD"
+    detail="${live_state#DRIFT|}"
+    detail="${detail:-The declared pilot host does not match its retained registered state.}"
   elif [[ "$live_state" == "ACTIVE_RETAINED" ]]; then
     status="CURRENT"
-    detail="The exact activation and registration-lifecycle container tests pass; the attempt-3 five-path/three-service canary remains retained active, directly rooted, unregistered, and not boot-linked."
+    detail="The exact five-path/three-service canary is retained active and directly rooted on this host without registration or a boot link."
   elif [[ "$live_state" == "INACTIVE_EMPTY" ]]; then
     status="CURRENT"
     detail="The only live artifact is the exact empty version-0 state left by deactivation; registration and managed paths are absent."

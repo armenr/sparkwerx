@@ -10,9 +10,11 @@ then rolled back on their timed guards: attempt 1 followed a verifier false
 positive, while attempt 2 passed corrected automatic postflight but did not
 receive the exact human retention confirmation. On 2026-09-01, attempt 3 passed
 the full guarded flow and was retained after independent local-console
-confirmation. The exact five-path/three-service canary is currently active. No
-System Manager profile has been registered, no boot link exists, and no broader
-root role is active.
+confirmation. The exact five-path/three-service canary is currently active.
+Later that day, the guarded first-generation registration attempt passed and
+was retained after its own independent local-console confirmation. The exact
+candidate is now profile generation one and the direct upstream extra GC root.
+No boot link exists and no broader root role is active.
 
 ## Reviewed candidate
 
@@ -28,8 +30,9 @@ root role is active.
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; host remained unregistered |
-| Guarded first-registration transaction test | **PASS** for exact failure-injection derivation; live registration not performed |
-| Host activation | Attempt 3 retained and independently postflight-verified; active, unregistered, not boot-linked |
+| Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
+| Host registration | Attempt 3 retained and independently postflight-verified; generation one exact |
+| Host activation | Exact canary remains active and unchanged; registered, not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -95,12 +98,15 @@ paths and three service keys, the expected services/targets active, every
 forbidden and registration path absent, the pilot root intact, zero failed
 units, healthy protected services/GPU/Tailscale SSH, and no pending daemon
 reload. The [attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md)
-is the current live-state authority.
+remains the live-activation authority. The later
+[first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
+is the current full-state authority.
 
 Do not rerun the inactive-state preflight or activation helper while this
-canary remains active, remove its pilot root, register a generation, add boot
-linkage, or broaden its role without a new reviewed plan and explicit
-authorization.
+canary remains active. Do not rerun the first-registration helper now that its
+required absent pre-state no longer exists. Do not remove either retention
+root, rewrite the registered generation, add boot linkage, reboot, or broaden
+the role without a new reviewed plan and explicit authorization.
 
 ## Exact canary ownership
 
@@ -138,8 +144,12 @@ The profile also materializes its parent directory and numbered
 the registration SBOM; the two logical paths are not literally the only
 filesystem objects created.
 
-Both logical registration paths and every numbered generation link must remain
-absent until live generation registration receives explicit approval.
+Those paths were absent until separately authorized live registration. On
+2026-09-01, the guarded transaction retained exactly `system-manager` ->
+`system-manager-1-link` -> the exact candidate plus a direct
+`system-manager-current` root to the same candidate. No second or unknown
+generation exists. The exact surface and operating rules are in the
+[retained registration record](validation/2026-09-01-first-registration-host-attempt-3.md).
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -195,7 +205,7 @@ pass authorizes design of the live registration/rollback transaction only; it
 does not authorize host registration, activation, boot linkage, or removal of
 the pilot root.
 
-## Guarded first-generation transaction: disposable test passed
+## Guarded first-generation transaction: live registration retained
 
 The reviewed design wraps the exact upstream helper with a strict
 first-generation transaction. Its mutation program is
@@ -235,10 +245,11 @@ sudo ./scripts/test-root-registration-transaction.sh
 
 Do not rerun it during an ordinary audit. Any transaction or derivation change
 invalidates this evidence and requires new review plus separate authorization.
-This PASS does not authorize the private snapshot or live wrapper. A live
-attempt still requires a clean committed tree, a fresh root-owned registration
-snapshot, independent console access, an exact ten-minute registration-only
-rollback, and new authorization bound to that snapshot. The staged helpers are
+This PASS did not itself authorize the private snapshot or live wrapper. The
+later live attempt separately required a clean committed tree, a fresh
+root-owned registration snapshot, independent console access, an exact
+ten-minute registration-only rollback, and new authorization bound to that
+snapshot. The reviewed helpers are
 `scripts/snapshot-root-registration.sh` and
 `scripts/register-root-canary-pilot.sh`. The live wrapper creates no boot link
 and performs no activation; it retains registration only after repeated
@@ -255,9 +266,27 @@ blank-line-delimited unit records and has passed synthetic plus all-seven-unit
 regression checks. The transaction checksum and all three disposable
 derivations are unchanged. Read the
 [attempt record](validation/2026-09-01-first-registration-host-attempt-1.md).
-The old snapshot is retired; any retry requires a clean corrected commit, a
-fresh snapshot, independent-console verification, and new snapshot-bound
-authorization.
+That old snapshot is retired.
+
+Attempt 2 then refused snapshot `20260901T193734Z` because it was 2,207
+seconds old, 407 seconds beyond the hard limit. The refusal again occurred
+before timer or mutation, and postflight was clean. See the
+[attempt 2 record](validation/2026-09-01-first-registration-host-attempt-2.md).
+
+Attempt 3 used corrected commit `0f03d01` and fresh snapshot
+`20260901T201613Z`. The snapshot and complete preflight passed, the exact
+registration-only rollback timer was armed, generation one and the extra root
+were created, and automatic postflight passed. Armen verified the physical
+console and entered exactly `KEEP REGISTRATION`; repeated postflight passed and
+the timer was disarmed before its service ran. Independent postflight classified
+the host `ACTIVE_REGISTERED_RETAINED` with exact registration links, unchanged
+activation, healthy protected services/GPU/Tailscale SSH, no boot link, and no
+broader ownership. See the
+[retained attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md).
+
+Do not run the registration helper again while this state is retained. A
+rollback, second generation, generation switch, reboot/boot milestone, or real
+managed service requires a separate plan and authorization.
 
 ## Defaults we rejected
 
@@ -345,10 +374,14 @@ nix --extra-experimental-features "nix-command flakes" \
 The first command evaluates invariants only. The second emits the exact manager
 revision, private Nix runtime, ownership surface, declared state/registration
 paths, and proof that evaluation/build performs no activation, registration, or
-pilot-root creation. Its `activated`, `performed`, and `created` booleans are
-declarative side-effect flags, not probes of mutable host state. The
-[attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md) is the current
-live-state authority.
+pilot-root creation. The top-level `activated`, `registration.performed`, and
+pilot-root `created` booleans are declarative evaluation side-effect flags, not
+probes of mutable host state. The separately named
+`guardedFirstGeneration.liveRegistration` record is dated operational evidence.
+The [host-canary attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md)
+is the activation authority; the
+[first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
+is the current full live-state authority.
 
 Review missing builds without realizing anything:
 

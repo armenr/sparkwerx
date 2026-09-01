@@ -109,19 +109,25 @@ postflight. Require `isolatedTest.result == "passed"` and
 patch, or test derivation invalidates that evidence and requires a separately
 authorized disposable rerun; it still never authorizes host activation.
 
-The exact candidate's third guarded host attempt was retained on
+The exact candidate's third guarded host activation attempt was retained on
 2026-09-01. Read
 `../../../root/system-manager/validation/2026-09-01-host-canary-attempt-3.md`
-as the current live-state authority. While it remains active, the inactive
-preflight and activation helper should encounter declared-path collisions; do
-not run them and misclassify that expected state as drift. Audit the active
-five-path/three-service boundary directly and keep registration, boot linkage,
-deactivation, and broader ownership behind separate authorization.
+as the live-activation authority. Later that day, the separately guarded first
+generation was registered and retained. Read
+`../../../root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md`
+as the current full live-state authority. While this state remains, the
+inactive preflight/activation helper and the absent-prestate first-registration
+helper are inapplicable; do not run them and misclassify their expected
+collision/refusal as drift. Audit the active five-path/three-service boundary
+and exact registration links directly. Keep reboot/boot linkage, deactivation,
+registration rollback, later generations or switching, pilot-root retirement,
+and broader ownership behind separate plans and authorization.
 
 Use `../../../scripts/audit-root-canary-state.sh` with the exact evaluated
-candidate for a sanitized live-state classification. `ACTIVE_RETAINED` is the
-expected current result; any `DRIFT|...` result is a stop condition. For
-generation registration, switching, or rollback work, also read the
+candidate and the `registered-first` expectation for a sanitized live-state
+classification. `ACTIVE_REGISTERED_RETAINED` is the expected current result;
+any `DRIFT|...` result is a stop condition. For generation switching,
+registration rollback, or later-generation work, also read the
 [registration lifecycle plan](../../../root/system-manager/validation/2026-09-01-registration-test-plan.md).
 The plan's `sudo ./scripts/test-root-registration.sh` command is a distinct
 root-assisted disposable-container gate. Its exact derivation passed on
@@ -149,15 +155,16 @@ checksum or derivation invalidates the evidence and requires a new review plus
 separately authorized disposable run. Do not rerun the test during an ordinary
 audit.
 
-This container PASS grants no live authority. Do not run either
-`snapshot-root-registration.sh` or `register-root-canary-pilot.sh` merely from
-the PASS. Live registration requires a clean committed tree, a fresh root-owned
+This container PASS granted no live authority by itself. The later live
+registration separately required a clean committed tree, a fresh root-owned
 snapshot no older than 30 minutes, exact `ACTIVE_RETAINED` pre-state, unchanged
 protected service processes, independent console access, an armed ten-minute
 registration-only rollback, and authorization bound to that snapshot. The
-wrapper must retain the active canary and pilot root, create no boot link,
-perform no activation/deactivation or service operation, and require exactly
-`KEEP REGISTRATION` before disarming rollback.
+wrapper retained the active canary and pilot root, created no boot link,
+performed no activation/deactivation or service operation, and required
+exactly `KEEP REGISTRATION` before disarming rollback. Do not rerun either
+`snapshot-root-registration.sh` or `register-root-canary-pilot.sh` now: the
+one-time absent-registration pre-state no longer exists.
 
 The first live wrapper invocation on 2026-09-01 failed closed during
 protected-service preflight, before the rollback timer or registration
@@ -169,9 +176,23 @@ the corrected whole-record parser and its synthetic plus all-seven-unit
 regressions; never reintroduce streaming selection that can cross a blank-line
 unit boundary. The transaction checksum and all three disposable derivations
 were unchanged. Snapshot `20260901T183009Z` is tied to the pre-fix commit and
-retired. A corrected live attempt requires a new clean commit, fresh snapshot,
-independent-console verification, and new authorization bound to that exact
-snapshot.
+retired. At that point, a corrected live attempt required a new clean commit,
+fresh snapshot, independent-console verification, and new authorization bound
+to that exact snapshot.
+
+The second live attempt refused an otherwise valid snapshot at 2,207 seconds
+old, before timer or mutation. Read
+`../../../root/system-manager/validation/2026-09-01-first-registration-host-attempt-2.md`.
+The third attempt used corrected commit `0f03d01` and fresh snapshot
+`20260901T201613Z`; it armed the exact rollback, registered generation one and
+the upstream extra root, passed postflight, received independent-console
+confirmation plus exact `KEEP REGISTRATION`, passed repeated postflight, and
+disarmed rollback before its service ran. Current state is
+`ACTIVE_REGISTERED_RETAINED`. Preserve the exact profile, numbered generation,
+upstream extra root, and pilot root. Registration is not boot persistence: do
+not reboot, add a boot link, roll back registration, create/switch generations,
+retire the pilot root, or add a real managed service without a separate guarded
+milestone.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
@@ -252,7 +273,8 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
 - System Manager's exact five-path/three-service canary is retained active on
-  `sparkle-01` as of 2026-09-01, but remains unregistered and not boot-linked.
+  `sparkle-01` as of 2026-09-01. Exact generation one, the upstream extra GC
+  root, and the pilot GC root are also retained; no boot link exists.
   Preserve its exact service/`/etc` allowlists, state/registration disclosure,
   no-boot policy, Nix 2.35.2 private runtime, and closure rejection of Nix
   2.34.8 and real `userborn`. Preserve the exact-version
@@ -260,17 +282,16 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   regression sentinel; never allow an empty managed set to trigger global
   factory tmpfiles processing. Preserve the explicit pilot GC root: low-level
   activation is otherwise unrooted, so the exact closure and deactivation
-  program must remain retained. While active, do not rerun the inactive-state
-  preflight/activation helper, remove that root, register a generation, add boot
-  linkage, broaden ownership, or update the candidate underneath the host.
+  program must remain retained. While active and registered, do not rerun the
+  inactive-state preflight/activation or first-registration helpers, remove
+  either root, alter the registered generation, reboot, add boot linkage,
+  broaden ownership, or update the candidate underneath the host.
   Preserve exact passed-test evidence only while it matches the evaluated
-  derivation. The guarded first-registration transaction remains unexecuted on
-  the host: its exact disposable failure-injection derivation passed with clean
-  host postflight, and the first live wrapper invocation stopped before the
-  timer or transaction because of the now-corrected service-snapshot parser.
-  Preserve that failed-closed record and never reuse its old commit-bound
-  snapshot. A build or container test never implies host registration or
-  activation.
+  derivation. Preserve the two failed-closed live-attempt records and never
+  reuse their commit/time-bound snapshots. The third guarded attempt registered
+  and retained exact generation one without changing live activation, services,
+  or boot linkage. Preserve its full-state record as current authority. A build
+  or container test never implies host registration or activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

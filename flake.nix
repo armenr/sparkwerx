@@ -501,7 +501,7 @@
             };
 
           guardedFirstGeneration = {
-            status = "disposable-test-passed-live-unexecuted";
+            status = "live-first-generation-registered-retained";
             transactionProgram = {
               repositoryPath = "scripts/root-registration-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootRegistrationTransactionProgram;
@@ -514,7 +514,17 @@
             preservesPilotRetention = true;
             createsBootLink = false;
             restartsServices = false;
-            liveRegistrationPerformed = false;
+            liveRegistrationPerformed = true;
+            liveRegistration = {
+              stateClass = "ACTIVE_REGISTERED_RETAINED";
+              host = "sparkle-01";
+              registeredAt = "2026-09-01T20:19:13Z";
+              repositoryCommit = "0f03d01d46e9fbd340676d8c91d4f2697bd25ce4";
+              snapshot = "inventory/sparkle-01/raw/system-manager-registration/20260901T201613Z";
+              evidence = "root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md";
+              localConsoleConfirmed = true;
+              rollbackDisarmed = true;
+            };
             rollback = {
               timerUnit = "dgx-root-registration-rollback.timer";
               delayMinutes = 10;
@@ -673,13 +683,21 @@
           == reviewedRootRegistrationTransactionSha256;
         assert
           rootManagerManifest.registration.guardedFirstGeneration.status
-          == "disposable-test-passed-live-unexecuted";
+          == "live-first-generation-registered-retained";
         assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesLiveActivation;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesPilotRetention;
         assert !rootManagerManifest.registration.guardedFirstGeneration.createsBootLink;
         assert !rootManagerManifest.registration.guardedFirstGeneration.restartsServices;
-        assert !rootManagerManifest.registration.guardedFirstGeneration.liveRegistrationPerformed;
+        assert rootManagerManifest.registration.guardedFirstGeneration.liveRegistrationPerformed;
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.liveRegistration.stateClass
+          == "ACTIVE_REGISTERED_RETAINED";
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.liveRegistration.host == "sparkle-01";
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed;
+        assert rootManagerManifest.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed;
         assert
           rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.result == "passed";
         assert
