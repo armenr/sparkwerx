@@ -28,6 +28,7 @@ if ! repo_dir="$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null)"; t
   exit 1
 fi
 cd "$repo_dir" || exit 1
+repo_flake_uri="git+file://$repo_dir"
 
 sanitize() {
   local value="${1:-}"
@@ -88,11 +89,50 @@ version_status() {
 remote_head() {
   local url="$1"
   local ref="$2"
-  timeout 30s git \
-    -c http.lowSpeedLimit=1 \
-    -c http.lowSpeedTime=15 \
-    ls-remote "$url" "$ref" 2>/dev/null |
-    awk 'NR == 1 { print $1 }'
+  local remote_revision owner repo branch
+
+  remote_revision="$(
+    timeout 30s git \
+      -c http.lowSpeedLimit=1 \
+      -c http.lowSpeedTime=15 \
+      ls-remote "$url" "$ref" 2>/dev/null |
+      awk 'NR == 1 { print $1 }'
+  )"
+
+  # Large GitHub repositories occasionally time out during the smart-Git
+  # advertisement even though the authoritative ref API is healthy. Fall back
+  # only for a syntactically safe GitHub branch; never infer a revision from a
+  # search result or mutable HTML page.
+  if [[ -z "$remote_revision" ]] &&
+    command -v jq >/dev/null 2>&1 &&
+    [[ "$url" =~ ^https://github.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)\.git$ ]]; then
+    owner="${BASH_REMATCH[1]}"
+    repo="${BASH_REMATCH[2]}"
+
+    if [[ "$ref" =~ ^refs/heads/([A-Za-z0-9_./-]+)$ ]]; then
+      branch="${BASH_REMATCH[1]}"
+      remote_revision="$(
+        timeout 30s curl --fail --silent --show-error \
+          --header 'Accept: application/vnd.github+json' \
+          --header 'X-GitHub-Api-Version: 2022-11-28' \
+          "https://api.github.com/repos/$owner/$repo/git/ref/heads/$branch" 2>/dev/null |
+          jq -r '.object.sha // empty' 2>/dev/null || true
+      )"
+    fi
+  fi
+
+  printf '%s' "$remote_revision"
+}
+
+github_latest_release_tag() {
+  local owner="$1"
+  local repo="$2"
+
+  timeout 30s curl --fail --silent --show-error \
+    --header 'Accept: application/vnd.github+json' \
+    --header 'X-GitHub-Api-Version: 2022-11-28' \
+    "https://api.github.com/repos/$owner/$repo/releases/latest" 2>/dev/null |
+    jq -r '.tag_name // empty' 2>/dev/null || true
 }
 
 root_input_node() {
@@ -166,11 +206,197 @@ compare_branch_input() {
     "$detail"
 }
 
+audit_selected_nix_packages() {
+  local manifest role pname component current candidate status source detail
+  local tag location
+  local -a nix_args
+
+  nix_args=(
+    --extra-experimental-features "nix-command flakes"
+    eval
+    --json
+    --no-write-lock-file
+  )
+  if [[ "$offline" -eq 1 ]]; then
+    nix_args+=(--offline)
+  fi
+  manifest="$(
+    timeout 60s nix "${nix_args[@]}" \
+      .#lib.dgxProfileManifests.aarch64-linux 2>/dev/null || true
+  )"
+
+  package_version() {
+    local selected_role="$1"
+    local selected_pname="$2"
+    jq -r \
+      --arg role "$selected_role" \
+      --arg pname "$selected_pname" \
+      '.roles[$role][]? | select(.pname == $pname) | .version' \
+      <<<"$manifest" 2>/dev/null |
+      head -n 1
+  }
+
+  emit_package_comparison() {
+    local scope="$1"
+    local package_owner="$2"
+    local package_component="$3"
+    local package_current="$4"
+    local package_candidate="$5"
+    local package_source="$6"
+    local update_gate="$7"
+    local package_status package_detail
+
+    if [[ -z "$package_current" ]]; then
+      emit "$scope" "$package_owner" "$package_component" \
+        "absent" "${package_candidate:-UNKNOWN}" "NOT_PINNED" \
+        "$package_source" \
+        "The selected package is missing from the machine-readable manifest."
+      return
+    fi
+
+    if [[ "$offline" -eq 1 ]]; then
+      emit "$scope" "$package_owner" "$package_component" \
+        "$package_current" "REMOTE_SUPPRESSED" "UNKNOWN" "$package_source" \
+        "Offline audit; the official release source was not queried."
+      return
+    fi
+
+    if [[ -z "$package_candidate" ]]; then
+      emit "$scope" "$package_owner" "$package_component" \
+        "$package_current" "UNKNOWN" "UNKNOWN" "$package_source" \
+        "The official release source could not be parsed; do not guess."
+      return
+    fi
+
+    package_status="$(version_status "$package_current" "$package_candidate")"
+    case "$package_status" in
+      CURRENT)
+        package_detail="The repository candidate matches the newest official stable release."
+        ;;
+      UPDATE_AVAILABLE)
+        package_detail="Availability only. $update_gate"
+        ;;
+      AHEAD)
+        package_status="HOLD"
+        package_detail="The repository candidate is ahead of the official stable result; investigate provenance and do not downgrade automatically."
+        ;;
+    esac
+
+    emit "$scope" "$package_owner" "$package_component" \
+      "$package_current" "$package_candidate" "$package_status" \
+      "$package_source" "$package_detail"
+  }
+
+  if ! jq -e '.schemaVersion == 1' >/dev/null 2>&1 <<<"$manifest"; then
+    for component in \
+      ncdu lazydocker Ghostty Chromium Zed "LM Studio desktop"; do
+      emit "NIX_PACKAGE" "repository" "$component" \
+        "MANIFEST_UNAVAILABLE" "UNKNOWN" "UNKNOWN" \
+        "repo:flake.nix" \
+        "The machine-readable profile manifest did not evaluate."
+    done
+    return
+  fi
+
+  current="$(package_version fleetBase ncdu)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    candidate="$(
+      timeout 30s curl --fail --silent --show-error \
+        https://dev.yorhel.nl/ncdu 2>/dev/null |
+        grep -oE 'ncdu-[0-9]+\.[0-9]+(\.[0-9]+)?\.tar\.gz' |
+        head -n 1 |
+        sed -E 's/^ncdu-//; s/\.tar\.gz$//' || true
+    )"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "fleet base" "ncdu" "$current" "$candidate" \
+    "https://dev.yorhel.nl/ncdu" \
+    "Refresh the stable lock, then re-evaluate the exact three-package base."
+
+  current="$(package_version fleetBase lazydocker)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    tag="$(github_latest_release_tag jesseduffield lazydocker)"
+    candidate="${tag#v}"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "fleet base" "lazydocker" "$current" "$candidate" \
+    "https://github.com/jesseduffield/lazydocker/releases" \
+    "Refresh the stable lock and validate ARM64 plus Docker 29 compatibility; do not grant Docker-socket access."
+
+  current="$(package_version sharedGraphical ghostty)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    candidate="$(
+      timeout 30s curl --fail --silent --show-error \
+        https://ghostty.org/docs/install/release-notes 2>/dev/null |
+        grep -oE '[0-9]+\.[0-9]+\.[0-9]+' |
+        sort -Vr |
+        head -n 1 || true
+    )"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "shared graphical role" "Ghostty" \
+    "$current" "$candidate" \
+    "https://ghostty.org/docs/install/release-notes" \
+    "Refresh the stable lock, then repeat the ARM64 GTK/GPU and closure review; keep it absent from headless."
+
+  current="$(package_version personalGraphicalCandidates chromium)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    candidate="$(
+      timeout 30s curl --fail --silent --show-error \
+        'https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Linux&num=5' \
+        2>/dev/null |
+        jq -r '.[0].version // empty' 2>/dev/null || true
+    )"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "Armen candidate overlay" "Chromium" \
+    "$current" "$candidate" \
+    "https://chromiumdash.appspot.com/releases?platform=Linux" \
+    "Refresh only the apps lock, then review security delta, ARM64 closure, extensions, and NVIDIA graphics before wiring it."
+
+  current="$(package_version personalGraphicalCandidates zed-editor)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    tag="$(github_latest_release_tag zed-industries zed)"
+    candidate="${tag#v}"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "Armen candidate overlay" "Zed" \
+    "$current" "$candidate" \
+    "https://github.com/zed-industries/zed/releases" \
+    "Refresh only the apps lock, inspect intervening security notes, and validate ARM64 Vulkan/Wayland/portal behavior before wiring it."
+
+  current="$(package_version personalGraphicalCandidates lmstudio)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    location="$(
+      timeout 30s curl --fail --silent --show-error --head \
+        https://lmstudio.ai/download/latest/linux/arm64 2>/dev/null |
+        sed -nE 's/^location:[[:space:]]*//Ip' |
+        tr -d '\r' |
+        tail -n 1
+    )"
+    candidate="$(
+      sed -nE \
+        's#^.*/arm64/([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)/.*$#\1#p' \
+        <<<"$location"
+    )"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "Armen candidate overlay" "LM Studio desktop" \
+    "$current" "$candidate" "https://lmstudio.ai/download" \
+    "Refresh only the apps lock, preserve the exact lmstudio unfree allowlist, inspect the ARM64 closure/model paths, and validate GB10 acceleration before wiring it."
+}
+
 audit_root_integration() {
   local manifest manager_node manager_ref manager_locked_rev
   local manager_version manager_branch manager_rev private_nix_version
   local private_nix_rev release_version release_rev current candidate
-  local test_result policy_ok host_artifact artifact status detail
+  local test_result policy_ok live_state root_output status detail
   local -a nix_args
 
   if [[ ! -r root/nix/release.json ]] || ! command -v jq >/dev/null 2>&1; then
@@ -258,22 +484,11 @@ audit_root_integration() {
     ])
   ' <<<"$manifest")"
 
-  host_artifact=""
-  for artifact in \
-    /nix/var/nix/profiles/system-manager-profiles/system-manager \
-    /nix/var/nix/gcroots/system-manager-current \
-    /nix/var/nix/gcroots/dgx-setup-root-canary-pilot \
-    /etc/dgx-setup/canary \
-    /etc/systemd/system/dgx-setup-canary.service \
-    /etc/systemd/system/sysinit-reactivation.target \
-    /etc/systemd/system/system-manager.target \
-    /etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service \
-    /var/lib/system-manager/state/system-manager-state.json; do
-    if [[ -e "$artifact" || -L "$artifact" ]]; then
-      host_artifact="$artifact"
-      break
-    fi
-  done
+  root_output="$(jq -r '.manager.rootOutputPath // empty' <<<"$manifest")"
+  live_state="$(
+    "$repo_dir/scripts/audit-root-canary-state.sh" "$root_output" 2>/dev/null ||
+      true
+  )"
 
   if [[ -z "$manager_node" || "$manager_rev" != "$manager_locked_rev" ||
         "$manager_branch" != "$manager_ref" ]]; then
@@ -286,17 +501,25 @@ audit_root_integration() {
   elif [[ "$policy_ok" != "true" ]]; then
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
-  elif [[ -n "$host_artifact" ]]; then
-    status="HOLD"
-    detail="Unexpected live-host root-manager artifact detected at $host_artifact."
-  else
+  elif [[ "$live_state" == "ACTIVE_RETAINED" ]]; then
     status="CURRENT"
-    detail="Manifest, local safety patch, lock, private Nix pin, and exact disposable-test evidence agree; no live-host activation or registration artifacts were detected."
+    detail="The exact attempt-3 five-path/three-service canary is retained active, directly rooted, unregistered, and not boot-linked; declarative manifest side-effect flags remain inert."
+  elif [[ "$live_state" == "INACTIVE_EMPTY" ]]; then
+    status="CURRENT"
+    detail="The only live artifact is the exact empty version-0 state left by deactivation; registration and managed paths are absent."
+  elif [[ "$live_state" == "INACTIVE_ABSENT" ]]; then
+    status="CURRENT"
+    detail="Manifest, patch, lock, private Nix pin, and disposable-test evidence agree; no live root-manager artifact was detected."
+  else
+    status="HOLD"
+    detail="${live_state#DRIFT|}"
+    detail="${detail:-The live root-manager state could not be classified safely.}"
   fi
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/README.md" "$detail"
+    "repo:root/system-manager/validation/2026-09-01-host-canary-attempt-3.md" \
+    "$detail"
 }
 
 printf '# dgx-spark-ops update audit\n'
@@ -477,7 +700,7 @@ tailscale_repo_pin=""
 if command -v nix >/dev/null 2>&1 && [[ -r flake.lock ]]; then
   tailscale_locked_nixpkgs="$(
     timeout 60s nix "${tailscale_nix_eval_args[@]}" --expr \
-      'let f = builtins.getFlake (toString ./.); in f.inputs.nixpkgs.legacyPackages.aarch64-linux.tailscale.version' \
+      "let f = builtins.getFlake \"$repo_flake_uri\"; in f.inputs.nixpkgs.legacyPackages.aarch64-linux.tailscale.version" \
       2>/dev/null || true
   )"
   tailscale_locked_nixpkgs="${tailscale_locked_nixpkgs:-UNKNOWN}"
@@ -841,6 +1064,8 @@ if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
         "Unable to determine the newest final upstream release tag."
     fi
   fi
+
+  audit_selected_nix_packages
 
   hypr_node="$(root_input_node "hyprland")"
   if [[ -n "$hypr_node" ]]; then

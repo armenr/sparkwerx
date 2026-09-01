@@ -134,6 +134,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`; it is not upstream
   generation registration, does not replace that future decision, and must
   survive until verified deactivation;
+- source inspection found System Manager 1.1.0 registration is non-transactional:
+  its Nix profile can advance before a later extra-GC-root collision fails, and
+  selecting a generation changes neither live activation nor that extra root.
+  The exact two-generation disposable lifecycle test is designed and
+  evaluation-valid but unrun; no live registration follows from that status;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until

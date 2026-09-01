@@ -124,15 +124,42 @@
         modules = [ ./hosts/sparkle-01/system.nix ];
       };
 
+      # Disposable-only second generation for registration/switching tests. It
+      # inherits the exact canary policy and changes only the harmless marker
+      # payload. It is not exported as a host package or activation target.
+      rootCanaryRegistrationTestGeneration = system-manager.lib.makeSystemConfig {
+        overlays = rootManagerOverlays;
+        modules = [
+          ./hosts/sparkle-01/system.nix
+          {
+            environment.etc."dgx-setup/canary".text = lib.mkForce ''
+              schema=1
+              host=sparkle-01
+              owner=DGX-setup
+              purpose=system-manager activation and rollback canary
+              registration-test-generation=2
+            '';
+          }
+        ];
+      };
+
       systemManagerPackage = rootManagerPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
+      rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
       rootCanaryServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.services
+      );
+      rootCanaryRegistrationTestServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryRegistrationTestConfig.build.services
       );
       rootCanaryEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.etc.entries
       );
+      rootCanaryRegistrationTestEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryRegistrationTestConfig.build.etc.entries
+      );
       rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
+      rootCanaryRegistrationTestPackageNames = packageNames rootCanaryRegistrationTestConfig.environment.systemPackages;
       rootCanaryClosureInfo = pkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
@@ -258,6 +285,18 @@
 
       expectedSharedGraphicalPackageNames = [ "ghostty" ];
 
+      selectedPersonalGraphicalCandidates = [
+        appsPkgs.chromium
+        appsPkgs.lmstudio
+        appsPkgs.zed-editor
+      ];
+
+      expectedPersonalGraphicalCandidateNames = [
+        "chromium"
+        "lmstudio"
+        "zed-editor"
+      ];
+
       expectedGraphicalPackageNames = [
         "devbox"
         "ghostty"
@@ -330,6 +369,7 @@
             (mkPackageRecord "official Devbox release override on nixpkgs-apps" devboxPackage)
           ];
           sharedGraphical = [ (mkPackageRecord "nixpkgs-stable" pkgs.ghostty) ];
+          personalGraphicalCandidates = map (mkPackageRecord "nixpkgs-apps; selected but not installed") selectedPersonalGraphicalCandidates;
           hyprland = [ (mkPackageRecord "hyprland input" hyprlandPackage) ];
           hyprlandPortal = [
             (mkPackageRecord "hyprland input" hyprlandPortalPackage)
@@ -435,6 +475,17 @@
           performed = false;
           profile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
           gcRoot = "/nix/var/nix/gcroots/system-manager-current";
+
+          isolatedLifecycleTest = {
+            result = "pending";
+            baselineOutputPath = rootCanary.outPath;
+            secondGenerationOutputPath = rootCanaryRegistrationTestGeneration.outPath;
+            currentDrvPath = rootCanaryRegistrationContainerTest.drvPath;
+            currentOutputPath = rootCanaryRegistrationContainerTest.outPath;
+            evidence = "root/system-manager/validation/2026-09-01-registration-test-plan.md";
+            hostRegistrationPerformed = false;
+            hostActivationPerformed = false;
+          };
         };
 
         pilotRetention = {
@@ -482,6 +533,7 @@
         assert graphicalBasePackageNames == expectedBasePackageNames;
         assert headlessSharedGraphicalPackageNames == [ ];
         assert sharedGraphicalPackageNames == expectedSharedGraphicalPackageNames;
+        assert packageNames selectedPersonalGraphicalCandidates == expectedPersonalGraphicalCandidateNames;
         assert graphicalPackageNames == expectedGraphicalPackageNames;
         assert !baseProfile.config.xdg.enable;
         assert !baseProfile.config.xdg.mime.enable;
@@ -543,7 +595,16 @@
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;
         assert rootCanaryPackageNames == [ ];
+        assert rootCanaryRegistrationTestServiceNames == expectedRootCanaryServiceNames;
+        assert rootCanaryRegistrationTestEtcNames == expectedRootCanaryEtcNames;
+        assert rootCanaryRegistrationTestPackageNames == [ ];
+        assert rootCanaryRegistrationTestGeneration.outPath != rootCanary.outPath;
         assert !rootCanaryConfig.nix.enable;
+        assert !rootCanaryRegistrationTestConfig.nix.enable;
+        assert !rootCanaryRegistrationTestConfig.services.userborn.enable;
+        assert !rootCanaryRegistrationTestConfig.security.enableWrappers;
+        assert !rootCanaryRegistrationTestConfig.system-manager.linkCurrentSystem;
+        assert rootCanaryRegistrationTestConfig.systemd.targets.system-manager.wantedBy == [ ];
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
@@ -676,6 +737,236 @@
         '';
       };
 
+      rootCanaryRegistrationContainerTest = system-manager.lib.containerTest.makeContainerTest {
+        hostPkgs = pkgs;
+        name = "dgx-root-canary-registration";
+        toplevel = rootCanary;
+        extraPathsToRegister = [ rootCanaryRegistrationTestGeneration ];
+        testScript = ''
+          import json
+
+          start_all()
+          machine.wait_for_unit("multi-user.target")
+
+          generation_one = "${rootCanary}"
+          generation_two = "${rootCanaryRegistrationTestGeneration}"
+          nix_env = "${verifiedNixPackage}/bin/nix-env"
+          state_path = "/var/lib/system-manager/state/system-manager-state.json"
+          profile_dir = "/nix/var/nix/profiles/system-manager-profiles"
+          profile_path = f"{profile_dir}/system-manager"
+          gcroot_path = "/nix/var/nix/gcroots/system-manager-current"
+          unmanaged_tmpfiles_sentinel = "/run/dgx-unmanaged-tmpfiles-sentinel"
+
+          managed_paths = [
+              "/etc/dgx-setup/canary",
+              "/etc/systemd/system/dgx-setup-canary.service",
+              "/etc/systemd/system/sysinit-reactivation.target",
+              "/etc/systemd/system/system-manager.target",
+              "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service",
+          ]
+          forbidden_paths = [
+              "/etc/profile.d/system-manager-path.sh",
+              "/etc/environment.d/10-system-manager.conf",
+              "/etc/systemd/system/default.target.wants/system-manager.target",
+              "/etc/systemd/system/system-manager-path.service",
+              "/etc/systemd/system/userborn.service",
+              "/run/current-system",
+              "/run/wrappers",
+          ]
+          protected_paths = [
+              "/etc/nix/nix.conf",
+              "/etc/passwd",
+              "/etc/group",
+              "/etc/shadow",
+          ]
+
+          def protected_snapshot() -> dict[str, str]:
+              return {
+                  path: machine.succeed(
+                      f"if test -e '{path}'; then sha256sum '{path}' | cut -d' ' -f1; else printf absent; fi"
+                  ).strip()
+                  for path in protected_paths
+              }
+
+          def assert_absent(path: str) -> None:
+              machine.fail(f"test -e '{path}' || test -L '{path}'")
+
+          def resolved(path: str) -> str:
+              return machine.succeed(f"readlink -f -- '{path}'").strip()
+
+          def generation_links() -> list[str]:
+              output = machine.succeed(
+                  f"find '{profile_dir}' -maxdepth 1 -type l "
+                  "-name 'system-manager-*-link' -printf '%f\\n' | sort -V"
+              )
+              return [line for line in output.splitlines() if line]
+
+          def assert_registration(target: str) -> None:
+              machine.succeed(f"test -L '{profile_path}'")
+              machine.succeed(f"test -L '{gcroot_path}'")
+              assert resolved(profile_path) == target
+              assert resolved(gcroot_path) == target
+
+          def assert_bounded_state() -> None:
+              state = json.loads(machine.succeed(f"cat '{state_path}'"))
+              assert state["version"] == 1
+              assert set(state["fileTree"]["files"]) == set(managed_paths)
+              assert state["fileTree"]["backedUpFiles"] == []
+              assert set(state["services"].keys()) == {
+                  "dgx-setup-canary.service",
+                  "sysinit-reactivation.target",
+                  "system-manager.target",
+              }
+
+          machine.succeed(
+              "echo 'f /run/dgx-unmanaged-tmpfiles-sentinel 0644 root root - blocked' "
+              "> /etc/tmpfiles.d/dgx-unmanaged.conf"
+          )
+          before = protected_snapshot()
+
+          with subtest("Registration failure is detectably non-transactional"):
+              machine.succeed(f"printf blocked > '{gcroot_path}'")
+              machine.fail(f"'{generation_one}/bin/register-profile'")
+              machine.succeed(f"test -f '{gcroot_path}'")
+              machine.fail(f"test -L '{gcroot_path}'")
+              machine.succeed(f"test -L '{profile_path}'")
+              assert resolved(profile_path) == generation_one
+              links = generation_links()
+              assert links == ["system-manager-1-link"], links
+              assert resolved(f"{profile_dir}/{links[0]}") == generation_one
+              for path in managed_paths:
+                  assert_absent(path)
+              machine.fail(f"test -e '{state_path}'")
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Reset only the disposable partial-registration fixture"):
+              machine.succeed(f"unlink '{profile_path}'")
+              machine.succeed(
+                  f"for link in '{profile_dir}'/system-manager-*-link; do "
+                  "test ! -L \"$link\" || unlink \"$link\"; done"
+              )
+              machine.succeed(f"unlink '{gcroot_path}'")
+              assert_absent(profile_path)
+              assert_absent(gcroot_path)
+              assert generation_links() == []
+
+          with subtest("Register generation one without activating it"):
+              machine.succeed(f"'{generation_one}/bin/register-profile'")
+              assert_registration(generation_one)
+              links = generation_links()
+              assert links == ["system-manager-1-link"], links
+              assert resolved(f"{profile_dir}/{links[0]}") == generation_one
+              for path in managed_paths:
+                  assert_absent(path)
+              machine.fail(f"test -e '{state_path}'")
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Explicitly activate registered generation one"):
+              activation_logs = machine.succeed(f"'{profile_path}/bin/activate'")
+              assert "ERROR" not in activation_logs, activation_logs
+              machine.wait_for_unit("system-manager.target")
+              machine.wait_for_unit("dgx-setup-canary.service")
+              machine.succeed("grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary")
+              machine.fail(
+                  "grep -Fx 'registration-test-generation=2' "
+                  "/etc/dgx-setup/canary"
+              )
+              assert_bounded_state()
+              assert_registration(generation_one)
+              for path in forbidden_paths:
+                  assert_absent(path)
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Register generation two without switching live state"):
+              machine.succeed(f"'{generation_two}/bin/register-profile'")
+              assert_registration(generation_two)
+              links = generation_links()
+              assert links == [
+                  "system-manager-1-link",
+                  "system-manager-2-link",
+              ], links
+              assert resolved(f"{profile_dir}/system-manager-1-link") == generation_one
+              assert resolved(f"{profile_dir}/system-manager-2-link") == generation_two
+              machine.fail(
+                  "grep -Fx 'registration-test-generation=2' "
+                  "/etc/dgx-setup/canary"
+              )
+              assert_bounded_state()
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Explicitly activate registered generation two"):
+              activation_logs = machine.succeed(f"'{profile_path}/bin/activate'")
+              assert "ERROR" not in activation_logs, activation_logs
+              machine.wait_for_unit("system-manager.target")
+              machine.wait_for_unit("dgx-setup-canary.service")
+              machine.succeed(
+                  "grep -Fx 'registration-test-generation=2' "
+                  "/etc/dgx-setup/canary"
+              )
+              assert_bounded_state()
+              assert_registration(generation_two)
+              for path in forbidden_paths:
+                  assert_absent(path)
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Selecting the prior profile neither activates nor refreshes the extra root"):
+              machine.succeed(
+                  f"'{nix_env}' --profile '{profile_path}' --switch-generation 1"
+              )
+              assert resolved(profile_path) == generation_one
+              assert resolved(gcroot_path) == generation_two
+              machine.succeed(
+                  "grep -Fx 'registration-test-generation=2' "
+                  "/etc/dgx-setup/canary"
+              )
+              assert_bounded_state()
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Re-register and explicitly activate the selected rollback generation"):
+              machine.succeed(f"'{generation_one}/bin/register-profile'")
+              assert_registration(generation_one)
+              activation_logs = machine.succeed(f"'{profile_path}/bin/activate'")
+              assert "ERROR" not in activation_logs, activation_logs
+              machine.wait_for_unit("system-manager.target")
+              machine.wait_for_unit("dgx-setup-canary.service")
+              machine.succeed("grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary")
+              machine.fail(
+                  "grep -Fx 'registration-test-generation=2' "
+                  "/etc/dgx-setup/canary"
+              )
+              assert_bounded_state()
+              for path in forbidden_paths:
+                  assert_absent(path)
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+
+          with subtest("Deactivation removes ownership but retains registration history"):
+              machine.succeed(f"'{profile_path}/bin/deactivate'")
+              for path in managed_paths:
+                  assert_absent(path)
+              deactivated_state = json.loads(machine.succeed(f"cat '{state_path}'"))
+              assert deactivated_state == {
+                  "fileTree": {"files": [], "backedUpFiles": []},
+                  "services": {},
+                  "version": 0,
+              }
+              assert_registration(generation_one)
+              links = generation_links()
+              assert "system-manager-1-link" in links
+              assert "system-manager-2-link" in links
+              for path in forbidden_paths:
+                  assert_absent(path)
+              assert_absent(unmanaged_tmpfiles_sentinel)
+              assert protected_snapshot() == before
+        '';
+      };
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -704,6 +995,7 @@
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
+        root-canary-registration-container = rootCanaryRegistrationContainerTest;
         root-manager-policy = rootManagerPolicyCheck;
         root-system-canary = rootCanary;
         tailscale-package = tailscalePackage;

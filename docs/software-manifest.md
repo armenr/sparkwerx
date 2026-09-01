@@ -10,14 +10,20 @@ Nix evaluation, redistribution, or the installation method.
 
 ## Status of this snapshot
 
-Package/version evidence date: **2026-08-24**
+Package/version evidence date: **2026-09-01 online audit**
 
 Root-canary operational evidence updated: **2026-09-01**
 
-The versions below came from the current 2026-08-23 lock, exact upstream pins,
-and current official vendor sources. Stable Nixpkgs was advanced to its current
-branch head. Devbox 0.18.0 and Tailscale 1.102.3 plus its inert unit tree were
-built with `--no-link` and inspected. The patched System Manager 1.1.0 inert
+The pinned versions below come from the current 2026-08-23 lock and exact
+upstream pins. They were rechecked against current official sources on
+2026-09-01. Stable Nixpkgs is locked at
+`a9e6d84f9c2f...` while `nixos-26.05` is now
+`c5c4a43b0e8056328ec4529f735cabdb8f1942bb`; apps is locked at
+`a831408e6378...` while `nixpkgs-unstable` is now
+`e8be7818e19ada32105a8af937a6a473b38167ca`. Those are available lock
+refreshes, not authorization to update. Devbox 0.18.0 and Tailscale 1.102.3
+plus its inert unit tree were built with `--no-link` and inspected. The
+patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
 activation. The first disposable-container activation failed closed on upstream
 global tmpfiles behavior; after the exact-version patch, the exact current
@@ -52,15 +58,15 @@ rebuilt in Phase 1.
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
 | Shared graphical role | Ghostty | SELECTED terminal for every graphical mode | Stable pin `ghostty` 1.3.1 is current, free, and ARM64-available; its large GTK/GStreamer closure is quantified below | Decide whether the roughly 1.1 GiB Ghostty closure is acceptable, then validate GTK/GPU behavior; keep out of headless |
-| Armen graphical overlay | Chromium | SELECTED browser | Apps pin exposes `chromium` 151.0.7922.173 on ARM64/free; not wired into the overlay | Recheck security candidate, closure, extension policy, and NVIDIA graphics behavior |
-| Armen graphical overlay | Zed | SELECTED editor | Apps pin exposes `zed-editor` 1.16.1 on ARM64/free, matching the reviewed upstream release; not wired | Inspect closure and test Vulkan/Wayland/portal behavior |
-| Armen graphical overlay | LM Studio desktop | SELECTED model manager | Apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree, matching vendor 0.4.21; not wired | Keep the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
+| Armen graphical overlay | Chromium | SELECTED browser; UPDATE AVAILABLE | Apps pin exposes `chromium` 151.0.7922.173 on ARM64/free; official Linux stable is 152.0.7977.64; not wired into the overlay | Refresh only the apps lock after approval, then review the security delta, closure, extension policy, and NVIDIA graphics behavior |
+| Armen graphical overlay | Zed | SELECTED editor; UPDATE AVAILABLE | Apps pin exposes `zed-editor` 1.16.1 on ARM64/free; official stable is 1.17.2; not wired | Refresh only the apps lock after approval, inspect intervening security notes, then test ARM64 Vulkan/Wayland/portal behavior |
+| Armen graphical overlay | LM Studio desktop | SELECTED model manager; UPDATE AVAILABLE | Apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree; the official latest Linux ARM64 redirect is 0.4.23-1; not wired | Refresh only the apps lock after approval, keep the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Existing Debian installation is migration input; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension is migration input; version and pin are not captured | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. The bounded System Manager canary is retained and healthy, but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact System Manager ownership diff and apt rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; RETAINED HOST CANARY ACTIVE; registration/real roles OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable test passed. Attempts 1 and 2 timed rollback cleanly. Attempt 3 passed full guarded activation, two automatic postflights, local-console confirmation, and independent postflight. The exact five-path/three-service canary is active, directly retained, unregistered, and not boot-linked | Keep the pilot root; do not rerun inactive preflight/activation, register, add boot linkage, broaden ownership, migrate Tailscale, or switch desktop mode until the next exact plan and activation/rollback gate are separately approved |
+| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/ACTIVATION TEST PASSED; RETAINED HOST CANARY ACTIVE; REGISTRATION TEST PENDING | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The original patched disposable activation/deactivation test passed. Attempt 3 retained the exact five-path/three-service canary, directly rooted, unregistered, and not boot-linked. A separate two-generation registration lifecycle test is evaluation-valid at `m4zm42h…` but has not run | Keep the pilot root; do not rerun inactive preflight/activation or register the host. The root-assisted registration test, its evidence, live-registration plan, and live mutation each require separate gates |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -68,7 +74,10 @@ rebuilt in Phase 1.
 | Editor | Visual Studio Code | NOT SELECTED | The policy check proves both package sets reject it under the unfree predicate | Do not add; Zed is the selected editor |
 
 Upstream versions are observations, not pins. Recheck them at the moment a
-packaging change is proposed.
+packaging change is proposed. The flake's
+`roles.personalGraphicalCandidates` record now names exactly Chromium, Zed,
+and LM Studio as selected candidates; it does not add them to any Home Manager
+profile or install them.
 
 ## Phase 1 evaluated profiles
 

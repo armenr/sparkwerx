@@ -275,6 +275,15 @@ read-only postflight, then disarmed rollback. The exact canary is currently
 active and directly retained by the pilot root. No generation is registered,
 no boot link exists, and no broader root role is active.
 
+The next selected design milestone is generation registration and switching,
+not a real service. A separate disposable lifecycle test is now defined and
+evaluation-valid but remains unrun. It explicitly tests partial registration,
+two generations, profile selection versus activation, extra-GC-root
+synchronization, rollback activation, and deactivation with retained history.
+This selection authorizes the repository test definition and no-build review
+only. It does not authorize the root-assisted test, live registration, boot
+linkage, Tailscale migration, desktop switching, or pilot-root removal.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -288,9 +297,10 @@ no boot link exists, and no broader root role is active.
 
 ## Open decisions
 
-- Decide the next System Manager milestone after observing the retained canary:
-  separately authorized deactivation, generation-registration design, or the
-  first bounded real root service. Retention authorizes none of those choices.
+- Separately authorize and run the exact disposable generation-registration
+  lifecycle test, record its result and clean host postflight, then design the
+  live registration rollback. The retained canary and the pending test
+  authorize no host registration.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

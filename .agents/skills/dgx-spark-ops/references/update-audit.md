@@ -176,6 +176,35 @@ The Hyprland v0.56.2 pin currently carries a small patch matching upstream commi
 locked Glaze version. Remove the patch only when the selected source no longer
 needs it and the build confirms that fact.
 
+### Selected Nix packages
+
+The deterministic audit compares the selected direct packages against their
+official release sources: ncdu, lazydocker, Devbox, Ghostty, Chromium, Zed, and
+LM Studio. It also reports the locked stable/apps package versions separately
+from upstream application releases. A package may therefore be current while
+its branch has moved, or stale even before a lock refresh is approved.
+
+Treat Chromium, Zed, and LM Studio as selected-but-uninstalled until their exact
+current package candidates, closures, services/autostarts, state paths, and
+ARM64 behavior pass the manifest gate. The LM Studio check follows only the
+official Linux ARM64 latest-download redirect and does not download the
+installer. Never claim that all dependencies are current merely because
+`flake.lock` is reproducible or both branch-head checks succeeded.
+
+### Retained System Manager canary
+
+Resolve the exact current root-canary output, then run the repository's
+`scripts/audit-root-canary-state.sh` classifier. It emits only
+`INACTIVE_ABSENT`, `INACTIVE_EMPTY`, `ACTIVE_RETAINED`, or
+`DRIFT|reason`. The current retained attempt-3 authority should report
+`ACTIVE_RETAINED`; that is a healthy known state, not an unexpected install.
+
+While retained, do not run the inactive preflight or activation helper.
+Registration profile links and the upstream extra GC root must remain absent.
+The separately designed generation-registration container test is documented
+under `root/system-manager/validation/`; evaluation or dry-run status is not a
+test pass and a test pass would not authorize live registration.
+
 ### NVIDIA playbooks
 
 Compare the repository's pinned `NVIDIA/dgx-spark-playbooks` commit to the

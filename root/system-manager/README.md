@@ -123,14 +123,21 @@ activation. Deactivation removes managed links/units and empties that state,
 but deliberately leaves the empty state file. That exact residual path is part
 of the SBOM; it is not application data.
 
-The canary build and isolated test do not register a generation. Registration
-would separately write:
+The canary build and original isolated activation test do not register a
+generation. Registration has two logical outputs:
 
-- `/nix/var/nix/profiles/system-manager-profiles/system-manager`; and
-- `/nix/var/nix/gcroots/system-manager-current`.
+- the Nix profile at
+  `/nix/var/nix/profiles/system-manager-profiles/system-manager`; and
+- the additional direct root at
+  `/nix/var/nix/gcroots/system-manager-current`.
 
-Both paths must remain absent until generation registration receives explicit
-approval.
+The profile also materializes its parent directory and numbered
+`system-manager-N-link` history. Treat that expanded profile surface as part of
+the registration SBOM; the two logical paths are not literally the only
+filesystem objects created.
+
+Both logical registration paths and every numbered generation link must remain
+absent until live generation registration receives explicit approval.
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -140,6 +147,43 @@ armed. This root is a deliberately temporary pilot mechanism, not a substitute
 for upstream generation registration. It must remain until deactivation is
 verified; removing it while active can strand `/etc` links, unit programs, and
 the rollback executable after a Nix garbage collection.
+
+## Generation-registration lifecycle: test pending
+
+Source inspection of pinned System Manager 1.1.0 found four behaviors that the
+fleet wrapper must not hide:
+
+1. `register-profile` runs `nix-env --set` first and creates the extra GC
+   root second. A root collision can therefore make the command fail after the
+   profile has already advanced.
+2. Replacing `system-manager-current` is remove-then-create, not an atomic
+   symlink rename.
+3. The actual profile is the full path ending in `system-manager`. Selecting a
+   numbered profile generation does not activate it and does not update the
+   separate `system-manager-current` root.
+4. Deactivation removes managed files/services but does not unregister the
+   profile, delete generation history, or remove the extra root. Upstream 1.1.0
+   does not implement automatic rollback on activation failure.
+
+The repository now defines a separate two-generation disposable test for those
+semantics. Its current derivation is
+`/nix/store/m4zm42h6f8dch5mfm6aq6cpjp9jwzk90-container-test-dgx-root-canary-registration.drv`.
+The design and exact assertions are recorded in the
+[registration test plan](validation/2026-09-01-registration-test-plan.md).
+
+The test is **pending**, not passed. Evaluation and a no-build dry-run do not
+authorize its root-assisted builder. The separately gated command is:
+
+```bash
+sudo ./scripts/test-root-registration.sh
+```
+
+That helper registers and switches generations only inside the disposable
+Ubuntu container. It classifies the live host with
+`scripts/audit-root-canary-state.sh` before and after and requires the same
+state class on both sides. Do not run the helper during an ordinary audit, and
+do not propose live registration until its exact derivation has passed and a
+clean host postflight is durably recorded.
 
 ## Defaults we rejected
 
@@ -239,7 +283,8 @@ nix --extra-experimental-features "nix-command flakes" \
   build --dry-run --no-link \
   .#root-system-canary \
   .#checks.aarch64-linux.root-manager-policy \
-  .#checks.aarch64-linux.root-canary-container
+  .#checks.aarch64-linux.root-canary-container \
+  .#checks.aarch64-linux.root-canary-registration-container
 ```
 
 An explicitly approved no-link runtime build is:

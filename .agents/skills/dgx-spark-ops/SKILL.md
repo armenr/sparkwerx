@@ -118,6 +118,16 @@ not run them and misclassify that expected state as drift. Audit the active
 five-path/three-service boundary directly and keep registration, boot linkage,
 deactivation, and broader ownership behind separate authorization.
 
+Use `../../../scripts/audit-root-canary-state.sh` with the exact evaluated
+candidate for a sanitized live-state classification. `ACTIVE_RETAINED` is the
+expected current result; any `DRIFT|...` result is a stop condition. For
+generation registration, switching, or rollback work, also read the
+[registration lifecycle plan](../../../root/system-manager/validation/2026-09-01-registration-test-plan.md).
+The plan's `sudo ./scripts/test-root-registration.sh` command is a distinct
+root-assisted disposable-container gate. It has not run yet. Never convert its
+design, evaluation, dry-run, or future pass into permission for live
+registration or activation.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
