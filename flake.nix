@@ -501,7 +501,7 @@
             };
 
           guardedFirstGeneration = {
-            status = "designed-not-executed";
+            status = "disposable-test-passed-live-unexecuted";
             transactionProgram = {
               repositoryPath = "scripts/root-registration-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootRegistrationTransactionProgram;
@@ -523,15 +523,26 @@
               leavesLiveActivation = "exact retained canary";
               leavesPilotRetention = "exact candidate";
             };
-            isolatedTransactionTest = {
-              result = "not-run";
-              currentDrvPath = rootCanaryRegistrationTransactionContainerTest.drvPath;
-              currentOutputPath = rootCanaryRegistrationTransactionContainerTest.outPath;
-              matchesCurrent = false;
-              hostRegistrationPerformed = false;
-              hostActivationPerformed = false;
-              evidence = "root/system-manager/validation/2026-09-01-first-registration-transaction-plan.md";
-            };
+            isolatedTransactionTest =
+              let
+                observedDrvPath = "/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv";
+                observedOutputPath = "/nix/store/mrslm372127pgwbfv3r7kprj2igxpki2-container-test-dgx-root-canary-registration-transaction";
+              in
+              {
+                verifiedAt = "2026-09-01T15:04:47Z";
+                result = "passed";
+                inherit observedDrvPath observedOutputPath;
+                outputHash = "sha256:1smdvp76zf0hz5cxzjjghf8c2z4hjkvbkwf4ikmgpf2cz8fv4ram";
+                currentDrvPath = rootCanaryRegistrationTransactionContainerTest.drvPath;
+                currentOutputPath = rootCanaryRegistrationTransactionContainerTest.outPath;
+                matchesCurrent =
+                  rootCanaryRegistrationTransactionContainerTest.drvPath == observedDrvPath
+                  && rootCanaryRegistrationTransactionContainerTest.outPath == observedOutputPath;
+                hostRegistrationPerformed = false;
+                hostActivationPerformed = false;
+                hostPostflight = "clean";
+                evidence = "root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md";
+              };
           };
         };
 
@@ -660,6 +671,9 @@
         assert
           builtins.hashFile "sha256" rootRegistrationTransactionProgram
           == reviewedRootRegistrationTransactionSha256;
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.status
+          == "disposable-test-passed-live-unexecuted";
         assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesLiveActivation;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesPilotRetention;
@@ -667,9 +681,12 @@
         assert !rootManagerManifest.registration.guardedFirstGeneration.restartsServices;
         assert !rootManagerManifest.registration.guardedFirstGeneration.liveRegistrationPerformed;
         assert
-          rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.result == "not-run";
+          rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.result == "passed";
         assert
-          !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.matchesCurrent;
+          rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.matchesCurrent;
+        assert
+          rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostPostflight
+          == "clean";
         assert
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostRegistrationPerformed;
         assert

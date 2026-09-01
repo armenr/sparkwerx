@@ -38,9 +38,9 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Read `root/system-manager/README.md` before changing the System Manager pin,
   overlays, root module, test, state, registration, or activation. The exact
   candidate's bounded host canary is active, directly retained, unregistered,
-  and not boot-linked. Its recorded activation and lifecycle container tests
-  passed; the distinct guarded first-registration failure-injection test is
-  staged with static evaluation PASS but root-assisted execution pending. Its
+  and not boot-linked. Its recorded activation, registration-lifecycle, and
+  guarded first-registration failure-injection container tests all passed; live
+  registration remains unexecuted and separately gated. Its
   private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
   neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that
   test's prior evidence stale.

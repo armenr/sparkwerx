@@ -130,27 +130,34 @@ root-assisted disposable-container gate. Its exact derivation passed on
 Require `result == "passed"` and `matchesCurrent == true` in the manifest.
 Never convert that pass into permission for live registration or activation.
 
-The separately scoped guarded first-generation transaction is now staged. Read
+The separately scoped guarded first-generation transaction passed its exact
+disposable failure-injection gate on 2026-09-01. Read
 `../../../root/system-manager/validation/2026-09-01-first-registration-transaction-plan.md`
-before touching it. Its exact transaction program is
-`../../../scripts/root-registration-transaction.sh`, and the new disposable
-gate is:
+and the exact
+[transaction test result](../../../root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md)
+before touching it. Its transaction program is
+`../../../scripts/root-registration-transaction.sh`; its separately authorized
+disposable invocation was:
 
 ```bash
 sudo ./scripts/test-root-registration-transaction.sh
 ```
 
-Static evaluation is PASS but root-assisted execution is pending. Until a
-hash-valid result is recorded, do not run either
-`snapshot-root-registration.sh` or `register-root-canary-pilot.sh`. A later
-container PASS still grants no live authority. Live registration requires a
-clean committed tree, a fresh root-owned snapshot no older than 30 minutes,
-exact `ACTIVE_RETAINED` pre-state, unchanged protected service processes,
-independent console access, an armed ten-minute registration-only rollback, and
-authorization bound to that snapshot. The wrapper must retain the active
-canary and pilot root, create no boot link, perform no activation/deactivation
-or service operation, and require exactly `KEEP REGISTRATION` before
-disarming rollback.
+Require the manifest's transaction-test `result == "passed"`,
+`matchesCurrent == true`, and `hostPostflight == "clean"`. A changed transaction
+checksum or derivation invalidates the evidence and requires a new review plus
+separately authorized disposable run. Do not rerun the test during an ordinary
+audit.
+
+This container PASS grants no live authority. Do not run either
+`snapshot-root-registration.sh` or `register-root-canary-pilot.sh` merely from
+the PASS. Live registration requires a clean committed tree, a fresh root-owned
+snapshot no older than 30 minutes, exact `ACTIVE_RETAINED` pre-state, unchanged
+protected service processes, independent console access, an armed ten-minute
+registration-only rollback, and authorization bound to that snapshot. The
+wrapper must retain the active canary and pilot root, create no boot link,
+perform no activation/deactivation or service operation, and require exactly
+`KEEP REGISTRATION` before disarming rollback.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
@@ -244,8 +251,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   linkage, broaden ownership, or update the candidate underneath the host.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. The guarded first-registration transaction remains unexecuted on
-  the host and its distinct disposable execution is still pending. A build or
-  container test never implies host registration or activation.
+  the host; its exact disposable failure-injection derivation passed with clean
+  host postflight. A build or container test never implies host registration
+  or activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

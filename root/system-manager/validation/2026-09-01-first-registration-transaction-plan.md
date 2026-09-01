@@ -2,14 +2,14 @@
 
 ## Status
 
-**DESIGN AND STATIC EVALUATION PASS; ROOT-ASSISTED DISPOSABLE EXECUTION
-PENDING. THE LIVE HOST REMAINS UNREGISTERED.**
+**PASS FOR THE EXACT DISPOSABLE DERIVATION. THE LIVE HOST REMAINS
+`ACTIVE_RETAINED`, UNREGISTERED, AND NOT BOOT-LINKED.**
 
 The transaction, private snapshot helper, guarded live wrapper, extended
 read-only classifier, and a distinct failure-injection container test are
-implemented. Evaluation completed at `2026-09-01T14:20:06Z`. The test's
-root-local build was attempted with non-interactive sudo and stopped before Nix
-ran because a password is required.
+implemented. The separately authorized root-local test completed and its exact
+hash-valid output was verified at `2026-09-01T15:04:47Z`. All nine subtests
+passed and independent host postflight was clean.
 
 No host profile, generation link, upstream extra GC root, activation,
 deactivation, boot link, daemon reload, or service change occurred.
@@ -23,16 +23,20 @@ deactivation, boot link, daemon reload, or service change occurred.
 | Exact candidate | `/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager` |
 | Transaction program | `scripts/root-registration-transaction.sh` |
 | Transaction SHA-256 | `86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9` |
-| New test derivation | `/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv` |
-| Expected test output | `/nix/store/mrslm372127pgwbfv3r7kprj2igxpki2-container-test-dgx-root-canary-registration-transaction` |
+| Test derivation | `/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv` |
+| Test output | `/nix/store/mrslm372127pgwbfv3r7kprj2igxpki2-container-test-dgx-root-canary-registration-transaction` |
+| Test output hash | `sha256:1smdvp76zf0hz5cxzjjghf8c2z4hjkvbkwf4ikmgpf2cz8fv4ram` |
 | Prior lifecycle derivation | `/nix/store/m4zm42h6f8dch5mfm6aq6cpjp9jwzk90-container-test-dgx-root-canary-registration.drv` (unchanged) |
 | Original activation derivation | `/nix/store/jcrdk9p9lz3qiya2l1021339lsdvyxcg-container-test-dgx-root-canary.drv` (unchanged) |
+| Repository commit at execution | `458d1e640f89a7986b1a33b6ca41741d597096da` |
+| Result record | [transaction container-test evidence](2026-09-01-first-registration-transaction-container-test.md) |
 | Live registration performed | No |
 | Live activation performed | No |
 
-The no-build plan contains only three derivations: the generated test script,
-closure metadata, and the new disposable container output. All underlying
-container/runtime inputs are already present.
+Before execution, the no-build plan contained only the generated test script,
+closure metadata, and new disposable container output. The completed build
+retains only Nix test/store bookkeeping on the host; all registration mutations
+occurred inside the disposable container.
 
 ## Why this is separate from upstream registration
 
@@ -77,9 +81,10 @@ through every case:
 8. exact rollback is idempotent and restores the active-unregistered state.
 
 The test finally deactivates only its disposable container and verifies exact
-empty version-0 state.
+empty version-0 state. All nine named subtests completed in the immutable Nix
+build log.
 
-Run the separately authorized test from the repository root:
+The separately authorized invocation was:
 
 ```bash
 sudo ./scripts/test-root-registration-transaction.sh
@@ -88,7 +93,8 @@ sudo ./scripts/test-root-registration-transaction.sh
 The helper requires host state `ACTIVE_RETAINED` before and after, uses the
 same root-local process-scoped `auto-allocate-uids`/`cgroups` path as the
 prior tests, and performs all registration mutations inside the disposable
-container.
+container. Repeating it is not an ordinary audit action: if the transaction or
+derivation changes, review and separately authorize a new run.
 
 ## Proposed live registration SBOM
 
@@ -110,7 +116,7 @@ configuration.
 
 ## Future live gate
 
-Disposable PASS will still not authorize live registration. Before a live
+This disposable PASS does not authorize live registration. Before a live
 invocation:
 
 1. commit the exact reviewed repository state;

@@ -28,7 +28,7 @@ root role is active.
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; host remained unregistered |
-| Guarded first-registration transaction test | **PENDING** root-assisted disposable execution; design/static evaluation pass |
+| Guarded first-registration transaction test | **PASS** for exact failure-injection derivation; live registration not performed |
 | Host activation | Attempt 3 retained and independently postflight-verified; active, unregistered, not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
@@ -195,9 +195,9 @@ pass authorizes design of the live registration/rollback transaction only; it
 does not authorize host registration, activation, boot linkage, or removal of
 the pilot root.
 
-## Guarded first-generation transaction: staged, test pending
+## Guarded first-generation transaction: disposable test passed
 
-The reviewed design now wraps the exact upstream helper with a strict
+The reviewed design wraps the exact upstream helper with a strict
 first-generation transaction. Its mutation program is
 `scripts/root-registration-transaction.sh`, SHA-256
 `86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9`.
@@ -209,23 +209,36 @@ manager, changes boot linkage, reloads systemd, restarts a service, or removes
 the pilot root. Unknown profile entries and foreign collisions fail closed and
 are not deleted.
 
-The distinct disposable failure-injection derivation currently evaluates to
-`/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv`.
-Its design is recorded in the
-[first-registration transaction plan](validation/2026-09-01-first-registration-transaction-plan.md).
-Static evaluation passes, the prior two passed derivations remain unchanged,
-and the live host remains `ACTIVE_RETAINED`. Root-assisted execution is still
-pending:
+The distinct disposable failure-injection derivation
+`/nix/store/lxnykcyvjn18pdv7y9rr1ryhvjgicazg-container-test-dgx-root-canary-registration-transaction.drv`
+**passed** on 2026-09-01. Its hash-valid output is
+`/nix/store/mrslm372127pgwbfv3r7kprj2igxpki2-container-test-dgx-root-canary-registration-transaction`,
+with hash
+`sha256:1smdvp76zf0hz5cxzjjghf8c2z4hjkvbkwf4ikmgpf2cz8fv4ram`.
+All nine preflight, partial-failure, fail-closed, success, idempotent rollback,
+and cleanup subtests completed. The prior lifecycle and activation derivations
+remain unchanged.
+
+Independent host postflight found the canary still `ACTIVE_RETAINED`, both
+registration surfaces absent, all protected services active with no pending
+reload, systemd running with zero failed units, a healthy GPU, and healthy
+sanitized Tailscale SSH state. See the
+[transaction plan](validation/2026-09-01-first-registration-transaction-plan.md)
+and exact
+[container-test evidence](validation/2026-09-01-first-registration-transaction-container-test.md).
+
+The reviewed invocation was:
 
 ```bash
 sudo ./scripts/test-root-registration-transaction.sh
 ```
 
-Do not run the private snapshot or live wrapper merely because this disposable
-test later passes. After a recorded hash-valid PASS, a live attempt would still
-require a clean committed tree, a fresh root-owned registration snapshot,
-independent console access, an exact ten-minute registration-only rollback, and
-new authorization bound to that snapshot. The staged helpers are
+Do not rerun it during an ordinary audit. Any transaction or derivation change
+invalidates this evidence and requires new review plus separate authorization.
+This PASS does not authorize the private snapshot or live wrapper. A live
+attempt still requires a clean committed tree, a fresh root-owned registration
+snapshot, independent console access, an exact ten-minute registration-only
+rollback, and new authorization bound to that snapshot. The staged helpers are
 `scripts/snapshot-root-registration.sh` and
 `scripts/register-root-canary-pilot.sh`. The live wrapper creates no boot link
 and performs no activation; it retains registration only after repeated

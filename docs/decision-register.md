@@ -286,14 +286,17 @@ authorizes design of the live registration/rollback transaction only. It does
 not authorize live registration, boot linkage, Tailscale migration, desktop
 switching, or pilot-root removal.
 
-The exact first-generation transaction is now designed and statically
-evaluated. It wraps the upstream helper with an absent-profile precondition,
-exact post-state checks, bounded partial-failure cleanup, a root-owned
-same-window snapshot, and a ten-minute registration-only rollback. The distinct
-failure-injection container derivation is staged but has not yet received its
-root-assisted execution PASS. Therefore the host remains `ACTIVE_RETAINED`,
-unregistered, and not boot-linked. Neither the staged design nor a future
-container PASS authorizes the live wrapper.
+The exact first-generation transaction and its distinct failure-injection
+container derivation passed on 2026-09-01. All nine preflight, upstream partial
+failure, fail-closed cleanup, successful registration, idempotent rollback, and
+disposable cleanup scenarios completed against the exact reviewed transaction
+checksum. The prior two passed derivations remained unchanged. Independent
+postflight found the host still `ACTIVE_RETAINED`, unregistered, not
+boot-linked, and healthy. This pass makes the exact live SBOM and rollback gate
+eligible for review; it does not authorize the live wrapper. Live registration
+still requires a clean committed tree, same-window root-owned snapshot,
+independent console, armed ten-minute rollback, and authorization bound to the
+fresh snapshot.
 
 ## Explicit non-selections
 
@@ -308,11 +311,11 @@ container PASS authorizes the live wrapper.
 
 ## Open decisions
 
-- Complete and record the distinct disposable failure-injection PASS for the
-  staged first-generation transaction, then review its exact live SBOM and
+- Review the tested first-generation transaction's exact live SBOM and
   same-window rollback gate. Profile selection, extra-root synchronization, and
   live activation remain three separately verified states; no test authorizes
-  host registration.
+  host registration, and any changed transaction or derivation requires a new
+  disposable gate.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -344,9 +347,9 @@ The repository-only policy alignment was completed and evaluated on
   disposable activation/deactivation test passed on 2026-08-24, its third
   guarded host attempt was retained on 2026-09-01, and the exact disposable
   generation-registration lifecycle test then passed without host registration
-  or boot linkage; the guarded first-generation transaction and its distinct
-  failure-injection test are staged with static evaluation PASS and
-  root-assisted execution pending;
+  or boot linkage; the exact guarded first-generation failure-injection test
+  then passed with clean host postflight while live registration remained
+  unexecuted;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and
