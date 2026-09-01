@@ -244,6 +244,21 @@ rollback, and new authorization bound to that snapshot. The staged helpers are
 and performs no activation; it retains registration only after repeated
 postflight and the exact `KEEP REGISTRATION` confirmation.
 
+The first live wrapper invocation on 2026-09-01 **failed closed before
+mutation**. Its snapshot passed, then a wrapper parser incorrectly associated
+the next unit's `MainPID` with `nix-daemon.service` because `systemctl show`
+emitted `MainPID` before `Id`. The failure occurred before the rollback timer,
+`registration_started=true`, or `apply-first`. Independent postflight found the
+canary still `ACTIVE_RETAINED`, every registration path absent, and both
+transient rollback units absent. The parser now consumes complete
+blank-line-delimited unit records and has passed synthetic plus all-seven-unit
+regression checks. The transaction checksum and all three disposable
+derivations are unchanged. Read the
+[attempt record](validation/2026-09-01-first-registration-host-attempt-1.md).
+The old snapshot is retired; any retry requires a clean corrected commit, a
+fresh snapshot, independent-console verification, and new snapshot-bound
+authorization.
+
 ## Defaults we rejected
 
 Upstream's nominally empty configuration is broader than this project's empty

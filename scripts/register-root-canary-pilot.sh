@@ -79,12 +79,30 @@ snapshot_property() {
   local unit="$1"
   local property="$2"
 
-  awk -F= -v wanted="$unit" -v property="$property" '
-    $1 == "Id" { selected = ($2 == wanted) }
-    selected && $1 == property {
-      sub("^[^=]*=", "")
-      print
-      exit
+  # systemctl does not preserve the order supplied by repeated -p flags. Parse
+  # each blank-line-delimited unit record in full so properties emitted before
+  # Id (notably MainPID) are still associated with the correct unit.
+  awk -v wanted="$unit" -v property="$property" '
+    BEGIN {
+      RS = ""
+      FS = "\n"
+    }
+    {
+      matched = 0
+      value = ""
+      prefix = property "="
+      for (i = 1; i <= NF; i++) {
+        if ($i == "Id=" wanted) {
+          matched = 1
+        }
+        if (index($i, prefix) == 1) {
+          value = substr($i, length(prefix) + 1)
+        }
+      }
+      if (matched) {
+        print value
+        exit
+      }
     }
   ' "$snapshot/services.before.txt"
 }

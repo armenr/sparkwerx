@@ -298,6 +298,18 @@ still requires a clean committed tree, same-window root-owned snapshot,
 independent console, armed ten-minute rollback, and authorization bound to the
 fresh snapshot.
 
+The first live wrapper invocation on 2026-09-01 passed its snapshot gate and
+then failed closed before mutation on a false `nix-daemon.service` `MainPID`
+comparison. The wrapper's snapshot parser had assumed property order within
+multi-unit `systemctl show` output and crossed into the next unit record when
+`MainPID` preceded `Id`. No rollback unit, profile generation, or extra root
+was created; postflight found `ACTIVE_RETAINED` with the complete registration
+surface absent. The corrected parser handles each unit record atomically and
+passed synthetic plus all-seven-unit regression checks. The transaction
+checksum and disposable derivations are unchanged. The old commit-bound
+snapshot is retired; retry requires a new clean commit, snapshot, console
+check, and exact snapshot-bound authorization.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -311,11 +323,12 @@ fresh snapshot.
 
 ## Open decisions
 
-- Review the tested first-generation transaction's exact live SBOM and
-  same-window rollback gate. Profile selection, extra-root synchronization, and
-  live activation remain three separately verified states; no test authorizes
-  host registration, and any changed transaction or derivation requires a new
-  disposable gate.
+- Run the corrected first-generation wrapper only from a new clean commit and
+  fresh same-window snapshot with repeated console verification and exact
+  snapshot-bound authorization. Profile selection, extra-root synchronization,
+  and live activation remain three separately verified states; no disposable
+  test authorizes host registration, and any changed transaction or derivation
+  requires a new disposable gate.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -348,8 +361,10 @@ The repository-only policy alignment was completed and evaluated on
   guarded host attempt was retained on 2026-09-01, and the exact disposable
   generation-registration lifecycle test then passed without host registration
   or boot linkage; the exact guarded first-generation failure-injection test
-  then passed with clean host postflight while live registration remained
-  unexecuted;
+  then passed with clean host postflight; the first live registration wrapper
+  attempt later failed closed before mutation because of an order-dependent
+  service-snapshot parser, which is now corrected and regression tested while
+  the host remains unregistered;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

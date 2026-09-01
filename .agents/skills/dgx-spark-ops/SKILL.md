@@ -159,6 +159,20 @@ wrapper must retain the active canary and pilot root, create no boot link,
 perform no activation/deactivation or service operation, and require exactly
 `KEEP REGISTRATION` before disarming rollback.
 
+The first live wrapper invocation on 2026-09-01 failed closed during
+protected-service preflight, before the rollback timer or registration
+transaction. Read the
+[attempt record](../../../root/system-manager/validation/2026-09-01-first-registration-host-attempt-1.md).
+The cause was an order-dependent `snapshot_property` parser: in multi-unit
+`systemctl show` output, properties such as `MainPID` may precede `Id`. Preserve
+the corrected whole-record parser and its synthetic plus all-seven-unit
+regressions; never reintroduce streaming selection that can cross a blank-line
+unit boundary. The transaction checksum and all three disposable derivations
+were unchanged. Snapshot `20260901T183009Z` is tied to the pre-fix commit and
+retired. A corrected live attempt requires a new clean commit, fresh snapshot,
+independent-console verification, and new authorization bound to that exact
+snapshot.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
@@ -251,9 +265,12 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   linkage, broaden ownership, or update the candidate underneath the host.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. The guarded first-registration transaction remains unexecuted on
-  the host; its exact disposable failure-injection derivation passed with clean
-  host postflight. A build or container test never implies host registration
-  or activation.
+  the host: its exact disposable failure-injection derivation passed with clean
+  host postflight, and the first live wrapper invocation stopped before the
+  timer or transaction because of the now-corrected service-snapshot parser.
+  Preserve that failed-closed record and never reuse its old commit-bound
+  snapshot. A build or container test never implies host registration or
+  activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before
