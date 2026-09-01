@@ -30,9 +30,12 @@ entered. A later reboot audit confirmed the canary surface absent, exact empty
 state, no registration, retained exact candidate, and healthy protected
 services. A subsequent factory Firefox Snap refresh temporarily set a pending
 systemd daemon reload. Armen acknowledged the generated unit graph without a
-protected-service restart, and the full preflight passed again. System Manager
-is currently inactive; Tailscale was not restarted or replaced, and the desktop
-was not switched.
+protected-service restart, and the full preflight passed again. A third live
+canary then passed the complete guarded flow and was retained after independent
+local-console confirmation. System Manager is active only on the exact
+five-path/three-service surface, remains unregistered and not boot-linked, and
+owns no Tailscale or desktop state. Tailscale was not restarted or replaced,
+and the desktop was not switched.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -55,9 +58,9 @@ rebuilt in Phase 1.
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Existing Debian installation is migration input; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension is migration input; version and pin are not captured | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
-| Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2 | Do not replace/restart the live daemon over Tailscale SSH; validate the selected root-manager candidate and pass console, rollback, state/identity, reboot, and reconnect gates |
+| Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. The bounded System Manager canary is retained and healthy, but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact System Manager ownership diff and apt rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; TWO HOST ATTEMPTS ROLLED BACK CLEANLY; retained activation OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable test passed. Attempt 1 proved the five-path/three-service boundary and rolled back after a verifier false positive. Attempt 2 passed the corrected automatic postflight and rolled back after the exact human retention confirmation was not entered. The 2026-09-01 reboot audit confirmed absent managed paths, exact empty state, no registration, retained candidate, and healthy protected services. The canary is inactive and unregistered | Rerun current preflight, create a fresh private snapshot that records the exact residual state/root, reconfirm console access, obtain explicit activation authorization, and arm the same exact timed rollback |
+| Root integration | System Manager | SELECTED; PATCHED RUNTIME/POLICY/CONTAINER TEST PASSED; RETAINED HOST CANARY ACTIVE; registration/real roles OPEN | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. The exact patched disposable test passed. Attempts 1 and 2 timed rollback cleanly. Attempt 3 passed full guarded activation, two automatic postflights, local-console confirmation, and independent postflight. The exact five-path/three-service canary is active, directly retained, unregistered, and not boot-linked | Keep the pilot root; do not rerun inactive preflight/activation, register, add boot linkage, broaden ownership, migrate Tailscale, or switch desktop mode until the next exact plan and activation/rollback gate are separately approved |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -163,13 +166,17 @@ nix --extra-experimental-features "nix-command flakes" \
   eval --json .#lib.dgxProfileManifests.aarch64-linux
 ```
 
-The separately scoped root-manager source, closure policy, operational state,
-and registration status are exported as:
+The separately scoped root-manager source, closure policy, declared state and
+registration paths, and inert-evaluation side-effect flags are exported as:
 
 ```bash
 nix --extra-experimental-features "nix-command flakes" \
   eval --json .#lib.dgxRootManagerManifest.aarch64-linux
 ```
+
+Those booleans describe what flake evaluation/build itself performs; they do
+not probe mutable host state. The retained attempt-3 validation record is the
+live-state authority.
 
 The evaluation-only invariant suite is:
 

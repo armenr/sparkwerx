@@ -110,8 +110,9 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
-- System Manager 1.1.0 is the selected but inactive/unregistered root-manager
-  candidate; its 109-path / 230.0 MiB canary is forced to private Nix 2.35.2,
+- System Manager 1.1.0 is the selected root-manager candidate; its exact
+  five-path/three-service canary is retained active but unregistered and not
+  boot-linked. Its 109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control
   surface documented in `root/system-manager/README.md`;
 - the first root-local disposable activation exposed System Manager 1.1.0's
@@ -122,22 +123,22 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   2026-08-24, including the unmanaged tmpfiles sentinel, protected-file hashes,
   bounded state, rollback, and clean host postflight; any derivation change
   invalidates that evidence;
-- two separately authorized low-level host canaries activated within the exact
-  five-path/three-service boundary and timed rollback completed successfully;
-  the current residual is the exact empty version-0 state under
-  `/var/lib/system-manager/state`, while generation profile/GC-root registration
-  remains separate and has never occurred;
+- three separately authorized low-level host canaries activated within the exact
+  five-path/three-service boundary: two timed rollbacks completed successfully,
+  and the third passed local-console confirmation and remains active with the
+  exact bounded version-1 state under `/var/lib/system-manager/state`;
+  generation profile/GC-root registration remains separate and has never
+  occurred;
 - low-level activation does not itself retain the store output. A live pilot
   must first create the manifest-declared direct root at
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`; it is not upstream
   generation registration, does not replace that future decision, and must
   survive until verified deactivation;
-- the 2026-09-01 reboot audit confirmed the canary inactive and unregistered,
-  all managed and forbidden paths absent, the exact candidate still retained,
-  and the factory/access services healthy; a factory Firefox Snap refresh one
-  minute later changed the unit graph and correctly invalidated the earlier
-  preflight until a daemon reload and full recheck passed without restarting
-  protected services;
+- the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
+  factory/access services; a factory Firefox Snap refresh one minute later
+  changed the unit graph and correctly invalidated the earlier preflight until
+  a daemon reload and full recheck passed without restarting protected
+  services; the later third attempt is now the retained live state;
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
@@ -170,12 +171,13 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   nearby catalog products.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
-- The exact System Manager container test passed; keep the candidate inactive
-  and unregistered until a separately approved host canary passes. Never let it
-  own host Nix, users, wrappers, global PATH, boot links, or factory services or
-  process global factory tmpfiles rules when its managed set is empty; preserve
-  the exact-version patch, regression sentinel, current-test match, and explicit
-  pilot store-retention root.
+- The exact System Manager container test and retained host canary passed. Keep
+  the live canary unregistered, not boot-linked, and restricted to its exact
+  five-path/three-service surface until a separately approved next milestone.
+  Never let it own host Nix, users, wrappers, global PATH, boot links, or factory
+  services or process global factory tmpfiles rules when its managed set is
+  empty; preserve the exact-version patch, regression sentinel,
+  current-test match, and explicit pilot store-retention root.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

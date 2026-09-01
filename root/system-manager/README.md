@@ -8,10 +8,11 @@ Nothing in this directory, the flake input, or a successful build activates the
 manager. On 2026-08-24, two separately authorized live canaries activated and
 then rolled back on their timed guards: attempt 1 followed a verifier false
 positive, while attempt 2 passed corrected automatic postflight but did not
-receive the exact human retention confirmation. No System Manager profile has
-been registered, and no configuration is currently active. A 2026-09-01 reboot
-audit confirmed the exact empty rollback state, retained pilot root, and healthy
-factory/access services.
+receive the exact human retention confirmation. On 2026-09-01, attempt 3 passed
+the full guarded flow and was retained after independent local-console
+confirmation. The exact five-path/three-service canary is currently active. No
+System Manager profile has been registered, no boot link exists, and no broader
+root role is active.
 
 ## Reviewed candidate
 
@@ -26,7 +27,7 @@ factory/access services.
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Disposable container test | **PASS** for the exact recorded derivation |
-| Host activation | Attempts 1 and 2 activated and timed rollback passed; currently inactive |
+| Host activation | Attempt 3 retained and independently postflight-verified; active, unregistered, not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -78,8 +79,26 @@ state. It also records a later factory Firefox Snap refresh that temporarily set
 `NeedDaemonReload=yes`. Armen acknowledged the generated unit graph with a
 daemon reload; no protected service restarted, and full preflight passed again.
 
-A retained retry remains a distinct host activation and requires a new fresh
-snapshot plus explicit authorization.
+## Host canary attempt 3 retained
+
+An initial 2026-09-01 activation invocation safely refused a snapshot that was
+13 seconds beyond the 30-minute limit and changed nothing. With a new exact
+snapshot and new authorization, the helper activated the canary at
+`2026-09-01T10:37:44Z`. Automatic postflight passed, Armen verified the
+physical console and entered exactly `KEEP CANARY`, repeated postflight passed,
+and systemd stopped the rollback timer at `10:37:51Z` before its service ran.
+
+Independent inspection confirmed version-1 state with exactly the five managed
+paths and three service keys, the expected services/targets active, every
+forbidden and registration path absent, the pilot root intact, zero failed
+units, healthy protected services/GPU/Tailscale SSH, and no pending daemon
+reload. The [attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md)
+is the current live-state authority.
+
+Do not rerun the inactive-state preflight or activation helper while this
+canary remains active, remove its pilot root, register a generation, add boot
+linkage, or broaden its role without a new reviewed plan and explicit
+authorization.
 
 ## Exact canary ownership
 
@@ -206,8 +225,12 @@ nix --extra-experimental-features "nix-command flakes" \
 ```
 
 The first command evaluates invariants only. The second emits the exact manager
-revision, private Nix runtime, ownership surface, state, registration paths,
-and activation status.
+revision, private Nix runtime, ownership surface, declared state/registration
+paths, and proof that evaluation/build performs no activation, registration, or
+pilot-root creation. Its `activated`, `performed`, and `created` booleans are
+declarative side-effect flags, not probes of mutable host state. The
+[attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md) is the current
+live-state authority.
 
 Review missing builds without realizing anything:
 
@@ -306,11 +329,15 @@ System Manager generation or host configuration. The one-time dry-run was
 Rust/build tools, Python test driver, and systemd utilities. Those are test
 dependencies, not the 230.0 MiB runtime closure and not a system profile.
 
-## Host activation hold
+## Active-canary and future activation gates
 
-Do not activate this canary merely because evaluation, build, or the container
-test passes. A pilot host activation still requires all of the following in the
-same maintenance window:
+The exact candidate is retained active as documented above. The inactive-state
+preflight and guarded activation helper now correctly encounter their declared
+paths as collisions; do not rerun them merely to audit the active canary.
+
+For any future activation, reactivation, or changed candidate, do not proceed
+merely because evaluation, build, or the container test passes. The maintenance
+window still requires all of the following:
 
 1. independently verified local console/recovery access—not only Tailscale SSH;
 2. an exact collision report for every declared `/etc` and systemd path;
@@ -327,8 +354,9 @@ The reusable automatic inspection is:
 ./scripts/preflight-root-canary.sh
 ```
 
-It is read-only and deliberately leaves the manual console gate on HOLD. The
-dated [host preflight record](validation/2026-08-24-host-preflight.md) contains
+It is read-only, expects an inactive canary, and deliberately leaves the manual
+console gate on HOLD. The dated
+[host preflight record](validation/2026-08-24-host-preflight.md) contains
 the current collision/health evidence, private snapshot helper, exact candidate,
 and prepared ten-minute transient rollback sequence. None of those prepared
 commands is activation authorization.

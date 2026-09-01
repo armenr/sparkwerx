@@ -109,6 +109,15 @@ postflight. Require `isolatedTest.result == "passed"` and
 patch, or test derivation invalidates that evidence and requires a separately
 authorized disposable rerun; it still never authorizes host activation.
 
+The exact candidate's third guarded host attempt was retained on
+2026-09-01. Read
+`../../../root/system-manager/validation/2026-09-01-host-canary-attempt-3.md`
+as the current live-state authority. While it remains active, the inactive
+preflight and activation helper should encounter declared-path collisions; do
+not run them and misclassify that expected state as drift. Audit the active
+five-path/three-service boundary directly and keep registration, boot linkage,
+deactivation, and broader ownership behind separate authorization.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
@@ -187,16 +196,19 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   a reviewed root-equivalent host change.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
-- System Manager is selected only as a bounded inactive candidate. Preserve its
-  exact service/`/etc` allowlists, state/registration disclosure, no-boot policy,
-  Nix 2.35.2 private runtime, and closure rejection of Nix 2.34.8 and real
-  `userborn`. Preserve the exact-version `skip-empty-tmpfiles` patch, its
-  manifest hash/policy, and the unmanaged-rule regression sentinel; never allow
-  an empty managed set to trigger global factory tmpfiles processing. Preserve
-  the explicit pilot GC-root disclosure: low-level activation is unregistered
-  and otherwise unrooted, so its exact closure and rollback program must remain
-  retained until verified deactivation. Preserve the exact passed-test evidence
-  only while it matches the currently evaluated
+- System Manager's exact five-path/three-service canary is retained active on
+  `sparkle-01` as of 2026-09-01, but remains unregistered and not boot-linked.
+  Preserve its exact service/`/etc` allowlists, state/registration disclosure,
+  no-boot policy, Nix 2.35.2 private runtime, and closure rejection of Nix
+  2.34.8 and real `userborn`. Preserve the exact-version
+  `skip-empty-tmpfiles` patch, its manifest hash/policy, and the unmanaged-rule
+  regression sentinel; never allow an empty managed set to trigger global
+  factory tmpfiles processing. Preserve the explicit pilot GC root: low-level
+  activation is otherwise unrooted, so the exact closure and deactivation
+  program must remain retained. While active, do not rerun the inactive-state
+  preflight/activation helper, remove that root, register a generation, add boot
+  linkage, broaden ownership, or update the candidate underneath the host.
+  Preserve exact passed-test evidence only while it matches the evaluated
   derivation. A build or container test never implies host activation.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable

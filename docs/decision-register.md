@@ -266,17 +266,14 @@ snapshots, exact store retention, timed rollback, and separate authorization.
 This selection does not
 advance the Tailscale migration or implement desktop-mode switching.
 
-Two separately authorized live canaries activated on 2026-08-24 and proved the
-exact five-path/three-service boundary. Attempt 1 failed closed on an incorrect
-wrapper-versus-payload verifier assertion; its ten-minute guard ran exact
-deactivation. The corrected attempt 2 passed full automatic postflight, then
-left rollback armed because the exact `KEEP CANARY` human confirmation was not
-entered. Its timed deactivation also completed successfully. The 2026-09-01
-post-reboot audit found the complete canary surface absent, exact empty
-version-0 state, retained exact pilot root, no registration, zero failed units,
-and healthy factory/access services. No generation has been registered. The
-canary is currently inactive; a retained activation remains separately
-authorized work.
+Three separately authorized live canaries have proved the exact
+five-path/three-service boundary. Attempts 1 and 2 failed closed for a verifier
+defect and a missing exact human confirmation, respectively; both timed
+rollbacks completed successfully. Attempt 3 on 2026-09-01 passed corrected
+postflight twice, independent local-console confirmation, and independent
+read-only postflight, then disarmed rollback. The exact canary is currently
+active and directly retained by the pilot root. No generation is registered,
+no boot link exists, and no broader root role is active.
 
 ## Explicit non-selections
 
@@ -291,9 +288,9 @@ authorized work.
 
 ## Open decisions
 
-- Decide whether to authorize a retained System Manager host-canary attempt
-  after a fresh same-window snapshot. Two live attempts proved the activation
-  scope and timed rollback, but neither retained the canary.
+- Decide the next System Manager milestone after observing the retained canary:
+  separately authorized deactivation, generation-registration design, or the
+  first bounded real root service. Retention authorizes none of those choices.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -319,11 +316,12 @@ The repository-only policy alignment was completed and evaluated on
   apps set permits exactly `lmstudio`;
 - the permanent role is exactly current `ncdu`, `lazydocker`, and Devbox
   0.18.0; Devbox and Tailscale passed scoped no-link ARM64 builds;
-- System Manager 1.1.0 is pinned as an inactive root-manager candidate; its
+- System Manager 1.1.0 was pinned as an inactive root-manager candidate; its
   109-path / 230.0 MiB canary and closure policy passed no-link builds with a
   private Nix 2.35.2 runtime and no real `userborn` closure; its exact patched
-  disposable activation/deactivation test later passed on 2026-08-24 without
-  host activation or registration;
+  disposable activation/deactivation test passed on 2026-08-24, and its third
+  guarded host attempt was retained on 2026-09-01 without registration or boot
+  linkage;
 - Home Manager CLI, the man viewer/manual, XDG base directories, shared MIME
   support, MIME defaults, user directories, and portals have separate gates;
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and

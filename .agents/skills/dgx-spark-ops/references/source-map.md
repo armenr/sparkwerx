@@ -68,6 +68,7 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | System Manager matching stable branch | https://github.com/numtide/system-manager/tree/release-26.05 |
 | Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
 | Exact current System Manager container-test evidence | [root/system-manager/validation/2026-08-24-container-test.md](../../../../root/system-manager/validation/2026-08-24-container-test.md) |
+| Current retained System Manager host-canary evidence | [root/system-manager/validation/2026-09-01-host-canary-attempt-3.md](../../../../root/system-manager/validation/2026-09-01-host-canary-attempt-3.md) |
 | Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |
 

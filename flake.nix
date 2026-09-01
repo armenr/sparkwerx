@@ -357,6 +357,8 @@
           wantedBy = [ "multi-user.target" ];
           statePath = "/var/lib/tailscale/tailscaled.state";
           socketPath = "/run/tailscale/tailscaled.sock";
+          # Declarative side-effect flag: this output is inert. It is not a
+          # live-host observation of the apt-owned daemon.
           activated = false;
         };
 
@@ -382,6 +384,9 @@
           lastModified = system-manager.lastModified;
           drvPath = systemManagerPackage.drvPath;
           rootOutputPath = rootCanary.outPath;
+          # Declarative side-effect flag: evaluating/building this output does
+          # not activate it. Current live state is recorded under
+          # root/system-manager/validation/.
           activated = false;
           patches = [
             {
@@ -425,6 +430,8 @@
         };
 
         registration = {
+          # The repository evaluation performs no registration. This is not a
+          # probe of mutable host paths.
           performed = false;
           profile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
           gcRoot = "/nix/var/nix/gcroots/system-manager-current";
@@ -432,6 +439,8 @@
 
         pilotRetention = {
           path = rootCanaryPilotGcRoot;
+          # The repository evaluation does not create this root. The retained
+          # host canary currently has it; see the live validation record.
           created = false;
           requiredForLowLevelActivation = true;
           removeOnlyAfterDeactivation = true;

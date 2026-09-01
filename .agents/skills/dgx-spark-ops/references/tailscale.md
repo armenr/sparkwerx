@@ -29,7 +29,7 @@ remote-access daemon. Building the adapter did not migrate service ownership.
 | Concern | Owner and location |
 | --- | --- |
 | `tailscale` and `tailscaled` binaries | This repository, through a pinned Nix package |
-| `tailscaled.service` and headless boot behavior | Reviewed root configuration; `system-manager` is the current candidate pending SBOM approval |
+| `tailscaled.service` and headless boot behavior | Reviewed root configuration; the bounded System Manager canary is validated and retained, but Tailscale unit ownership is not yet added or approved |
 | Node identity and daemon state | Mutable root-owned state under `/var/lib/tailscale`; never copy into Git or the Nix store |
 | Tailscale SSH preference | Declarative desired state applied without embedding an auth key |
 | Tailnet ACLs, grants, SSH policy, and device approval | Tailscale control-plane state; document and manage separately from the host package |
