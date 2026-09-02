@@ -79,6 +79,14 @@ postflight prove the real host remained exact live generation two, with the
 generation-three pilot root and boot link absent. Generation three is an inert
 store candidate only; no live retention, registration, activation, boot edge,
 rollback timer, or reboot is authorized.
+The separate live activation is now repository-designed with exact pinned
+snapshot and activation helpers. It requires a clean commit, fresh private
+snapshot, exact generation-two pre-state, protected-process continuity,
+physical-console verification, an armed ten-minute rollback, repeated
+postflight, and exact `KEEP GENERATION THREE`. Neither helper has run. The
+activation rollback timer is transient and cannot survive reboot, so the
+wrapper performs no reboot and a real reboot remains a separately designed and
+authorized milestone.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not

@@ -158,6 +158,13 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   and one tracked `default.target` edge. It remains inert in the store: no host
   generation-three root, registration, activation, boot edge, or reboot exists,
   and the test pass grants no live authority;
+- the separate generation-three live activation is now repository-designed and
+  hash-pinned but unrun. It requires a clean commit, fresh private snapshot,
+  exact generation-two pre-state, protected-process continuity, local console,
+  rollback armed before activation, repeated postflight, and exact
+  `KEEP GENERATION THREE`. Its transient rollback is independent of Tailscale
+  but does not survive reboot; the wrapper performs no reboot, and the first
+  real reboot remains a separate persistent-recovery milestone;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -200,9 +207,11 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   profile links, the upstream generation-two root, both direct pilot roots, the
   five-path/three-service activation surface, and the no-boot boundary until a
   separately approved next milestone. Generation three is an inert, tested
-  candidate only; its direct root and host boot edge must remain absent. Read
-  the boot-persistence transaction plan and exact test record before touching
-  it. The reviewed generation-two live pilot completed from a now-spent
+  candidate only; its direct root and host boot edge must remain absent. Its
+  live activation wrapper is designed but unrun. Read the boot-persistence
+  transaction plan, exact test record, and guarded live plan before touching
+  it. Never reboot during the activation timer: that transient guard does not
+  survive reboot. The reviewed generation-two live pilot completed from a now-spent
   snapshot; rerun, generation-three activation, rollback, cleanup, or reboot
   each requires separate authority. Rollback preserves both current direct
   pilot roots.

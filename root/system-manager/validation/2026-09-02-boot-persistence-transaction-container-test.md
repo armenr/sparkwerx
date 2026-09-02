@@ -84,5 +84,8 @@ and boot behavior remain generation two.
 
 This PASS authorizes no live change. Generation-three host retention,
 registration, activation, rollback-timer arming, boot linkage, and any real
-host reboot still require a separately reviewed snapshot/wrapper plan and
-explicit operator authorization.
+host reboot still require explicit operator authorization. The later
+[guarded live activation plan](2026-09-02-boot-persistence-live-plan.md) now
+defines exact snapshot and activation helpers, but neither has run. Its
+transient rollback does not survive reboot, so live activation and the first
+real reboot remain separately authorized milestones.

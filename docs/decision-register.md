@@ -380,13 +380,21 @@ generation-three pilot root and boot edge remained absent. See the
 and exact
 [container-test result](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
 
-That PASS selects the declarative mechanism and authorizes design of a guarded
-live pilot only. It does not authorize generation-three retention,
-registration, activation, boot linkage, rollback-timer arming, or a host
-reboot. Live activation and the first real reboot remain two distinct gates,
-each requiring a fresh exact plan, snapshot, independent console/recovery
-verification, rollback that does not depend on Tailscale, and explicit
-authorization.
+That PASS selected the declarative mechanism and authorized design of a guarded
+live pilot only. The resulting exact snapshot helper and activation wrapper are
+now hash-pinned. They require a clean commit, exact generation-two pre-state,
+fresh private snapshot, unchanged protected processes, independent console,
+rollback armed before activation, repeated postflight, and exact
+`KEEP GENERATION THREE`. Neither has run, so generation three and the host boot
+edge remain absent.
+
+Live activation and the first real reboot remain two distinct gates. The
+activation rollback timer is independent of Tailscale but transient under
+`/run`, so it cannot survive reboot or sudden power loss. The wrapper therefore
+performs no reboot and explicitly forbids one during its window. A real reboot
+requires a separate persistent recovery design, snapshot, console check, and
+explicit authorization. See the
+[guarded live activation plan](../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
 
 ## Explicit non-selections
 
@@ -404,7 +412,8 @@ authorization.
 - Generation two is retained and live. The exact generation-three declarative
   boot candidate and disposable transaction are selected and test-passed, but
   generation three is not retained, registered, activated, or boot-linked on
-  the host. Guarded live activation, the first real reboot, rollback,
+  the host. Guarded live activation is designed but unrun. Its transient
+  rollback does not survive reboot, so the first real reboot, rollback,
   generation or pilot-root retirement, and the first real managed service
   remain separate decisions. Do not conflate a container restart proof with
   permission to change or reboot `sparkle-01`.

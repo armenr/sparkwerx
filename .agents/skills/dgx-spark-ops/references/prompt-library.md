@@ -227,6 +227,16 @@ ten-minute `rollback-switch` timer, the exact `KEEP GENERATION TWO` phrase, and
 the fact that rollback preserves both pilot roots. Never infer this authority
 from the repository-complete live plan or a prior activation/registration.
 
+For the System Manager generation-three boot-persistence activation, the prompt
+must name the fresh root-owned snapshot and timestamp, all three exact
+candidates and direct roots, passed 13-subtest/two-restart evidence, independent
+local console, the ten-minute `rollback-boot` timer, exact
+`KEEP GENERATION THREE`, and the fact that rollback returns to live no-boot
+generation two while preserving all three roots. It must explicitly say not to
+reboot: the activation timer is transient and does not survive one. A first
+real reboot requires a different persistent-recovery plan and separate explicit
+authorization; never infer it from a successful activation.
+
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.
 

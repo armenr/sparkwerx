@@ -17,7 +17,8 @@ was retained after its own independent local-console confirmation. On
 selected, and activated exact generation two after repeated postflight and
 local-console confirmation. Generation one remains registered and directly
 retained; both pilot roots remain. No boot link exists and no broader root role
-is active.
+is active. Exact generation three and its guarded live wrapper are tested and
+repository-designed but have not run on the host.
 
 ## Reviewed candidate
 
@@ -389,11 +390,29 @@ are in the
 the exact artifacts and host evidence are in the
 [container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md).
 
-This PASS authorizes no live change. Generation-three retention, registration,
-activation, boot linkage, timed rollback, and any real reboot require a
-separate guarded live plan, fresh private snapshot, independent local-console
-verification, and explicit authorization. A real reboot is a distinct gate
-from a live generation-three activation.
+That PASS authorized design only. The repository now contains
+`scripts/snapshot-root-boot-persistence.sh` and
+`scripts/activate-root-boot-persistence-pilot.sh`, with both exact hashes
+pinned by policy. The wrapper requires exact live no-boot generation two,
+creates the generation-three pilot root, arms a ten-minute rollback to
+generation two before mutation, registers/activates generation three, repeats
+protected-service/GPU/Tailscale postflight, and accepts only exact
+`KEEP GENERATION THREE` after local-console verification. Rollback removes the
+managed boot edge and generation-three profile link while preserving all three
+direct roots.
+
+The [guarded live plan](validation/2026-09-02-boot-persistence-live-plan.md)
+is repository design, not host authority. No helper has run: generation three
+is still not retained, registered, activated, or boot-linked on `sparkle-01`.
+The activation timer is transient and does not survive reboot, so the wrapper
+performs no reboot and explicitly forbids one during its window. A first real
+reboot requires a separate persistent recovery design and separate
+authorization even after a successful live activation.
+
+Do not create the generation-three root or run either helper until the
+repository is clean and committed, the physical console is reverified, a fresh
+private snapshot is reviewed, and Armen explicitly authorizes that exact
+snapshot. No existing authorization carries forward.
 
 ## Defaults we rejected
 

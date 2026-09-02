@@ -201,6 +201,10 @@
       reviewedRootGenerationSwitchTransactionSha256 = "ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd";
       rootBootPersistenceTransactionProgram = ./scripts/root-boot-persistence-transaction.sh;
       reviewedRootBootPersistenceTransactionSha256 = "53eb8c4d03a4c24764f519e358f3c5c813e66f189efc07e50f82cd19841d8288";
+      rootBootPersistenceSnapshotProgram = ./scripts/snapshot-root-boot-persistence.sh;
+      reviewedRootBootPersistenceSnapshotSha256 = "bb726566b5e11ed466aaab0ab7ab12e3f40f7f93af4561767bfbdb500f4640ff";
+      rootBootPersistencePilotProgram = ./scripts/activate-root-boot-persistence-pilot.sh;
+      reviewedRootBootPersistencePilotSha256 = "464f2b8283fbed336722ae96ee3786d3188b1cfba09f588974dd9381b8a58e70";
       rootGenerationSwitchSnapshotProgram = ./scripts/snapshot-root-generation-switch.sh;
       reviewedRootGenerationSwitchSnapshotSha256 = "a82669f4a7001d370d0b0bb26815d466600114137b2fa26da1bc1169ae30a9ec";
       rootGenerationSwitchPilotProgram = ./scripts/switch-root-canary-generation-pilot.sh;
@@ -714,7 +718,7 @@
         };
 
         bootPersistence = {
-          status = "disposable-transaction-test-passed-live-not-authorized";
+          status = "live-pilot-designed-activation-not-authorized";
           requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
           currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
           exactCandidates = {
@@ -775,7 +779,53 @@
             evidence = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md";
           };
           livePilot = {
-            status = "not-designed-or-authorized";
+            status = "repository-design-complete-not-run";
+            evidencePlan = "root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md";
+            requiredPreState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+            snapshot = {
+              root = "inventory/sparkle-01/raw/system-manager-boot-persistence";
+              mode = "0700";
+              owner = "root";
+              maximumAgeSeconds = 1800;
+              exactPreStateRequired = true;
+            };
+            snapshotProgram = {
+              repositoryPath = "scripts/snapshot-root-boot-persistence.sh";
+              sha256 = builtins.hashFile "sha256" rootBootPersistenceSnapshotProgram;
+            };
+            activationProgram = {
+              repositoryPath = "scripts/activate-root-boot-persistence-pilot.sh";
+              sha256 = builtins.hashFile "sha256" rootBootPersistencePilotProgram;
+            };
+            systemdSnapshotPropertyProgram = {
+              repositoryPath = "scripts/systemd-snapshot-property.sh";
+              sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyProgram;
+            };
+            systemdSnapshotPropertyTest = {
+              repositoryPath = "scripts/test-systemd-snapshot-property.sh";
+              sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyTestProgram;
+              check = systemdSnapshotPropertyRegressionCheck.drvPath;
+            };
+            confirmation = {
+              phrase = "KEEP GENERATION THREE";
+              timeoutSeconds = 300;
+              requiresLocalConsoleVerification = true;
+              repeatedPostflightBeforeDisarm = true;
+            };
+            rollback = {
+              timerUnit = "dgx-root-boot-persistence-rollback.timer";
+              delayMinutes = 10;
+              armedBeforeActivation = true;
+              transactionAction = "rollback-boot";
+              restoresState = "exact registered and active no-boot generation two";
+              preservesAllThreePilotRoots = true;
+              survivesHostReboot = false;
+            };
+            reboot = {
+              status = "separate-plan-not-designed-or-authorized";
+              performed = false;
+              forbiddenDuringActivationWindow = true;
+            };
             hostCandidateRetentionPerformed = false;
             hostRegistrationPerformed = false;
             hostActivationPerformed = false;
@@ -932,6 +982,12 @@
           builtins.hashFile "sha256" rootBootPersistenceTransactionProgram
           == reviewedRootBootPersistenceTransactionSha256;
         assert
+          builtins.hashFile "sha256" rootBootPersistenceSnapshotProgram
+          == reviewedRootBootPersistenceSnapshotSha256;
+        assert
+          builtins.hashFile "sha256" rootBootPersistencePilotProgram
+          == reviewedRootBootPersistencePilotSha256;
+        assert
           builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram
           == reviewedRootGenerationSwitchSnapshotSha256;
         assert
@@ -1029,8 +1085,7 @@
         assert
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed;
         assert
-          rootManagerManifest.bootPersistence.status
-          == "disposable-transaction-test-passed-live-not-authorized";
+          rootManagerManifest.bootPersistence.status == "live-pilot-designed-activation-not-authorized";
         assert
           rootManagerManifest.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
         assert rootManagerManifest.bootPersistence.delta.serviceInventoryUnchanged;
@@ -1053,7 +1108,23 @@
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostCandidateRetentionPerformed;
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostBootLinkCreated;
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostRebootPerformed;
-        assert rootManagerManifest.bootPersistence.livePilot.status == "not-designed-or-authorized";
+        assert rootManagerManifest.bootPersistence.livePilot.status == "repository-design-complete-not-run";
+        assert
+          rootManagerManifest.bootPersistence.livePilot.snapshotProgram.sha256
+          == reviewedRootBootPersistenceSnapshotSha256;
+        assert
+          rootManagerManifest.bootPersistence.livePilot.activationProgram.sha256
+          == reviewedRootBootPersistencePilotSha256;
+        assert
+          rootManagerManifest.bootPersistence.livePilot.systemdSnapshotPropertyProgram.sha256
+          == reviewedSystemdSnapshotPropertySha256;
+        assert
+          rootManagerManifest.bootPersistence.livePilot.systemdSnapshotPropertyTest.sha256
+          == reviewedSystemdSnapshotPropertyTestSha256;
+        assert rootManagerManifest.bootPersistence.livePilot.rollback.armedBeforeActivation;
+        assert !rootManagerManifest.bootPersistence.livePilot.rollback.survivesHostReboot;
+        assert rootManagerManifest.bootPersistence.livePilot.reboot.forbiddenDuringActivationWindow;
+        assert !rootManagerManifest.bootPersistence.livePilot.reboot.performed;
         assert !rootManagerManifest.bootPersistence.livePilot.hostCandidateRetentionPerformed;
         assert !rootManagerManifest.bootPersistence.livePilot.hostRegistrationPerformed;
         assert !rootManagerManifest.bootPersistence.livePilot.hostActivationPerformed;

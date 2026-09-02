@@ -228,25 +228,37 @@ The next inert candidate is exact generation three, which inherits generation
 two and adds only `boot-persistence-generation=3` plus the declarative
 `default.target.wants/system-manager.target` edge. Before touching
 `dgx.root.bootPersistence`, `rootCanaryBootPersistenceGeneration`,
-`scripts/root-boot-persistence-transaction.sh`, or its test/helper, read the
+`scripts/root-boot-persistence-transaction.sh`,
+`scripts/snapshot-root-boot-persistence.sh`,
+`scripts/activate-root-boot-persistence-pilot.sh`, or their tests, read the
 [boot-persistence transaction plan](../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-plan.md)
 and exact
 [container-test result](../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
+For a live-host proposal, also read the
+[guarded live activation plan](../../../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
 Its 13-subtest/two-restart disposable derivation passed with a hash-valid output
 and clean host postflight. Require the manifest's boot-persistence test
 `result == "passed"`, `matchesCurrent == true`, and
 `hostPostflight == "clean"`; a changed transaction checksum, candidate, or test
 derivation invalidates that evidence.
 
-That PASS authorizes no live generation-three action. Current host state must
-remain `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, with the generation-three
-pilot root and boot edge absent, until a separate host plan is reviewed and
-explicitly authorized. Live generation-three activation and the first real
-reboot are distinct gates. Each needs fresh exact snapshot evidence,
-independent physical-console/recovery verification, and rollback that remains
-usable when Tailscale is unavailable. Never run the disposable helper during
-an ordinary audit, infer host authority from its pass, or create the
-generation-three pilot root as incidental preparation.
+That PASS authorized the now-complete live-wrapper design, not a live
+generation-three action. Current host state must remain
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, with the generation-three pilot
+root and boot edge absent, until Armen reviews and explicitly authorizes a
+fresh snapshot. Require the manifest status
+`live-pilot-designed-activation-not-authorized`, exact pinned snapshot/wrapper
+hashes, clean commit, same-window snapshot, protected-process continuity,
+physical console, rollback armed before activation, repeated postflight, and
+exact `KEEP GENERATION THREE`.
+
+Live generation-three activation and the first real reboot are distinct gates.
+The activation wrapper performs no reboot; its Tailscale-independent rollback
+timer is transient and does not survive one. A reboot requires a separate
+persistent recovery design and authorization. Never run the disposable helper
+during an ordinary audit, infer host authority from its pass, create the
+generation-three pilot root as incidental preparation, reuse an expired
+snapshot, or reboot during the activation window.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`

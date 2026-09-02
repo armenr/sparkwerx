@@ -104,8 +104,10 @@ or if a generation-three retention root appeared.
 
 ## Gates after a passing disposable test
 
-A passing test still does not authorize a host boot link or reboot. Before any
-live step, add and review a separate host plan containing:
+A passing test still does not authorize a host boot link or reboot. The
+[separate guarded live activation plan](2026-09-02-boot-persistence-live-plan.md)
+now exists and is hash-pinned, but neither helper has run and its existence
+grants no host authority. It contains:
 
 - a fresh private snapshot bound to the exact repository commit, candidate,
   transaction hash, and passed test derivation/output;
@@ -117,5 +119,8 @@ live step, add and review a separate host plan containing:
 - a separate guarded reboot window with post-boot classification and an
   automatic rollback path that remains usable if networking does not return.
 
-Until all those gates exist and receive explicit authorization, generation
-three remains an inert Nix-store candidate only.
+The activation wrapper deliberately performs no reboot because its transient
+rollback timer cannot survive one. Until a fresh exact snapshot receives
+explicit authorization, generation three remains an inert Nix-store candidate
+only. A first real reboot remains a separate persistent-recovery plan and
+authorization even after a successful live activation.
