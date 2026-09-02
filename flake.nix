@@ -559,7 +559,7 @@
           };
 
           guardedGenerationSwitch = {
-            status = "reviewed-disposable-test-pending";
+            status = "disposable-test-passed-live-switch-not-authorized";
             transactionProgram = {
               repositoryPath = "scripts/root-generation-switch-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram;
@@ -587,15 +587,28 @@
             changesServiceOwnership = false;
             liveSwitchPerformed = false;
             evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
-            isolatedTransactionTest = {
-              result = "pending";
-              currentDrvPath = rootCanaryGenerationSwitchTransactionContainerTest.drvPath;
-              currentOutputPath = rootCanaryGenerationSwitchTransactionContainerTest.outPath;
-              hostRegistrationPerformed = false;
-              hostActivationPerformed = false;
-              hostCandidateRetentionPerformed = false;
-              evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
-            };
+            isolatedTransactionTest =
+              let
+                observedDrvPath = "/nix/store/0llhzgyraq4gr7m4agbv8wbvs7xdcql2-container-test-dgx-root-canary-generation-switch-transaction.drv";
+                observedOutputPath = "/nix/store/l5s5m3q4bd338jflq1abycajwxrfbj5v-container-test-dgx-root-canary-generation-switch-transaction";
+              in
+              {
+                verifiedAt = "2026-09-02T07:02:25Z";
+                result = "passed";
+                inherit observedDrvPath observedOutputPath;
+                outputHash = "sha256:01zxs9x67jgp5ifskcvkr8lihddw886ysqcqgaaw3v6dr9f18766";
+                currentDrvPath = rootCanaryGenerationSwitchTransactionContainerTest.drvPath;
+                currentOutputPath = rootCanaryGenerationSwitchTransactionContainerTest.outPath;
+                matchesCurrent =
+                  rootCanaryGenerationSwitchTransactionContainerTest.drvPath == observedDrvPath
+                  && rootCanaryGenerationSwitchTransactionContainerTest.outPath == observedOutputPath;
+                hostRegistrationPerformed = false;
+                hostActivationPerformed = false;
+                hostCandidateRetentionPerformed = false;
+                hostPostflight = "clean";
+                evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
+                evidence = "root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md";
+              };
           };
         };
 
@@ -757,7 +770,7 @@
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostActivationPerformed;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.status
-          == "reviewed-disposable-test-pending";
+          == "disposable-test-passed-live-switch-not-authorized";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.requiredHostState
           == "ACTIVE_REGISTERED_RETAINED";
@@ -767,8 +780,12 @@
         assert !rootManagerManifest.registration.guardedGenerationSwitch.changesServiceOwnership;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitchPerformed;
         assert
-          rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.result
-          == "pending";
+          rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.result == "passed";
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.matchesCurrent;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostPostflight
+          == "clean";
         assert
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostRegistrationPerformed;
         assert

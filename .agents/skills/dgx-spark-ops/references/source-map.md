@@ -73,7 +73,8 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | System Manager registration lifecycle design | [root/system-manager/validation/2026-09-01-registration-test-plan.md](../../../../root/system-manager/validation/2026-09-01-registration-test-plan.md) |
 | Exact System Manager registration-test result | [root/system-manager/validation/2026-09-01-registration-container-test.md](../../../../root/system-manager/validation/2026-09-01-registration-container-test.md) |
 | Guarded first-registration transaction result | [root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md) |
-| Pending guarded generation-switch transaction plan | [root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md) |
+| Guarded generation-switch transaction plan | [root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md) |
+| Exact guarded generation-switch transaction result | [root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md) |
 | Sanitized retained-canary classifier | [scripts/audit-root-canary-state.sh](../../../../scripts/audit-root-canary-state.sh) |
 | Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |

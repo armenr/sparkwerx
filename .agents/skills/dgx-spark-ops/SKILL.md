@@ -194,19 +194,22 @@ not reboot, add a boot link, roll back registration, create/switch generations,
 retire the pilot root, or add a real managed service without a separate guarded
 milestone.
 
-The next guarded milestone is repository design plus a distinct disposable
-generation-switch transaction test. Read the
+The distinct disposable generation-switch transaction derivation passed all
+eleven named subtests with a hash-valid output and clean host postflight. Read
+both the
 [2026-09-02 generation-switch plan](../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md)
+and the exact
+[container-test result](../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md)
 before touching `rootCanaryRegistrationTestGeneration`,
 `scripts/root-generation-switch-transaction.sh`, or its test/helper. Its
-manifest result is currently `pending`: generation two is not retained,
-registered, selected, or active on the host, and
+manifest result is `passed` and must match the exact current derivation/output.
+That is not live-switch authority: generation two is not retained, registered,
+selected, or active on the host, and
 `/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot` must remain
-absent. Evaluation and the separately reviewed
-`sudo ./scripts/test-root-generation-switch-transaction.sh` container build
-grant no authority to create that host root or perform a live switch. Stop
-after a disposable pass and record exact evidence before designing the separate
-snapshot/timed-rollback/local-console live wrapper.
+absent. Do not rerun the one-time disposable build during an ordinary audit.
+Its pass grants no authority to create that host root or perform a live switch;
+it permits designing the separate snapshot/timed-rollback/local-console live
+wrapper only. Stop before creating host retention or invoking the transaction.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`

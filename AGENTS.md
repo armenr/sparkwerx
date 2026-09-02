@@ -39,19 +39,19 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   overlays, root module, test, state, registration, or activation. The exact
   candidate's bounded host canary is active and directly retained. Exact
   generation one and the upstream extra GC root are also retained; no boot link
-  exists. Its recorded activation, registration-lifecycle, and guarded
-  first-registration failure-injection container tests all passed, and the
-  separately guarded live registration was retained after repeated postflight
-  and independent console confirmation. The marker-only generation-two
-  candidate and guarded switch transaction are reviewed, but their disposable
-  failure-injection test is pending and the host generation-two pilot root must
-  remain absent. Read the 2026-09-02 generation-switch plan before touching
-  them. Do not rerun the one-time registration helper, reboot, add boot linkage,
-  switch generations, remove either current root, or broaden ownership without
-  a separate plan and authorization. Its private
-  wrapper must stay on reviewed Nix 2.35.2, and the closure must contain neither
-  Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's prior
-  evidence stale.
+  exists. Its recorded activation, registration-lifecycle, guarded
+  first-registration, and guarded generation-switch failure-injection container
+  tests all passed, and the separately guarded live registration was retained
+  after repeated postflight and independent console confirmation. The
+  marker-only generation-two candidate and guarded switch transaction passed
+  only their disposable gate; the host generation-two pilot root must remain
+  absent and no live switch is authorized. Read both 2026-09-02 generation-
+  switch records before touching them. Do not rerun the one-time registration
+  helper, reboot, add boot linkage, switch generations, remove either current
+  root, or broaden ownership without a separate plan and authorization. Its
+  private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
+  neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's
+  prior evidence stale.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,

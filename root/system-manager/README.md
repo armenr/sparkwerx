@@ -31,7 +31,7 @@ No boot link exists and no broader root role is active.
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; test made no host change |
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
-| Guarded generation-switch transaction test | **PENDING**; repository design reviewed, no host generation-two retention |
+| Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation; no host generation-two retention or live switch |
 | Host registration | Attempt 3 retained and independently postflight-verified; generation one exact |
 | Host activation | Exact canary remains active and unchanged; registered, not boot-linked |
 
@@ -289,9 +289,9 @@ Do not run the registration helper again while this state is retained. A
 rollback, second generation, generation switch, reboot/boot milestone, or real
 managed service requires a separate plan and authorization.
 
-## Guarded generation switch: disposable test pending
+## Guarded generation switch: disposable test passed
 
-The next repository milestone defines a marker-only generation two plus
+This repository milestone defines a marker-only generation two plus
 `scripts/root-generation-switch-transaction.sh`. Generation two inherits the
 same empty package set, five-path/three-service boundary, disabled root-manager
 defaults, and absent boot edge as generation one; it changes only the harmless
@@ -304,13 +304,30 @@ profile entries or roots, never removes either pilot root, and never adds boot
 linkage or broader service ownership. Its failure-injection modes are accepted
 only inside a systemd-nspawn container.
 
-The exact SBOM, state transitions, failure matrix, test helper, and authority
-boundary are in the
-[generation-switch transaction plan](validation/2026-09-02-generation-switch-transaction-plan.md).
-The disposable test is not yet recorded as passed. Generation two remains
-absent from the host registration and retention surfaces. Do not create
+The exact failure-injection derivation
+`/nix/store/0llhzgyraq4gr7m4agbv8wbvs7xdcql2-container-test-dgx-root-canary-generation-switch-transaction.drv`
+**passed** on 2026-09-02. Its hash-valid output is
+`/nix/store/l5s5m3q4bd338jflq1abycajwxrfbj5v-container-test-dgx-root-canary-generation-switch-transaction`,
+with hash
+`sha256:01zxs9x67jgp5ifskcvkr8lihddw886ysqcqgaaw3v6dr9f18766`. All eleven
+pre-state, partial-failure, activation-failure, exact-switch, fail-closed,
+idempotent-rollback, and cleanup subtests completed. The prior three disposable
+derivations remain unchanged.
+
+Independent host postflight found exact `ACTIVE_REGISTERED_RETAINED` generation
+one, the host generation-two pilot root absent, all seven protected services
+active with no pending reload, systemd running with zero failed units, a healthy
+GPU, and healthy sanitized Tailscale SSH. The exact SBOM, state transitions,
+failure matrix, and authority boundary are in the
+[transaction plan](validation/2026-09-02-generation-switch-transaction-plan.md);
+the exact output and host evidence are in the
+[container-test result](validation/2026-09-02-generation-switch-transaction-container-test.md).
+
+This pass permits design of a separate snapshot/timed-rollback/local-console
+live wrapper only. Generation two remains absent from the host registration and
+retention surfaces. Do not create
 `dgx-setup-root-canary-generation-two-pilot`, run the transaction on the host,
-or infer live-switch authority from evaluation or a future container pass.
+or infer live-switch authority from this container pass.
 
 ## Defaults we rejected
 

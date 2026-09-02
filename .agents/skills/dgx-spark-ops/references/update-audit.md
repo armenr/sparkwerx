@@ -204,11 +204,14 @@ healthy known state, not an unexpected install.
 While retained, do not run the inactive preflight, activation helper, or
 first-registration helper. On `sparkle-01`, the exact selected profile,
 generation-one link, upstream extra GC root, and pilot root must all remain.
-The exact generation-registration container test and its result are documented
-under `root/system-manager/validation/`. Require its manifest result to be
-`passed`, its recorded/current derivations to match, and host postflight to be
-clean. The pass did not itself authorize the later live registration and never
-authorizes another host mutation.
+All four exact disposable tests and their results are documented under
+`root/system-manager/validation/`. Require the activation, registration-
+lifecycle, first-registration transaction, and generation-switch transaction
+manifest results to be `passed`, each recorded/current derivation to match, and
+each host postflight to be clean. The generation-switch pass leaves the host
+generation-two pilot root absent and grants live-wrapper design authority only;
+it does not authorize candidate retention, a profile switch, activation, or any
+other host mutation.
 
 ### NVIDIA playbooks
 

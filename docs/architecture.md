@@ -78,10 +78,11 @@ separate action, and low-level activation does not otherwise retain its store
 closure. The pilot therefore keeps the direct root
 `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
 currently active and separately registered as generation one with the upstream
-extra root; no boot link or broader role exists. Its three existing disposable
-tests and guarded live activation/registration milestones passed. A harmless
-generation-two candidate and switch transaction are reviewed for a new
-disposable test only; generation two has no host retention or registration.
+extra root; no boot link or broader role exists. Its four disposable tests and
+guarded live activation/registration milestones passed. The harmless
+generation-two candidate and switch transaction passed only their disposable
+failure-injection gate; generation two has no host retention or registration,
+and no live switch is authorized.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.

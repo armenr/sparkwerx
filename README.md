@@ -38,13 +38,14 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
-  activation, registration-lifecycle, and first-registration transaction
-  container tests passed. The five-path/three-service host canary is now active,
-  directly retained, and registered as exact generation one after two guarded
-  local-console confirmations. No boot link or broader root role exists. A
-  marker-only generation-two candidate and guarded switch transaction are
-  reviewed, but their new disposable failure-injection test is still pending;
-  generation two is not retained, registered, selected, or active on the host.
+  activation, registration-lifecycle, first-registration transaction, and
+  generation-switch transaction container tests passed. The five-path/three-service
+  host canary is active, directly retained, and registered as exact generation
+  one after two guarded local-console confirmations. No boot link or broader
+  root role exists. The marker-only generation-two candidate and
+  guarded switch transaction passed their disposable failure-injection gate,
+  but generation two remains unretained, unregistered, unselected, and inactive
+  on the host. No live switch is authorized.
 
 ## Operating model
 

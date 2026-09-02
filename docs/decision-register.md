@@ -323,12 +323,17 @@ Independent postflight classified the host `ACTIVE_REGISTERED_RETAINED`. The
 registered generation, upstream extra root, and pilot root all resolve to the
 exact candidate; no boot link or broader ownership exists.
 
-The next repository-only design introduces a generation-two candidate whose
+The repository-only design introduced a generation-two candidate whose
 only delta is the harmless canary marker plus an exact guarded switch/rollback
-transaction. Its distinct failure-injection container test is pending. This
-design creates no host generation-two retention, registration, activation, or
-boot link and grants no live-switch authority. See the
-[generation-switch transaction plan](../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md).
+transaction. Its distinct eleven-subtest failure-injection container derivation
+passed with a hash-valid output and clean host postflight. Generation one
+remains exact registered/live state, the host generation-two root remains
+absent, and no boot link or factory/access service changed. This grants
+authority to design the separate live wrapper only; it grants no live-switch
+authority. See the
+[generation-switch transaction plan](../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md)
+and exact
+[container-test result](../root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md).
 
 ## Explicit non-selections
 
@@ -343,8 +348,8 @@ boot link and grants no live-switch authority. See the
 
 ## Open decisions
 
-- Complete and record the guarded generation-switch disposable test without
-  disturbing retained generation one. A live switch, reboot/boot behavior,
+- Design and separately authorize any live generation-two switch without
+  disturbing retained generation one. The live switch, reboot/boot behavior,
   pilot-root retirement, and the first real managed service remain separate
   decisions. Registration is not activation or boot persistence; do not reboot
   or add boot linkage without a separately guarded plan.

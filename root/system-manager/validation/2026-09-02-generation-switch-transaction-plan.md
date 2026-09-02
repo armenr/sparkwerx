@@ -2,7 +2,7 @@
 
 ## Status
 
-**REPOSITORY DESIGN COMPLETE; DISPOSABLE FAILURE-INJECTION TEST PENDING.**
+**DISPOSABLE FAILURE-INJECTION TEST PASSED; LIVE SWITCH NOT AUTHORIZED.**
 
 The live host remains exactly `ACTIVE_REGISTERED_RETAINED`: generation one is
 selected, registered, extra-rooted, pilot-rooted, and active. Generation two is
@@ -26,9 +26,10 @@ boot linkage, or rebooting `sparkle-01`.
 | Transaction SHA-256 | `ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd` |
 | Disposable test | `root/system-manager/generation-switch-transaction-test.nix` |
 | Test derivation | `/nix/store/0llhzgyraq4gr7m4agbv8wbvs7xdcql2-container-test-dgx-root-canary-generation-switch-transaction.drv` |
-| Expected test output | `/nix/store/l5s5m3q4bd338jflq1abycajwxrfbj5v-container-test-dgx-root-canary-generation-switch-transaction` |
+| Test output | `/nix/store/l5s5m3q4bd338jflq1abycajwxrfbj5v-container-test-dgx-root-canary-generation-switch-transaction` |
 | Root-assisted wrapper | `scripts/test-root-generation-switch-transaction.sh` |
-| Result | Pending |
+| Result | **PASS**; exact result recorded separately |
+| Result evidence | `root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md` |
 | Live switch performed | No |
 | Host generation-two retention performed | No |
 
@@ -121,16 +122,18 @@ host generation-two pilot root to remain absent.
 
 ## Execution and authority boundary
 
-After review, the disposable invocation is:
+The separately authorized disposable invocation was:
 
 ```bash
 sudo ./scripts/test-root-generation-switch-transaction.sh
 ```
 
-That command is not a live switch. If it passes, record the exact derivation,
-output, output hash, logs, and independent host postflight in a separate result
-record. A pass permits designing the snapshot/timed-rollback/local-console
-wrapper; it still does not authorize running that wrapper.
+That command was not a live switch. The exact derivation, output, output hash,
+all eleven named subtests, and independent clean host postflight are recorded in
+the [result evidence](2026-09-02-generation-switch-transaction-container-test.md).
+The pass permits designing the snapshot/timed-rollback/local-console wrapper;
+it still does not authorize creating the host generation-two root or running a
+live switch.
 
 A future live switch requires a new committed design, fresh private root-owned
 snapshot, exact two-candidate retention, a ten-minute rollback bound to the

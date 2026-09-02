@@ -449,6 +449,12 @@ audit_root_integration() {
   registration_test_matches="$(
     jq -r '.registration.isolatedLifecycleTest.matchesCurrent // false' <<<"$manifest"
   )"
+  generation_switch_test_result="$(
+    jq -r '.registration.guardedGenerationSwitch.isolatedTransactionTest.result // empty' <<<"$manifest"
+  )"
+  generation_switch_test_matches="$(
+    jq -r '.registration.guardedGenerationSwitch.isolatedTransactionTest.matchesCurrent // false' <<<"$manifest"
+  )"
   live_registration_host="$(
     jq -r '.registration.guardedFirstGeneration.liveRegistration.host // empty' <<<"$manifest"
   )"
@@ -456,7 +462,7 @@ audit_root_integration() {
     jq -r '.registration.guardedFirstGeneration.liveRegistration.stateClass // empty' <<<"$manifest"
   )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -479,6 +485,15 @@ audit_root_integration() {
     (.registration.guardedFirstGeneration.liveRegistration.evidence == "root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md") and
     (.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed == true) and
     (.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed == true) and
+    (.registration.guardedGenerationSwitch.status == "disposable-test-passed-live-switch-not-authorized") and
+    (.registration.guardedGenerationSwitch.liveSwitchPerformed == false) and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.result == "passed") and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.matchesCurrent == true) and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.evidence == "root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md") and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostRegistrationPerformed == false) and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed == false) and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed == false) and
+    (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostPostflight == "clean") and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
     (.pilotRetention.created == false) and
     (.pilotRetention.requiredForLowLevelActivation == true) and
@@ -558,7 +573,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-01-registration-container-test.md" \
+    "repo:root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md" \
     "$detail"
 }
 

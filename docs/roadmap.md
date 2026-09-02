@@ -61,7 +61,7 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Pass the two-generation lifecycle and guarded first-registration
       failure-injection tests, then retain exact live generation one with a
       second snapshot-bound rollback/local-console gate
-- [ ] Pass the new guarded generation-switch failure-injection test while the
+- [x] Pass the new guarded generation-switch failure-injection test while the
       host remains exactly `ACTIVE_REGISTERED_RETAINED`; do not create the
       host generation-two root or switch the host as part of this test
 - [ ] Design and separately authorize any live generation-two switch with its
