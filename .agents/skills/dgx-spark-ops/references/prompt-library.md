@@ -58,10 +58,11 @@ generations and direct pilot roots, upstream generation-three root, exact
 six-path/three-service state, one boot edge, unloaded rollback units, healthy
 protected services/GPU/sanitized Tailscale SSH, and no broader ownership. Treat
 the first real reboot as unperformed. Require persistent recovery manifest
-status isolated-lifecycle-passed-host-not-armed, matching test output, absent
-recovery paths, and unloaded recovery units. Do not create a snapshot, invoke
-the bare recovery bundle, rerun a spent wrapper, reboot, roll back, or clean up
-a generation/root.
+status live-recovery-designed-host-not-armed, live-pilot status
+repository-design-complete-host-not-armed, matching 13-subtest test output,
+absent recovery paths, and unloaded recovery units. Do not create a snapshot,
+invoke the bare recovery bundle, rerun a spent wrapper, arm, reboot, roll back,
+or clean up a generation/root.
 ```
 
 ```text
@@ -261,8 +262,42 @@ authorization; never infer it from a successful activation.
 
 That generation-three activation has completed on `sparkle-01` from spent
 snapshot `20260902T110421Z`. Do not use the activation prompt to rerun it there.
-The next permissible prompt is a read-only audit or a separately scoped design
-for persistent-recovery first reboot; neither implies reboot authorization.
+The persistent-recovery design and current 13-subtest/two-restart proof are now
+complete, but the host remains unarmed and unrebooted.
+
+For a first-reboot recovery snapshot, the prompt must authorize only creation of
+one fresh root-owned snapshot using the reviewed snapshot helper. It must name
+the physical console and state that snapshot creation authorizes neither arming
+nor reboot.
+
+```text
+$dgx-spark-ops Create one fresh persistent first-reboot recovery snapshot on
+sparkle-01 using the exact reviewed helper. I have verified the physical local
+console. Do not arm recovery and do not reboot. Return only the resulting
+snapshot path, exact state verdict, and next authorization phrase.
+```
+
+For recovery arming, the prompt must name the fresh snapshot timestamp and
+authorize only the exact `arm` action. Require the 13-subtest current match,
+clean committed repository, physical console, exact generation-three prestate,
+ten-minute next-boot rollback, and phrase `ARM PERSISTENT RECOVERY`. State that
+the helper has no reboot action. If the window is canceled, use the separate
+`disarm-preboot` action and exact `DISARM PREBOOT RECOVERY` phrase.
+
+```text
+$dgx-spark-ops I verified the local console and authorize persistent
+first-reboot recovery arming on sparkle-01 using snapshot <timestamp>. Arm and
+verify only; do not reboot. Stop with the exact preboot status and the separate
+reboot authorization boundary.
+```
+
+A reboot prompt must separately and unambiguously authorize one reboot after
+recovery is already armed and exact preboot status passes. Never infer it from
+snapshot creation, arming, the disposable PASS, or “continue.” After the new
+boot, the snapshot-bound helper must either confirm exact generation three with
+`KEEP REBOOTED GENERATION THREE` before the deadline or verify the automatic
+generation-two rollback. Rolled-back evidence cleanup separately requires
+`CLEAN ROLLED BACK REBOOT RECOVERY`.
 
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.

@@ -58,7 +58,7 @@ export PATH NIX_USER_CONF_FILES
 
 usage() {
   printf '%s\n' \
-    "Usage: dgx-root-reboot-recovery arm|verify-armed-preboot|verify-armed-postboot|rollback|verify-rolled-back" \
+    "Usage: dgx-root-reboot-recovery arm|verify-armed-preboot|disarm-preboot|verify-armed-postboot|rollback|verify-rolled-back" \
     "       dgx-root-reboot-recovery confirm '$confirmation_phrase'" \
     "       dgx-root-reboot-recovery cleanup-rolled-back '$cleanup_phrase'" >&2
 }
@@ -464,6 +464,16 @@ verify_armed_preboot() {
   pass recovery_preboot 'exact recovery is enabled for next boot and has not started on this boot'
 }
 
+disarm_preboot() {
+  acquire_lock || return 1
+  assert_installed_surface armed || return 1
+  assert_same_boot || return 1
+  run_boot_transaction verify-after || return 1
+  remove_exact_recovery_surface armed || return 1
+  run_boot_transaction verify-after || return 1
+  pass recovery_disarmed 'same-boot recovery arming canceled; generation three remains exact'
+}
+
 verify_armed_postboot() {
   local next
 
@@ -592,7 +602,7 @@ validate_compiled_inputs || exit 1
 
 action="${1:-}"
 case "$action" in
-  arm | verify-armed-preboot | verify-armed-postboot | rollback | verify-rolled-back)
+  arm | verify-armed-preboot | disarm-preboot | verify-armed-postboot | rollback | verify-rolled-back)
     [[ "$#" -eq 1 ]] || {
       usage
       exit 2
@@ -616,6 +626,9 @@ case "$action" in
     ;;
   verify-armed-preboot)
     verify_armed_preboot
+    ;;
+  disarm-preboot)
+    disarm_preboot
     ;;
   verify-armed-postboot)
     verify_armed_postboot

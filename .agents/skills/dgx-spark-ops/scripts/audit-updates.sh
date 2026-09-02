@@ -565,7 +565,7 @@ audit_root_integration() {
     (.bootPersistence.liveActivation.managedPathCount == 6) and
     (.bootPersistence.liveActivation.managedServiceCount == 3) and
     (.bootPersistence.liveActivation.hostRebootPerformed == false) and
-    (.bootPersistence.rebootRecovery.status == "isolated-lifecycle-passed-host-not-armed") and
+    (.bootPersistence.rebootRecovery.status == "live-recovery-designed-host-not-armed") and
     (.bootPersistence.rebootRecovery.requiredHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
     (.bootPersistence.rebootRecovery.postbootAuditor.stateClass == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED") and
     (.bootPersistence.rebootRecovery.postbootAuditor.requiresManagerAndCanaryActive == true) and
@@ -575,14 +575,30 @@ audit_root_integration() {
     (.bootPersistence.rebootRecovery.rollback.cleanupPhrase == "CLEAN ROLLED BACK REBOOT RECOVERY") and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.result == "passed") and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.matchesCurrent == true) and
+    (.bootPersistence.rebootRecovery.isolatedTransactionTest.subtestCount == 13) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.evidence == "root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md") and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.disposableRestarts == 2) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.provesAutomaticRollback == true) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.provesConfirmedRetention == true) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.provesExactCleanup == true) and
+    (.bootPersistence.rebootRecovery.isolatedTransactionTest.provesSameBootDisarm == true) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRecoveryArmed == false) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRebootPerformed == false) and
     (.bootPersistence.rebootRecovery.isolatedTransactionTest.hostPostflight == "clean") and
+    (.bootPersistence.rebootRecovery.livePilot.status == "repository-design-complete-host-not-armed") and
+    (.bootPersistence.rebootRecovery.livePilot.pilotProgram.actions == [
+      "arm",
+      "disarm-preboot",
+      "status",
+      "confirm",
+      "verify-rolled-back",
+      "cleanup-rolled-back"
+    ]) and
+    (.bootPersistence.rebootRecovery.livePilot.pilotProgram.performsReboot == false) and
+    (.bootPersistence.rebootRecovery.livePilot.requiresSeparateRebootAuthorization == true) and
+    (.bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated == false) and
+    (.bootPersistence.rebootRecovery.livePilot.hostRecoveryArmed == false) and
+    (.bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == false) and
     (.bootPersistence.rebootRecovery.hostRecoveryArmed == false) and
     (.bootPersistence.rebootRecovery.hostRebootPerformed == false) and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
@@ -657,7 +673,7 @@ audit_root_integration() {
   elif [[ "$host_name" == "$live_boot_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     status="CURRENT"
-    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Persistent first-reboot recovery passed its disposable lifecycle; the host recovery surface remains unarmed and the first real host reboot remains unperformed and separately gated."
+    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Persistent first-reboot recovery passed its current 13-subtest lifecycle and its no-reboot live helpers are policy-pinned; the host recovery surface remains unarmed and the first real host reboot remains unperformed and separately gated."
   elif [[ "$host_name" == "$live_boot_host" ]]; then
     status="HOLD"
     detail="${live_state#DRIFT|}"

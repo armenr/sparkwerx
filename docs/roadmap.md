@@ -82,10 +82,12 @@ the measured software manifest; evaluation did not authorize realization.
       plus its one boot edge and independently verify
       `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`
 - [x] Design and pass the exact persistent first-reboot recovery transaction in
-      a 12-subtest/two-restart disposable lifecycle, proving both automatic
-      rollback and confirmed retention without arming or rebooting the host
-- [ ] Build and policy-pin the live recovery snapshot, arm, post-boot
-      confirmation, rollback-verification, and cleanup helpers
+      a 13-subtest/two-restart disposable lifecycle, proving same-boot
+      cancellation, automatic rollback, and confirmed retention without arming
+      or rebooting the host
+- [x] Build, review, test, and policy-pin the live recovery snapshot, arm,
+      same-boot disarm, status, post-boot confirmation, rollback-verification,
+      and cleanup helpers; keep all reboot execution outside those helpers
 - [ ] Separately authorize recovery arming, then separately authorize one real
       pilot reboot and verify the exact post-boot state before calling host boot
       persistence proven

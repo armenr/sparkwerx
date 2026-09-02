@@ -208,7 +208,11 @@
       rootCanaryAuditProgram = ./scripts/audit-root-canary-state.sh;
       reviewedRootCanaryAuditSha256 = "19cac3ba416dc3705c9dc1a996afb82840e8f4bc2d657a78f969f3f42cfddb12";
       rootRebootRecoveryTransactionProgram = ./scripts/root-reboot-recovery-transaction.sh;
-      reviewedRootRebootRecoveryTransactionSha256 = "1cbc0c67fa25005a0271ed6e183e047663a7f5dee80fcdaa82e7c032fee06888";
+      reviewedRootRebootRecoveryTransactionSha256 = "b1f04f39169cc000b5a532545439693bafd9d6c62d0190e9aac2c231394a6be9";
+      rootRebootRecoverySnapshotProgram = ./scripts/snapshot-root-reboot-recovery.sh;
+      reviewedRootRebootRecoverySnapshotSha256 = "fffb2e62c9cf93ce62a22c86bcf8331ff8d930fefedaeb5fbf63668e1452ddfd";
+      rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
+      reviewedRootRebootRecoveryPilotSha256 = "4a67bdd4fc2c1195b88cce2122a047059ca086f803990fcaaf638fb95774c865";
       rootRebootRecoveryGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-reboot-recovery-pilot";
       mkRootRebootRecoveryBundle =
         {
@@ -857,11 +861,11 @@
           };
           rebootRecovery =
             let
-              observedDrvPath = "/nix/store/1jidbq39jy4xqngsybdla16535wwm6dl-container-test-dgx-root-canary-reboot-recovery-transaction.drv";
-              observedOutputPath = "/nix/store/x147g1l7haxqhvrwpvhpajwiiphmal70-container-test-dgx-root-canary-reboot-recovery-transaction";
+              observedDrvPath = "/nix/store/jqmx45mxqqz34d4yjh3186xadb2ai6qx-container-test-dgx-root-canary-reboot-recovery-transaction.drv";
+              observedOutputPath = "/nix/store/p0ywhqdf58h5r83z1pah7arba4rqr0ka-container-test-dgx-root-canary-reboot-recovery-transaction";
             in
             {
-              status = "isolated-lifecycle-passed-host-not-armed";
+              status = "live-recovery-designed-host-not-armed";
               requiredHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
               transactionProgram = {
                 repositoryPath = "scripts/root-reboot-recovery-transaction.sh";
@@ -894,25 +898,28 @@
                 retainsEvidenceUntilVerifiedCleanup = true;
               };
               isolatedTransactionTest = {
-                verifiedAt = "2026-09-02T13:39:12Z";
+                verifiedAt = "2026-09-02T20:13:44Z";
                 result = "passed";
                 inherit observedDrvPath observedOutputPath;
-                outputHash = "sha256:122gr5rhzqicxm8ndgbd3vpkjsgrybg75a2y6ni459ajm4p5jg05";
+                outputHash = "sha256:0v7i51bmpjghm8v3cly7i82j3ysvk3in17s5av2465wy3zhzmgp8";
+                outputSriHash = "sha256-6L764R+eF0PEVkWfYOOYW/shBYrHUzY2qvDJW1co8Ww=";
                 currentDrvPath = rootCanaryRebootRecoveryTransactionContainerTest.drvPath;
                 currentOutputPath = rootCanaryRebootRecoveryTransactionContainerTest.outPath;
                 matchesCurrent =
                   rootCanaryRebootRecoveryTransactionContainerTest.drvPath == observedDrvPath
                   && rootCanaryRebootRecoveryTransactionContainerTest.outPath == observedOutputPath;
-                priorDisposableAttempts = 2;
+                priorDisposableAttempts = 3;
                 failureInjectionStages = [
                   "after-root"
                   "after-state"
                   "after-units"
                 ];
+                subtestCount = 13;
                 disposableRestarts = 2;
                 provesAutomaticRollback = true;
                 provesConfirmedRetention = true;
                 provesExactCleanup = true;
+                provesSameBootDisarm = true;
                 hostRecoveryArmed = false;
                 hostRegistrationPerformed = false;
                 hostActivationPerformed = false;
@@ -921,6 +928,46 @@
                 hostPostflight = "clean";
                 evidencePlan = "root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md";
                 evidence = "root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md";
+              };
+              livePilot = {
+                status = "repository-design-complete-host-not-armed";
+                snapshotProgram = {
+                  repositoryPath = "scripts/snapshot-root-reboot-recovery.sh";
+                  sha256 = builtins.hashFile "sha256" rootRebootRecoverySnapshotProgram;
+                };
+                pilotProgram = {
+                  repositoryPath = "scripts/root-reboot-recovery-pilot.sh";
+                  sha256 = builtins.hashFile "sha256" rootRebootRecoveryPilotProgram;
+                  actions = [
+                    "arm"
+                    "disarm-preboot"
+                    "status"
+                    "confirm"
+                    "verify-rolled-back"
+                    "cleanup-rolled-back"
+                  ];
+                  performsReboot = false;
+                };
+                systemdSnapshotPropertyProgram = {
+                  repositoryPath = "scripts/systemd-snapshot-property.sh";
+                  sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyProgram;
+                };
+                systemdSnapshotPropertyTest = {
+                  repositoryPath = "scripts/test-systemd-snapshot-property.sh";
+                  sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyTestProgram;
+                };
+                armingConfirmation = "ARM PERSISTENT RECOVERY";
+                prebootDisarmConfirmation = "DISARM PREBOOT RECOVERY";
+                postbootConfirmation = "KEEP REBOOTED GENERATION THREE";
+                rolledBackCleanupConfirmation = "CLEAN ROLLED BACK REBOOT RECOVERY";
+                snapshotMaximumAgeSeconds = 1800;
+                persistentRollbackDelayMinutes = 10;
+                requiresIndependentConsole = true;
+                requiresSeparateRebootAuthorization = true;
+                hostSnapshotCreated = false;
+                hostRecoveryArmed = false;
+                hostRebootPerformed = false;
+                evidencePlan = "root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md";
               };
               hostRecoveryArmed = false;
               hostRebootPerformed = false;
@@ -1159,6 +1206,11 @@
           builtins.hashFile "sha256" rootRebootRecoveryTransactionProgram
           == reviewedRootRebootRecoveryTransactionSha256;
         assert
+          builtins.hashFile "sha256" rootRebootRecoverySnapshotProgram
+          == reviewedRootRebootRecoverySnapshotSha256;
+        assert
+          builtins.hashFile "sha256" rootRebootRecoveryPilotProgram == reviewedRootRebootRecoveryPilotSha256;
+        assert
           builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram
           == reviewedRootGenerationSwitchSnapshotSha256;
         assert
@@ -1317,7 +1369,7 @@
         assert !rootManagerManifest.bootPersistence.liveActivation.hostRebootPerformed;
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.status
-          == "isolated-lifecycle-passed-host-not-armed";
+          == "live-recovery-designed-host-not-armed";
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.transactionProgram.sha256
           == reviewedRootRebootRecoveryTransactionSha256;
@@ -1334,6 +1386,8 @@
           rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.result == "passed";
         assert rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.matchesCurrent;
         assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.subtestCount == 13;
+        assert
           rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.disposableRestarts == 2;
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesAutomaticRollback;
@@ -1342,11 +1396,43 @@
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesExactCleanup;
         assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesSameBootDisarm;
+        assert
           !rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRecoveryArmed;
         assert
           !rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRebootPerformed;
         assert !rootManagerManifest.bootPersistence.rebootRecovery.hostRecoveryArmed;
         assert !rootManagerManifest.bootPersistence.rebootRecovery.hostRebootPerformed;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.status
+          == "repository-design-complete-host-not-armed";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.snapshotProgram.sha256
+          == reviewedRootRebootRecoverySnapshotSha256;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.pilotProgram.sha256
+          == reviewedRootRebootRecoveryPilotSha256;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.pilotProgram.actions == [
+            "arm"
+            "disarm-preboot"
+            "status"
+            "confirm"
+            "verify-rolled-back"
+            "cleanup-rolled-back"
+          ];
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.livePilot.pilotProgram.performsReboot;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.armingConfirmation
+          == "ARM PERSISTENT RECOVERY";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.prebootDisarmConfirmation
+          == "DISARM PREBOOT RECOVERY";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.livePilot.requiresSeparateRebootAuthorization;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.livePilot.hostRecoveryArmed;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.livePilot.hostRebootPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;

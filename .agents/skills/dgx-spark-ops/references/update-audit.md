@@ -228,7 +228,9 @@ boot-persistence status must be
 `live-generation-three-boot-linked-retained`, with current state
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED` and its dated
 generation-three host evidence. Reboot-recovery status must be
-`isolated-lifecycle-passed-host-not-armed`; the first real reboot remains
+`live-recovery-designed-host-not-armed`, its 13-subtest current derivation must
+match, and live-pilot status must be
+`repository-design-complete-host-not-armed`; the first real reboot remains
 unperformed. Recovery paths are forbidden drift in a normal audit. The
 auditor's `verified-by-caller` mode is reserved for the hash-pinned recovery
 transaction after its own exact surface verification.

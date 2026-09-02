@@ -276,7 +276,8 @@ rollback/reboot/cleanup authority from the completed activation.
 
 Live generation-three activation and the first real reboot are distinct gates.
 Activation is complete, and the persistent recovery lifecycle has now passed
-its exact 12-subtest/two-restart disposable test. Before touching
+its current exact 13-subtest/two-restart disposable test, including exact
+same-boot cancellation and re-arming. Before touching
 `scripts/root-reboot-recovery-transaction.sh`,
 `scripts/audit-root-canary-state.sh`,
 `root/system-manager/reboot-recovery-transaction-test.nix`, or the recovery
@@ -284,8 +285,14 @@ bundle, read the
 [recovery plan](../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md)
 and exact
 [test result](../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
-Require manifest recovery status `isolated-lifecycle-passed-host-not-armed`,
-test `result == "passed"`, `matchesCurrent == true`, and clean host postflight.
+Also read the
+[live lifecycle plan](../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md)
+before touching `scripts/snapshot-root-reboot-recovery.sh` or
+`scripts/root-reboot-recovery-pilot.sh`. Require manifest recovery status
+`live-recovery-designed-host-not-armed`, live-pilot status
+`repository-design-complete-host-not-armed`, test `result == "passed"`,
+`matchesCurrent == true`, `subtestCount == 13`, same-boot-disarm proof, exact
+helper hashes, and clean host postflight.
 
 The production bundle uses a ten-minute `OnBootSec` timer, exact boot-ID guard,
 confirmation `KEEP REBOOTED GENERATION THREE`, and rolled-back cleanup phrase
@@ -298,13 +305,28 @@ recovery transaction may request the auditor's explicit
 recovery surface.
 
 No host recovery path is installed or armed and no real reboot occurred. The
-tested transaction is not yet a live-host wrapper. Hash-pinned snapshot, arm,
-post-boot confirmation, rollback-verification, and cleanup helpers remain the
-next design milestone. Never run the disposable helper during an ordinary
-audit, invoke the bare bundle on the host, infer arming or reboot authority from
-the PASS, reuse the spent activation snapshot, or treat the live boot edge as
-real-host post-reboot proof. Recovery arming and the actual reboot require two
-separate explicit authorizations.
+hash-pinned snapshot and live wrapper now expose only `arm`,
+`disarm-preboot`, `status`, `confirm`, `verify-rolled-back`, and
+`cleanup-rolled-back`; they deliberately contain no reboot action. Snapshot
+creation, arming, and reboot are separate boundaries. Arming requires a fresh
+root-owned snapshot from a clean commit, independent local-console verification,
+and authorization naming that snapshot. A successful arm still authorizes no
+reboot. If the window is canceled on the original boot, exact
+`DISARM PREBOOT RECOVERY` removes the recovery surface while preserving
+generation three. The actual reboot requires a second explicit authorization.
+Never run the disposable helper during an ordinary audit, invoke the bare
+bundle on the host, infer arming or reboot authority from the PASS, reuse a
+spent snapshot, or treat the live boot edge as real-host post-reboot proof.
+
+The current disposable rerun initially refused a legitimate pending systemd
+unit-graph reload caused by the completed factory Thunderbird Snap revision
+1241 refresh. Read the
+[reload disposition](../../../root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md).
+Its one-shot helper proved all seven protected service fragments, PIDs, and
+active-enter timestamps unchanged across `systemctl daemon-reload`, then ran
+the current test. It is spent and intentionally refuses a clean or different
+unit graph. Future `NeedDaemonReload` drift requires fresh diagnosis; do not
+generalize or rerun that helper merely to clear the flag.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
@@ -419,7 +441,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   `20260902T110421Z`; its host record is current authority. Preserve its exact
   six-path/three-service state, one boot edge, all three generations/roots,
   repeated postflight, and exact confirmation. That snapshot is also spent.
-  The first host reboot is untested and separately gated.
+  Persistent recovery and its live lifecycle wrappers are now exact and
+  disposable-tested, but the host is unarmed. The first host reboot is untested
+  and separately gated from both snapshot creation and recovery arming.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

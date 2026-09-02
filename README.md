@@ -47,9 +47,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   remain for rollback. The live state is exactly six paths and three services,
   and the current classifier result is
   `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. No broader root
-  role exists. Persistent recovery passed its exact two-restart disposable
-  lifecycle, but no recovery path is armed on the host and the host has not
-  rebooted since activation. Hash-pinned live recovery helpers and the first
+  role exists. Persistent recovery passed its current exact 13-subtest,
+  two-restart disposable lifecycle, including safe same-boot cancellation.
+  Hash-pinned snapshot and live lifecycle helpers are complete, but no recovery
+  path is armed on the host and the host has not rebooted since activation. A
+  fresh snapshot, separately authorized arming, and a separately authorized
   guarded real-host boot proof remain the next root-manager milestones.
 
 ## Operating model
@@ -183,10 +185,12 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-System Manager generation two is already active, registered, selected, and
-retained; generation one and both direct pilot roots remain rollback anchors.
-Do not rerun the inactive activation, first-registration, snapshot, or live
-generation-switch helpers; remove a profile generation or root; select another
-generation; add boot linkage; or reboot. The next root mutation or reboot needs
-its own reviewed plan and explicit authorization.
+System Manager generation three is already active, registered, selected,
+directly retained, and boot-linked; generations one/two and all three direct
+pilot roots remain rollback anchors. Do not rerun any spent activation,
+registration, generation-switch, or boot-persistence helper; remove a profile
+generation or root; select another generation; remove/change the boot edge; arm
+recovery; or reboot without its exact current plan and explicit authorization.
+Recovery arming and reboot are distinct approvals; the recovery helper has no
+reboot action.
 GNOME remains the recovery desktop throughout every graphical pilot.

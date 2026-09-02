@@ -313,6 +313,14 @@ system-manager.lib.containerTest.makeContainerTest {
         run_recovery("verify-armed-preboot")
         assert_generation(3)
 
+    with subtest("Exact same-boot disarm cancels recovery without changing generation three"):
+        run_recovery("disarm-preboot")
+        assert_recovery_absent()
+        assert_generation(3)
+        run_recovery("arm")
+        run_recovery("verify-armed-preboot")
+        assert_generation(3)
+
     with subtest("Next boot automatically rolls back when confirmation is absent"):
         restart_container()
         machine.wait_until_succeeds(

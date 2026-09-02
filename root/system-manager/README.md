@@ -39,7 +39,7 @@ reboot or broader root role has occurred.
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
-| Persistent first-reboot recovery test | **PASS** for exact 12-subtest/two-restart lifecycle; host recovery remains unarmed |
+| Persistent first-reboot recovery test | **PASS** for exact 13-subtest/two-restart lifecycle, including same-boot cancellation; host recovery remains unarmed |
 | Host registration | Exact generations one, two, and three retained; generation three selected and upstream-rooted |
 | Host activation | Exact generation-three canary active and declaratively boot-linked after guarded live activation; first host reboot not performed |
 | Rollback anchors | All three exact direct pilot roots remain; generation two is the reviewed no-boot rollback state |
@@ -440,6 +440,12 @@ minutes for exact `KEEP REBOOTED GENERATION THREE`; otherwise it invokes the
 tested rollback to exact registered/live no-boot generation two. Rollback
 evidence remains until exact `CLEAN ROLLED BACK REBOOT RECOVERY` cleanup.
 
+If the maintenance window is abandoned before reboot, `disarm-preboot` accepts
+only exact `DISARM PREBOOT RECOVERY`, requires the original arming boot ID and
+the complete exact recovery surface, removes that surface, and re-verifies
+unchanged generation three. This closes the gap between arming and a separately
+authorized reboot without granting the helper any reboot capability.
+
 The transaction refuses to roll back or confirm until the kernel boot ID
 changes. It preserves foreign collisions, owns only exact symlinks and a
 root-owned mode-`0600` state file, and cleans only its own partial work. The
@@ -447,15 +453,20 @@ bundle pins the three candidates, the reviewed boot transaction, the recovery
 transaction, and a reviewed state auditor. Ordinary tools come from Nix, while
 host service control deliberately uses the factory systemd implementation.
 
-The exact lifecycle derivation
-`/nix/store/1jidbq39jy4xqngsybdla16535wwm6dl-container-test-dgx-root-canary-reboot-recovery-transaction.drv`
-**passed** on 2026-09-02. Its output is
-`/nix/store/x147g1l7haxqhvrwpvhpajwiiphmal70-container-test-dgx-root-canary-reboot-recovery-transaction`,
-with hash
-`sha256:122gr5rhzqicxm8ndgbd3vpkjsgrybg75a2y6ni459ajm4p5jg05`. All 12 subtests
-passed, including three injected partial failures, same-boot refusal, one
-restart with automatic rollback, exact rollback-evidence cleanup, a second
-restart with confirmed retention, and final empty manager cleanup.
+The current exact lifecycle derivation
+`/nix/store/jqmx45mxqqz34d4yjh3186xadb2ai6qx-container-test-dgx-root-canary-reboot-recovery-transaction.drv`
+**passed** at `2026-09-02T20:13:44Z`. Its output is
+`/nix/store/p0ywhqdf58h5r83z1pah7arba4rqr0ka-container-test-dgx-root-canary-reboot-recovery-transaction`,
+with Nix hash
+`sha256:0v7i51bmpjghm8v3cly7i82j3ysvk3in17s5av2465wy3zhzmgp8` and SRI hash
+`sha256-6L764R+eF0PEVkWfYOOYW/shBYrHUzY2qvDJW1co8Ww=`. All 13 subtests passed,
+including three injected partial failures, same-boot refusal, exact same-boot
+disarm and re-arm, one restart with automatic rollback, exact
+rollback-evidence cleanup, a second restart with confirmed retention, and
+final empty manager cleanup. The earlier 12-subtest PASS remains valid
+historical evidence for its exact predecessor, but it is superseded as the
+current-match gate because it did not prove cancellation of an abandoned
+pre-reboot window.
 
 The test also made the runtime distinction explicit: immediately after
 activation, all three managed units are active; after a clean boot,
@@ -475,11 +486,22 @@ before touching the bundle, auditor, transaction, or test. The host postflight
 remained exact pre-reboot generation three, with both recovery units `not-found`
 and all recovery paths absent.
 
-This PASS authorizes no host arming and no reboot. Hash-pinned host snapshot,
-arm, post-boot confirmation, rollback-verification, and cleanup helpers still
-need to be built and reviewed. Their future arming action requires a fresh
-private snapshot plus explicit authorization. The actual reboot is a second,
-separate authorization and must never be inferred from successful arming.
+The repository now includes hash-pinned
+`scripts/snapshot-root-reboot-recovery.sh` and
+`scripts/root-reboot-recovery-pilot.sh`. The snapshot helper is read-only with
+respect to System Manager/systemd and binds one clean commit, exact live state,
+passed test output, protected-service continuity, GPU/Tailscale health, local
+console, and the current boot ID. The pilot exposes `arm`, `disarm-preboot`,
+`status`, `confirm`, `verify-rolled-back`, and `cleanup-rolled-back`; it has no
+reboot action. Read the
+[live recovery plan](validation/2026-09-03-reboot-recovery-live-plan.md) before
+using either helper.
+
+This PASS authorizes no host arming and no reboot. Arming requires a fresh
+private snapshot plus explicit snapshot-bound authorization. The actual reboot
+is a second, separate authorization and must never be inferred from successful
+arming. At this checkpoint no recovery path is installed and no real reboot
+has occurred.
 
 ## Defaults we rejected
 

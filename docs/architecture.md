@@ -116,9 +116,11 @@ activation, registration, generation-switch, and boot-link milestones passed.
 Generation three differs from generation two only by its marker and one
 declarative `default.target` edge; its activation used a fresh private snapshot,
 protected-process continuity, an armed ten-minute rollback, repeated
-postflight, and local-console confirmation. No broader role exists. The host
-has not rebooted since this change, so real-host boot recovery remains a
-separate gate.
+ postflight, and local-console confirmation. No broader role exists. The host
+ has not rebooted since this change. Its persistent recovery transaction now
+ passes 13 disposable subtests across two restarts, including exact same-boot
+ cancellation; hash-pinned live lifecycle helpers are complete but the host is
+ still unarmed. Recovery arming and the real reboot remain separate gates.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
@@ -190,9 +192,11 @@ It owns exactly one declarative boot edge beyond the original five-path
 surface. The reviewed transaction and separately authorized live pilot both
 passed; their spent snapshot grants no authority for a rerun, rollback,
 cleanup, or reboot. The persistent recovery transaction has separately passed
-its two-restart disposable lifecycle, but no recovery path is installed or
-armed on the host. Live recovery helpers and a real host reboot remain untested
-and separately gated.
+its current 13-subtest/two-restart disposable lifecycle. Hash-pinned snapshot
+and live lifecycle helpers are complete and deliberately contain no reboot
+action, but no recovery path is installed or armed on the host. Fresh
+snapshot-bound arming and a real host reboot remain unperformed and separately
+gated.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to

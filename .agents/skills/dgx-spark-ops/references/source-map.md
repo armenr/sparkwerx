@@ -83,6 +83,8 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Current retained registered/live generation-three authority | [root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md) |
 | Persistent first-reboot recovery transaction plan | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md) |
 | Exact persistent first-reboot recovery lifecycle result | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md) |
+| Unarmed persistent first-reboot live lifecycle plan | [root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md) |
+| Thunderbird Snap unit-graph reload disposition | [root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md](../../../../root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md) |
 | Sanitized retained-canary classifier | [scripts/audit-root-canary-state.sh](../../../../scripts/audit-root-canary-state.sh) |
 | Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |
