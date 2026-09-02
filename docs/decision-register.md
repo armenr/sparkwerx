@@ -359,6 +359,35 @@ The spent snapshot grants no authority to rerun the wrapper, roll back, clean
 up a root or generation, or reboot. See the
 [retained generation-two record](../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md).
 
+Boot persistence is now an explicit opt-in System Manager role, disabled by
+default. Exact generation three inherits generation two and changes only its
+identity marker plus the tracked
+`default.target.wants/system-manager.target -> ../system-manager.target` edge.
+It keeps the global package set empty, the three managed service definitions
+identical, `system-manager.linkCurrentSystem = false`, and every factory,
+access, NVIDIA, desktop, Nix, user, wrapper, PATH, port, and mutable-state
+boundary unchanged.
+
+The exact generation-two to generation-three transaction passed a distinct
+13-subtest/two-restart disposable `systemd-nspawn` derivation on 2026-09-02.
+It proved unretained-candidate and collision refusal, rollback after partial
+registration and post-activation failure, exact apply, automatic start after a
+fresh container start, rollback to generation two, no automatic start after a
+second fresh start, and complete disposable cleanup. Independent host
+postflight remained `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`; the host
+generation-three pilot root and boot edge remained absent. See the
+[boot-persistence transaction plan](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-plan.md)
+and exact
+[container-test result](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
+
+That PASS selects the declarative mechanism and authorizes design of a guarded
+live pilot only. It does not authorize generation-three retention,
+registration, activation, boot linkage, rollback-timer arming, or a host
+reboot. Live activation and the first real reboot remain two distinct gates,
+each requiring a fresh exact plan, snapshot, independent console/recovery
+verification, rollback that does not depend on Tailscale, and explicit
+authorization.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -372,11 +401,13 @@ up a root or generation, or reboot. See the
 
 ## Open decisions
 
-- Generation two is retained and live. Reboot/boot behavior, rollback,
+- Generation two is retained and live. The exact generation-three declarative
+  boot candidate and disposable transaction are selected and test-passed, but
+  generation three is not retained, registered, activated, or boot-linked on
+  the host. Guarded live activation, the first real reboot, rollback,
   generation or pilot-root retirement, and the first real managed service
-  remain separate decisions. Registration and live activation are not boot
-  persistence; do not reboot or add boot linkage without a separately guarded
-  plan.
+  remain separate decisions. Do not conflate a container restart proof with
+  permission to change or reboot `sparkle-01`.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

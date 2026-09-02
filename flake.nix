@@ -144,14 +144,40 @@
         ];
       };
 
+      # Reviewed boot-persistence candidate. It inherits generation two and
+      # adds exactly one declarative boot edge plus a harmless identity marker.
+      # Evaluating or building this output does not retain, register, activate,
+      # boot-link, or reboot anything on the host.
+      rootCanaryBootPersistenceGeneration = system-manager.lib.makeSystemConfig {
+        overlays = rootManagerOverlays;
+        modules = [
+          ./hosts/sparkle-01/system.nix
+          {
+            dgx.root.bootPersistence.enable = true;
+            environment.etc."dgx-setup/canary".text = lib.mkForce ''
+              schema=1
+              host=sparkle-01
+              owner=DGX-setup
+              purpose=system-manager activation and rollback canary
+              registration-test-generation=2
+              boot-persistence-generation=3
+            '';
+          }
+        ];
+      };
+
       systemManagerPackage = rootManagerPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
+      rootCanaryBootPersistenceConfig = rootCanaryBootPersistenceGeneration.config;
       rootCanaryServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.services
       );
       rootCanaryRegistrationTestServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryRegistrationTestConfig.build.services
+      );
+      rootCanaryBootPersistenceServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryBootPersistenceConfig.build.services
       );
       rootCanaryEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.etc.entries
@@ -159,8 +185,12 @@
       rootCanaryRegistrationTestEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryRegistrationTestConfig.build.etc.entries
       );
+      rootCanaryBootPersistenceEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootCanaryBootPersistenceConfig.build.etc.entries
+      );
       rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
       rootCanaryRegistrationTestPackageNames = packageNames rootCanaryRegistrationTestConfig.environment.systemPackages;
+      rootCanaryBootPersistencePackageNames = packageNames rootCanaryBootPersistenceConfig.environment.systemPackages;
       rootCanaryClosureInfo = pkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
@@ -169,6 +199,8 @@
       reviewedRootRegistrationTransactionSha256 = "86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9";
       rootGenerationSwitchTransactionProgram = ./scripts/root-generation-switch-transaction.sh;
       reviewedRootGenerationSwitchTransactionSha256 = "ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd";
+      rootBootPersistenceTransactionProgram = ./scripts/root-boot-persistence-transaction.sh;
+      reviewedRootBootPersistenceTransactionSha256 = "53eb8c4d03a4c24764f519e358f3c5c813e66f189efc07e50f82cd19841d8288";
       rootGenerationSwitchSnapshotProgram = ./scripts/snapshot-root-generation-switch.sh;
       reviewedRootGenerationSwitchSnapshotSha256 = "a82669f4a7001d370d0b0bb26815d466600114137b2fa26da1bc1169ae30a9ec";
       rootGenerationSwitchPilotProgram = ./scripts/switch-root-canary-generation-pilot.sh;
@@ -681,6 +713,77 @@
           };
         };
 
+        bootPersistence = {
+          status = "disposable-transaction-test-passed-live-not-authorized";
+          requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+          currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+          exactCandidates = {
+            generationOne = rootCanary.outPath;
+            generationTwo = rootCanaryRegistrationTestGeneration.outPath;
+            generationThree = rootCanaryBootPersistenceGeneration.outPath;
+          };
+          delta = {
+            canaryMarker = "boot-persistence-generation=3";
+            managedBootLink = "/etc/systemd/system/default.target.wants/system-manager.target";
+            managedBootLinkTarget = "../system-manager.target";
+            serviceInventoryUnchanged = true;
+            globalPackagesUnchanged = true;
+            linksCurrentSystem = false;
+          };
+          transactionProgram = {
+            repositoryPath = "scripts/root-boot-persistence-transaction.sh";
+            sha256 = builtins.hashFile "sha256" rootBootPersistenceTransactionProgram;
+            applyAction = "apply-boot";
+            rollbackAction = "rollback-boot";
+            rollbackState = "exact registered and active no-boot generation two";
+          };
+          retention = {
+            path = "/nix/var/nix/gcroots/dgx-setup-root-canary-boot-persistence-pilot";
+            hostCreated = false;
+            requiredBeforeTransaction = true;
+            preservedByRollback = true;
+          };
+          isolatedTransactionTest = {
+            verifiedAt = "2026-09-02T10:11:07Z";
+            result = "passed";
+            observedDrvPath = "/nix/store/i5skjqyw16qgbvb4azr68msrqfz64d7k-container-test-dgx-root-canary-boot-persistence-transaction.drv";
+            observedOutputPath = "/nix/store/d3ymf91l07rvai5pzz9ygj3vl3g9xss3-container-test-dgx-root-canary-boot-persistence-transaction";
+            outputHash = "sha256:0lxm3pjsd4yy9zl49zx6cbydc9iid1i7mdrajkinkfzszg5k7ikn";
+            currentDrvPath = rootCanaryBootPersistenceTransactionContainerTest.drvPath;
+            currentOutputPath = rootCanaryBootPersistenceTransactionContainerTest.outPath;
+            matchesCurrent =
+              rootCanaryBootPersistenceTransactionContainerTest.drvPath
+              == "/nix/store/i5skjqyw16qgbvb4azr68msrqfz64d7k-container-test-dgx-root-canary-boot-persistence-transaction.drv"
+              &&
+                rootCanaryBootPersistenceTransactionContainerTest.outPath
+                == "/nix/store/d3ymf91l07rvai5pzz9ygj3vl3g9xss3-container-test-dgx-root-canary-boot-persistence-transaction";
+            failureInjectionStages = [
+              "upstream-gcroot-collision"
+              "after-registration"
+              "after-activation"
+            ];
+            disposableRestarts = 2;
+            provesBootStart = true;
+            provesRollbackNoBoot = true;
+            hostRegistrationPerformed = false;
+            hostActivationPerformed = false;
+            hostCandidateRetentionPerformed = false;
+            hostBootLinkCreated = false;
+            hostRebootPerformed = false;
+            hostPostflight = "clean";
+            evidencePlan = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-plan.md";
+            evidence = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md";
+          };
+          livePilot = {
+            status = "not-designed-or-authorized";
+            hostCandidateRetentionPerformed = false;
+            hostRegistrationPerformed = false;
+            hostActivationPerformed = false;
+            hostBootLinkCreated = false;
+            hostRebootPerformed = false;
+          };
+        };
+
         pilotRetention = {
           path = rootCanaryPilotGcRoot;
           # The repository evaluation does not create this root. The retained
@@ -792,12 +895,28 @@
         assert rootCanaryRegistrationTestEtcNames == expectedRootCanaryEtcNames;
         assert rootCanaryRegistrationTestPackageNames == [ ];
         assert rootCanaryRegistrationTestGeneration.outPath != rootCanary.outPath;
+        assert rootCanaryBootPersistenceServiceNames == expectedRootCanaryServiceNames;
+        assert rootCanaryBootPersistenceEtcNames == expectedRootCanaryEtcNames;
+        assert rootCanaryBootPersistencePackageNames == [ ];
+        assert rootCanaryBootPersistenceGeneration.outPath != rootCanaryRegistrationTestGeneration.outPath;
         assert !rootCanaryConfig.nix.enable;
         assert !rootCanaryRegistrationTestConfig.nix.enable;
+        assert !rootCanaryBootPersistenceConfig.nix.enable;
+        assert !rootCanaryRegistrationTestConfig.dgx.root.bootPersistence.enable;
         assert !rootCanaryRegistrationTestConfig.services.userborn.enable;
         assert !rootCanaryRegistrationTestConfig.security.enableWrappers;
         assert !rootCanaryRegistrationTestConfig.system-manager.linkCurrentSystem;
         assert rootCanaryRegistrationTestConfig.systemd.targets.system-manager.wantedBy == [ ];
+        assert rootCanaryBootPersistenceConfig.dgx.root.bootPersistence.enable;
+        assert !rootCanaryBootPersistenceConfig.system-manager.linkCurrentSystem;
+        assert
+          rootCanaryBootPersistenceConfig.systemd.targets.system-manager.wantedBy == [ "default.target" ];
+        assert
+          rootCanaryBootPersistenceConfig.build.services == rootCanaryRegistrationTestConfig.build.services;
+        assert
+          rootCanaryBootPersistenceConfig.environment.etc."dgx-setup/canary".text
+          == rootCanaryRegistrationTestConfig.environment.etc."dgx-setup/canary".text
+          + "boot-persistence-generation=3\n";
         assert rootManagerManifest.registration.isolatedLifecycleTest.result == "passed";
         assert rootManagerManifest.registration.isolatedLifecycleTest.matchesCurrent;
         assert rootManagerManifest.registration.isolatedLifecycleTest.hostPostflight == "clean";
@@ -809,6 +928,9 @@
         assert
           builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram
           == reviewedRootGenerationSwitchTransactionSha256;
+        assert
+          builtins.hashFile "sha256" rootBootPersistenceTransactionProgram
+          == reviewedRootBootPersistenceTransactionSha256;
         assert
           builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram
           == reviewedRootGenerationSwitchSnapshotSha256;
@@ -906,6 +1028,37 @@
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed;
         assert
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed;
+        assert
+          rootManagerManifest.bootPersistence.status
+          == "disposable-transaction-test-passed-live-not-authorized";
+        assert
+          rootManagerManifest.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+        assert rootManagerManifest.bootPersistence.delta.serviceInventoryUnchanged;
+        assert rootManagerManifest.bootPersistence.delta.globalPackagesUnchanged;
+        assert !rootManagerManifest.bootPersistence.delta.linksCurrentSystem;
+        assert
+          rootManagerManifest.bootPersistence.transactionProgram.sha256
+          == reviewedRootBootPersistenceTransactionSha256;
+        assert !rootManagerManifest.bootPersistence.retention.hostCreated;
+        assert rootManagerManifest.bootPersistence.retention.requiredBeforeTransaction;
+        assert rootManagerManifest.bootPersistence.retention.preservedByRollback;
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.result == "passed";
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.matchesCurrent;
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.hostPostflight == "clean";
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.disposableRestarts == 2;
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.provesBootStart;
+        assert rootManagerManifest.bootPersistence.isolatedTransactionTest.provesRollbackNoBoot;
+        assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostRegistrationPerformed;
+        assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostActivationPerformed;
+        assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostCandidateRetentionPerformed;
+        assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostBootLinkCreated;
+        assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostRebootPerformed;
+        assert rootManagerManifest.bootPersistence.livePilot.status == "not-designed-or-authorized";
+        assert !rootManagerManifest.bootPersistence.livePilot.hostCandidateRetentionPerformed;
+        assert !rootManagerManifest.bootPersistence.livePilot.hostRegistrationPerformed;
+        assert !rootManagerManifest.bootPersistence.livePilot.hostActivationPerformed;
+        assert !rootManagerManifest.bootPersistence.livePilot.hostBootLinkCreated;
+        assert !rootManagerManifest.bootPersistence.livePilot.hostRebootPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
@@ -927,6 +1080,35 @@
             >/dev/null
           grep -Fx -- '${verifiedNixPackage}' ${rootCanaryClosureInfo}/store-paths \
             >/dev/null
+          generation_two_units="$(
+            readlink -f -- \
+              ${rootCanaryRegistrationTestConfig.build.etc.staticEnv}/systemd/system
+          )"
+          generation_three_units="$(
+            readlink -f -- \
+              ${rootCanaryBootPersistenceConfig.build.etc.staticEnv}/systemd/system
+          )"
+          test "$(find "$generation_two_units" -mindepth 1 -maxdepth 2 -printf x | wc -c)" -eq 5
+          test "$(find "$generation_three_units" -mindepth 1 -maxdepth 2 -printf x | wc -c)" -eq 7
+          test ! -e "$generation_two_units/default.target.wants/system-manager.target"
+          test ! -L "$generation_two_units/default.target.wants/system-manager.target"
+          test -L "$generation_three_units/default.target.wants/system-manager.target"
+          test "$(readlink -- "$generation_three_units/default.target.wants/system-manager.target")" = ../system-manager.target
+          for unit in \
+            dgx-setup-canary.service \
+            sysinit-reactivation.target \
+            system-manager.target \
+            system-manager.target.wants/dgx-setup-canary.service; do
+            test "$(readlink -f -- "$generation_two_units/$unit")" = \
+              "$(readlink -f -- "$generation_three_units/$unit")"
+          done
+          cmp \
+            ${rootCanaryRegistrationTestGeneration}/services/services.json \
+            ${rootCanaryBootPersistenceGeneration}/services/services.json
+          grep -Fvx 'boot-persistence-generation=3' \
+            ${rootCanaryBootPersistenceConfig.build.etc.entries."dgx-setup/canary".source}/dgx-setup/canary \
+            | cmp - \
+              ${rootCanaryRegistrationTestConfig.build.etc.entries."dgx-setup/canary".source}/dgx-setup/canary
           touch "$out"
         '';
 
@@ -1292,6 +1474,21 @@
               ;
           };
 
+      rootCanaryBootPersistenceTransactionContainerTest =
+        import ./root/system-manager/boot-persistence-transaction-test.nix
+          {
+            inherit
+              pkgs
+              rootBootPersistenceTransactionProgram
+              rootCanary
+              rootCanaryBootPersistenceGeneration
+              rootCanaryRegistrationTestGeneration
+              rootGenerationSwitchTransactionProgram
+              rootRegistrationTransactionProgram
+              system-manager
+              ;
+          };
+
       systemdSnapshotPropertyRegressionCheck = pkgs.runCommand "dgx-systemd-snapshot-property-test" { } ''
         test_root="$TMPDIR/dgx-systemd-snapshot-property-test"
         mkdir -p "$test_root/scripts"
@@ -1316,6 +1513,7 @@
         hyprland = hyprlandPackage;
         root-system-canary = rootCanary;
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
+        root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
@@ -1331,6 +1529,8 @@
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
+        root-canary-boot-persistence-transaction-container =
+          rootCanaryBootPersistenceTransactionContainerTest;
         root-canary-generation-switch-transaction-container =
           rootCanaryGenerationSwitchTransactionContainerTest;
         root-canary-systemd-snapshot-property = systemdSnapshotPropertyRegressionCheck;

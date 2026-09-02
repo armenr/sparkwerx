@@ -111,9 +111,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
 - System Manager 1.1.0 is the selected root-manager candidate; its exact
-  five-path/three-service canary is retained active. Exact generation one, the
-  upstream extra GC root, and the pilot GC root are also retained; no boot link
-  exists. Its 109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
+  five-path/three-service canary is retained active as generation two.
+  Generations one and two are registered and directly pilot-rooted; generation
+  two is selected and upstream-rooted; no boot link exists. Its 109-path /
+  230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
   registration surfaces documented in `root/system-manager/README.md`;
 - the first root-local disposable activation exposed System Manager 1.1.0's
@@ -151,6 +152,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   repeated postflight, and local-console confirmation to retain exact
   registered/live generation two. Generation one remains registered and
   directly retained, both pilot roots remain, and no boot link exists;
+- an exact generation-three boot-persistence candidate and transaction passed
+  a distinct 13-subtest/two-restart disposable derivation with a hash-valid
+  output and clean real-host postflight. Generation three adds only its marker
+  and one tracked `default.target` edge. It remains inert in the store: no host
+  generation-three root, registration, activation, boot edge, or reboot exists,
+  and the test pass grants no live authority;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -192,13 +199,18 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   Preserve exact live generation two, registered generation one, all three
   profile links, the upstream generation-two root, both direct pilot roots, the
   five-path/three-service activation surface, and the no-boot boundary until a
-  separately approved next milestone. The reviewed generation-two live pilot
-  completed from a now-spent snapshot; rerun, rollback, cleanup, or reboot each
-  requires separate authority. Rollback preserves both direct pilot roots.
+  separately approved next milestone. Generation three is an inert, tested
+  candidate only; its direct root and host boot edge must remain absent. Read
+  the boot-persistence transaction plan and exact test record before touching
+  it. The reviewed generation-two live pilot completed from a now-spent
+  snapshot; rerun, generation-three activation, rollback, cleanup, or reboot
+  each requires separate authority. Rollback preserves both current direct
+  pilot roots.
   Never let it own host Nix, users, wrappers, global PATH, boot links, or factory
   services or process global factory tmpfiles rules when its managed set is
   empty; preserve the exact-version patch, regression sentinel,
-  current-test match, exact registration links, and all three retention roots.
+  current-test match, exact registration links, both current retention roots,
+  and the absence of the prospective generation-three host root.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

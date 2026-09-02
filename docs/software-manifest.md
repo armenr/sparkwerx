@@ -72,6 +72,13 @@ ran. Current state is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`: generation
 two is selected, upstream-rooted, directly retained, and live; generation one
 and its original pilot root remain retained. No boot linkage, protected-service
 change, Tailscale replacement, or desktop switch occurred.
+The exact generation-two to generation-three boot-persistence transaction then
+passed all 13 failure-injection, apply/rollback, two-restart, and cleanup
+subtests inside a disposable container. Its valid output and independent host
+postflight prove the real host remained exact live generation two, with the
+generation-three pilot root and boot link absent. Generation three is an inert
+store candidate only; no live retention, registration, activation, boot edge,
+rollback timer, or reboot is authorized.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -96,7 +103,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. The bounded System Manager canary is retained and healthy, but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact System Manager ownership diff and apt rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; ALL FOUR DISPOSABLE TESTS PASSED; HOST CANARY ACTIVE; GENERATION TWO LIVE/REGISTERED/RETAINED; GENERATION ONE RETAINED; NO BOOT LINK | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. It adds no global package, port, boot link, user, wrapper, PATH hook, or NVIDIA/Tailscale/desktop ownership. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. All four exact disposable derivations passed and remain policy-pinned. The live five-path/three-service surface now resolves to generation two. Exact links are `system-manager -> system-manager-2-link -> pmrq…`, `system-manager-1-link -> alrc…`, and direct `system-manager-current -> pmrq…`; the original pilot root retains generation one and the generation-two pilot root retains generation two. Current classifier result is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. Fresh snapshot `20260902T083437Z`, explicit snapshot-bound authorization, repeated postflight, local-console confirmation, protected-service continuity, system/GPU health, and sanitized Tailscale SSH all passed; rollback was disarmed before its service ran. No boot edge or broader ownership exists | Preserve both numbered profile generations, the selected profile, upstream root, and both pilot roots. Do not rerun the inactive activation, first-registration, snapshot, or live-switch helpers; reboot; add boot linkage; select/remove a generation; remove registration or a recovery root; or add a real managed service without a separate reviewed plan and authorization |
+| Root integration | System Manager | SELECTED; ALL FIVE DISPOSABLE TESTS PASSED; HOST CANARY ACTIVE; GENERATION TWO LIVE/REGISTERED/RETAINED; GENERATION ONE RETAINED; GENERATION THREE INERT; NO HOST BOOT LINK | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. All five exact disposable derivations passed and remain policy-pinned. The live five-path/three-service surface resolves to generation two. Exact links are `system-manager -> system-manager-2-link -> pmrq…`, `system-manager-1-link -> alrc…`, and direct `system-manager-current -> pmrq…`; the original pilot root retains generation one and the generation-two pilot root retains generation two. Current classifier result is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. The inert generation-three output `w8kn…` adds only its marker and one declarative `default.target` edge; its exact 13-subtest/two-restart transaction passed, but the host generation-three root and boot edge remain absent. No broader ownership exists | Preserve both registered generations, the selected profile, upstream root, both live pilot roots, and the no-boot host state. Do not rerun spent activation/registration/switch helpers; retain/register/activate generation three; reboot; add boot linkage; select/remove a generation; remove registration or a recovery root; or add a real managed service without a separate reviewed plan, fresh snapshot, rollback guard, local-console check, and explicit authorization |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -177,12 +184,28 @@ canary surface inside the disposable container. The valid output and clean host
 postflight are recorded in the
 [container validation record](../root/system-manager/validation/2026-08-24-container-test.md).
 
+The later generation-three candidate leaves that package/service ownership
+unchanged and adds only its marker plus the tracked
+`default.target.wants/system-manager.target` symlink. Its exact transaction
+program has SHA-256
+`53eb8c4d03a4c24764f519e358f3c5c813e66f189efc07e50f82cd19841d8288`.
+The 13-subtest/two-restart disposable derivation
+`/nix/store/i5skjqyw16qgbvb4azr68msrqfz64d7k-container-test-dgx-root-canary-boot-persistence-transaction.drv`
+passed with output
+`/nix/store/d3ymf91l07rvai5pzz9ygj3vl3g9xss3-container-test-dgx-root-canary-boot-persistence-transaction`
+and hash
+`sha256:0lxm3pjsd4yy9zl49zx6cbydc9iid1i7mdrajkinkfzszg5k7ikn`. The
+[exact result](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md)
+records a clean real-host postflight: generation two remained live and no host
+boot link or generation-three root appeared.
+
 Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. The original isolated
 activation test registers no profile or GC root. Separately, the live host now
-retains exact generation one, `system-manager-current`, and the pilot root as
-recorded in the table above. The helper supplies temporary root-local
+has exact generations one and two registered, selects and upstream-roots live
+generation two, and directly pilot-roots both generations as recorded in the
+table above. The helper supplies temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
 2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but
@@ -216,8 +239,11 @@ nix --extra-experimental-features "nix-command flakes" \
 ```
 
 Those booleans describe what flake evaluation/build itself performs; they do
-not probe mutable host state. The retained attempt-3 validation record is the
-live-state authority.
+not probe mutable host state. The
+[retained generation-two host record](../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md)
+is the current live-state authority. The later
+[boot-persistence test record](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md)
+proves that its disposable test left that live state unchanged.
 
 The evaluation-only invariant suite is:
 

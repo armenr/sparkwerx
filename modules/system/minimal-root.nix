@@ -17,6 +17,8 @@ let
     name: !(builtins.hasAttr name config.systemd.units) || !config.systemd.units.${name}.enable;
 in
 {
+  imports = [ ./boot-persistence.nix ];
+
   # System Manager imports several broad NixOS-derived modules. Every default
   # below is deliberately narrowed so the first root closure is only a canary,
   # not accidental ownership of users, Nix, global PATH, or setuid wrappers.
@@ -50,10 +52,6 @@ in
   };
   systemd.services.system-manager-path.enable = lib.mkForce false;
 
-  # Activation starts this target explicitly. Do not also link it into the
-  # factory default target until boot persistence receives its own approval.
-  systemd.targets.system-manager.wantedBy = lib.mkForce [ ];
-
   assertions = [
     {
       assertion = !config.nix.enable;
@@ -78,10 +76,6 @@ in
     {
       assertion = !config.system-manager.linkCurrentSystem;
       message = "The inert canary must not claim /run/current-system.";
-    }
-    {
-      assertion = config.systemd.targets.system-manager.wantedBy == [ ];
-      message = "The inert canary must not start automatically at boot.";
     }
     {
       assertion = lib.all unitIsInactive forbiddenUnitNames;

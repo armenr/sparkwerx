@@ -224,6 +224,30 @@ invoke rollback, select or remove a generation, or remove either pilot root
 without a new exact plan and authorization. Rollback keeps both pilot roots;
 never remove the generation-two root as incidental cleanup.
 
+The next inert candidate is exact generation three, which inherits generation
+two and adds only `boot-persistence-generation=3` plus the declarative
+`default.target.wants/system-manager.target` edge. Before touching
+`dgx.root.bootPersistence`, `rootCanaryBootPersistenceGeneration`,
+`scripts/root-boot-persistence-transaction.sh`, or its test/helper, read the
+[boot-persistence transaction plan](../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-plan.md)
+and exact
+[container-test result](../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
+Its 13-subtest/two-restart disposable derivation passed with a hash-valid output
+and clean host postflight. Require the manifest's boot-persistence test
+`result == "passed"`, `matchesCurrent == true`, and
+`hostPostflight == "clean"`; a changed transaction checksum, candidate, or test
+derivation invalidates that evidence.
+
+That PASS authorizes no live generation-three action. Current host state must
+remain `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, with the generation-three
+pilot root and boot edge absent, until a separate host plan is reviewed and
+explicitly authorized. Live generation-three activation and the first real
+reboot are distinct gates. Each needs fresh exact snapshot evidence,
+independent physical-console/recovery verification, and rollback that remains
+usable when Tailscale is unavailable. Never run the disposable helper during
+an ordinary audit, infer host authority from its pass, or create the
+generation-three pilot root as incidental preparation.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist
@@ -305,7 +329,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - System Manager's exact five-path/three-service canary is retained active on
   `sparkle-01` as exact generation two. Generation two is selected,
   upstream-rooted, and directly pilot-rooted. Exact generation one remains
-  registered and directly pilot-rooted; no boot link exists.
+  registered and directly pilot-rooted; no boot link exists. Exact generation
+  three is only an inert, disposable-test-passed candidate: its host pilot root,
+  registration, activation, and boot edge remain absent.
   Preserve its exact service/`/etc` allowlists, state/registration disclosure,
   no-boot policy, Nix 2.35.2 private runtime, and closure rejection of Nix
   2.34.8 and real `userborn`. Preserve the exact-version
@@ -316,8 +342,8 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   programs must remain retained. While active and registered, do not rerun the
   inactive-state preflight/activation, first-registration, pre-switch snapshot,
   or live-switch helpers; remove a generation or root; select generation one;
-  reboot; add boot linkage; broaden ownership; or update either candidate
-  underneath the host.
+  retain/register/activate generation three; reboot; add boot linkage; broaden
+  ownership; or update any candidate underneath the host.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. Preserve the two failed-closed live-attempt records and never
   reuse their commit/time-bound snapshots. The third guarded attempt registered

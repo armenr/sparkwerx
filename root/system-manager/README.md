@@ -35,8 +35,10 @@ is active.
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; test made no host change |
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
+| Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
 | Host registration | Exact generations one and two retained; generation two selected and upstream-rooted |
 | Host activation | Exact generation-two canary active after guarded live switch; not boot-linked |
+| Next inert candidate | Exact generation three adds only its marker and one declarative boot edge; not retained, registered, activated, or boot-linked on the host |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -102,9 +104,11 @@ paths and three service keys, the expected services/targets active, every
 forbidden and registration path absent, the pilot root intact, zero failed
 units, healthy protected services/GPU/Tailscale SSH, and no pending daemon
 reload. The [attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md)
-remains the live-activation authority. The later
+remains the authority for that original live activation. The later
 [first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
-is the current full-state authority.
+is the authority for the first registered-generation milestone. The
+[retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
+is the current full live-state authority.
 
 Do not rerun the inactive-state preflight or activation helper while this
 canary remains active. Do not rerun the first-registration helper now that its
@@ -151,9 +155,13 @@ filesystem objects created.
 Those paths were absent until separately authorized live registration. On
 2026-09-01, the guarded transaction retained exactly `system-manager` ->
 `system-manager-1-link` -> the exact candidate plus a direct
-`system-manager-current` root to the same candidate. No second or unknown
-generation exists. The exact surface and operating rules are in the
-[retained registration record](validation/2026-09-01-first-registration-host-attempt-3.md).
+`system-manager-current` root to the same candidate. That was the exact state
+at the first-registration milestone. The later guarded switch added exact
+`system-manager-2-link`, selected generation two, and moved the upstream root
+to generation two while retaining generation one and both direct pilot roots.
+No third or unknown registered generation exists. The current exact surface
+and operating rules are in the
+[retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md).
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -351,6 +359,42 @@ pilot root, select generation one, deactivate generation two, add boot
 linkage, or reboot without a separate exact plan and authorization. Rollback
 and cleanup deliberately remain later milestones.
 
+## Boot persistence: disposable transaction passed, host unchanged
+
+The next repository-only milestone defines exact generation three by inheriting
+generation two and changing only two things: the canary gains
+`boot-persistence-generation=3`, and
+`default.target.wants/system-manager.target -> ../system-manager.target` is
+added through the declarative System Manager unit tree. The package set remains
+empty, the three managed service definitions are byte-identical, and no
+`/run/current-system`, Nix, user, wrapper, PATH, Tailscale, desktop, Docker,
+NVIDIA, dashboard, port, or mutable application-state ownership is added.
+
+The exact 13-subtest transaction derivation
+`/nix/store/i5skjqyw16qgbvb4azr68msrqfz64d7k-container-test-dgx-root-canary-boot-persistence-transaction.drv`
+**passed** on 2026-09-02. Its hash-valid output is
+`/nix/store/d3ymf91l07rvai5pzz9ygj3vl3g9xss3-container-test-dgx-root-canary-boot-persistence-transaction`,
+with hash
+`sha256:0lxm3pjsd4yy9zl49zx6cbydc9iid1i7mdrajkinkfzszg5k7ikn`. The disposable
+test covered unretained-candidate refusal, unknown profile/root collisions,
+partial-registration and post-activation failures, exact apply and rollback,
+duplicate-apply refusal, a first restart proving automatic start, a second
+restart proving rollback restored no-boot behavior, and final cleanup.
+
+Independent host postflight still classified `sparkle-01` as
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, with the generation-three pilot
+root and boot link absent. The exact state machine and authorization boundary
+are in the
+[transaction plan](validation/2026-09-02-boot-persistence-transaction-plan.md);
+the exact artifacts and host evidence are in the
+[container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md).
+
+This PASS authorizes no live change. Generation-three retention, registration,
+activation, boot linkage, timed rollback, and any real reboot require a
+separate guarded live plan, fresh private snapshot, independent local-console
+verification, and explicit authorization. A real reboot is a distinct gate
+from a live generation-three activation.
+
 ## Defaults we rejected
 
 Upstream's nominally empty configuration is broader than this project's empty
@@ -442,9 +486,14 @@ pilot-root `created` booleans are declarative evaluation side-effect flags, not
 probes of mutable host state. The separately named
 `guardedFirstGeneration.liveRegistration` record is dated operational evidence.
 The [host-canary attempt 3 record](validation/2026-09-01-host-canary-attempt-3.md)
-is the activation authority; the
+is the original activation authority; the
 [first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
-is the current full live-state authority.
+is the first-registration authority; and the
+[retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
+is the current full live-state authority. The
+[boot-persistence container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md)
+is repository/test evidence and explicitly records that the live host stayed on
+generation two without a boot link.
 
 Review missing builds without realizing anything:
 
@@ -453,8 +502,10 @@ nix --extra-experimental-features "nix-command flakes" \
   build --dry-run --no-link \
   .#root-system-canary \
   .#root-system-canary-generation-two \
+  .#root-system-canary-generation-three-boot \
   .#checks.aarch64-linux.root-manager-policy \
   .#checks.aarch64-linux.root-canary-container \
+  .#checks.aarch64-linux.root-canary-boot-persistence-transaction-container \
   .#checks.aarch64-linux.root-canary-generation-switch-transaction-container \
   .#checks.aarch64-linux.root-canary-registration-container \
   .#checks.aarch64-linux.root-canary-registration-transaction-container
