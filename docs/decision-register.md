@@ -335,6 +335,17 @@ authority. See the
 and exact
 [container-test result](../root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md).
 
+The subsequent repository milestone added a root-only private snapshot helper,
+whole-record systemd property parser plus regression test, and a guarded live
+wrapper. The wrapper creates the generation-two pilot root only after exact
+preflight, arms the tested generation-one rollback before switching, requires
+exact `KEEP GENERATION TWO` after local-console verification, and repeats full
+postflight before disarming. Rollback removes only the exact generation-two
+profile link and restores registered/live generation one; both pilot roots stay
+as recovery anchors. This design is pinned and unrun. It creates no live-switch
+authority and no permission to clean up either root. See the
+[live plan](../root/system-manager/validation/2026-09-02-generation-switch-live-plan.md).
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -348,11 +359,12 @@ and exact
 
 ## Open decisions
 
-- Design and separately authorize any live generation-two switch without
-  disturbing retained generation one. The live switch, reboot/boot behavior,
-  pilot-root retirement, and the first real managed service remain separate
-  decisions. Registration is not activation or boot persistence; do not reboot
-  or add boot linkage without a separately guarded plan.
+- The live generation-two pilot is designed but still needs a fresh private
+  snapshot, local-console verification, and explicit snapshot-bound
+  authorization. The live switch, reboot/boot behavior, pilot-root retirement,
+  and the first real managed service remain separate decisions. Registration is
+  not activation or boot persistence; do not reboot or add boot linkage without
+  a separately guarded plan.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

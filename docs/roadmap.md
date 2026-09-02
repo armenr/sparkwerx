@@ -64,9 +64,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Pass the new guarded generation-switch failure-injection test while the
       host remains exactly `ACTIVE_REGISTERED_RETAINED`; do not create the
       host generation-two root or switch the host as part of this test
-- [ ] Design and separately authorize any live generation-two switch with its
-      own snapshot, timed rollback, local-console confirmation, and no-boot
-      boundary
+- [x] Design and policy-pin the live generation-two pilot with its own private
+      snapshot, protected-process continuity, timed rollback, repeated
+      postflight, local-console confirmation, and no-boot boundary
+- [ ] Separately authorize and run that exact live pilot only from a fresh
+      snapshot; keep both pilot roots and verify rollback/success independently
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

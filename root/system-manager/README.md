@@ -289,7 +289,7 @@ Do not run the registration helper again while this state is retained. A
 rollback, second generation, generation switch, reboot/boot milestone, or real
 managed service requires a separate plan and authorization.
 
-## Guarded generation switch: disposable test passed
+## Guarded generation switch: transaction passed, live pilot designed
 
 This repository milestone defines a marker-only generation two plus
 `scripts/root-generation-switch-transaction.sh`. Generation two inherits the
@@ -323,11 +323,22 @@ failure matrix, and authority boundary are in the
 the exact output and host evidence are in the
 [container-test result](validation/2026-09-02-generation-switch-transaction-container-test.md).
 
-This pass permits design of a separate snapshot/timed-rollback/local-console
-live wrapper only. Generation two remains absent from the host registration and
-retention surfaces. Do not create
-`dgx-setup-root-canary-generation-two-pilot`, run the transaction on the host,
-or infer live-switch authority from this container pass.
+That pass permitted design of the separate live pilot. The repository now has
+`scripts/snapshot-root-generation-switch.sh`,
+`scripts/switch-root-canary-generation-pilot.sh`, and a whole-record systemd
+snapshot parser/regression check. The live wrapper is bound to a clean commit,
+a root-owned snapshot no more than 30 minutes old, the exact passed artifacts,
+protected-process continuity, an armed ten-minute generation-one rollback, and
+exact `KEEP GENERATION TWO` after local-console verification. The complete
+state machine and failure boundary are in the
+[live plan](validation/2026-09-02-generation-switch-live-plan.md).
+
+This design has not been run. Generation two remains absent from the host
+registration and retention surfaces. Do not create
+`dgx-setup-root-canary-generation-two-pilot`, run the live wrapper/transaction
+on the host, or infer snapshot-bound authority from repository validation.
+Rollback deliberately keeps both pilot roots; cleanup requires a later exact
+review.
 
 ## Defaults we rejected
 

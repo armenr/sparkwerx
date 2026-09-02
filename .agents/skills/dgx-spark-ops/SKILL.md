@@ -207,9 +207,17 @@ That is not live-switch authority: generation two is not retained, registered,
 selected, or active on the host, and
 `/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot` must remain
 absent. Do not rerun the one-time disposable build during an ordinary audit.
-Its pass grants no authority to create that host root or perform a live switch;
-it permits designing the separate snapshot/timed-rollback/local-console live
-wrapper only. Stop before creating host retention or invoking the transaction.
+Its pass grants no authority to create that host root or perform a live switch.
+The separate live pilot has now been designed. Also read the
+[2026-09-02 live plan](../../../root/system-manager/validation/2026-09-02-generation-switch-live-plan.md)
+before touching `scripts/snapshot-root-generation-switch.sh`,
+`scripts/switch-root-canary-generation-pilot.sh`, or
+`scripts/systemd-snapshot-property.sh`. Repository validation does not
+authorize running the root snapshot helper or live wrapper. Stop before
+creating host generation-two retention or invoking the transaction unless a
+fresh root-owned snapshot, independent local-console verification, and explicit
+authorization bound to that exact snapshot exist. Rollback keeps both pilot
+roots; never remove the generation-two root as incidental cleanup.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
@@ -309,6 +317,12 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   and retained exact generation one without changing live activation, services,
   or boot linkage. Preserve its full-state record as current authority. A build
   or container test never implies host registration or activation.
+- The generation-two live pilot is repository-complete but unrun. Preserve its
+  exact helper hashes, whole-record systemd parser regression, 30-minute private
+  snapshot gate, protected `FragmentPath`/`MainPID`/active-enter continuity,
+  ten-minute rollback-before-switch ordering, exact `KEEP GENERATION TWO`
+  confirmation, repeated postflight, and no-boot/no-broader-ownership boundary.
+  Snapshot creation and live switching are separate authority boundaries.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

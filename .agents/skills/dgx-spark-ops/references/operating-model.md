@@ -148,8 +148,8 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   transaction passed their distinct eleven-subtest disposable failure-injection
   derivation with a hash-valid output and clean host postflight. The host remains
   exact registered/live generation one, has no generation-two pilot root, and
-  has no live-switch authority; the pass authorizes separate live-wrapper design
-  only;
+  has no live-switch authority. The separate live wrapper/private snapshot/
+  parser-regression design is now implemented and pinned but has not run;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -192,7 +192,9 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   activation surface, and the no-boot boundary until a separately approved next
   milestone.
   The reviewed generation-two candidate remains host-absent after its passed
-  disposable gate and until a later live plan is separately authorized.
+  disposable gate. Its implemented live plan still requires a fresh private
+  snapshot, local-console verification, and exact snapshot-bound authorization.
+  Rollback preserves both direct pilot roots; cleanup is a separate milestone.
   Never let it own host Nix, users, wrappers, global PATH, boot links, or factory
   services or process global factory tmpfiles rules when its managed set is
   empty; preserve the exact-version patch, regression sentinel,

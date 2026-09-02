@@ -43,6 +43,15 @@ test, register a generation, create state, or activate the host.
 ```
 
 ```text
+$dgx-spark-ops Audit the guarded System Manager generation-switch pilot
+read-only. Verify the exact current candidates, transaction/test evidence,
+helper hashes, parser regression, manifest false mutation flags, registered/live
+generation-one classifier, absent generation-two pilot root, and no-boot edge.
+Do not create a private snapshot, retain generation two, or run the live
+wrapper.
+```
+
+```text
 $dgx-spark-ops Audit the NVIDIA-owned substrate: DGX OS, firmware, kernel,
 driver, CUDA, Docker, and NVIDIA Container Toolkit. Inventory locally, use only
 current NVIDIA guidance for applicability, and make no host changes.
@@ -210,6 +219,13 @@ registration scope, exact pilot GC-root path and lifecycle, timed deactivation
 command, and accepted residual state file. Low-level activation is otherwise
 unrooted; never remove the pilot root before verified deactivation. The
 disposable root-assisted container test is not host activation.
+
+For a System Manager generation switch, the prompt must additionally name the
+fresh root-owned snapshot, its timestamp, the independent local console, both
+exact candidates and pilot-root paths, the passed transaction evidence, the
+ten-minute `rollback-switch` timer, the exact `KEEP GENERATION TWO` phrase, and
+the fact that rollback preserves both pilot roots. Never infer this authority
+from the repository-complete live plan or a prior activation/registration.
 
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.

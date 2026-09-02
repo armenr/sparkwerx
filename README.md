@@ -45,7 +45,9 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   root role exists. The marker-only generation-two candidate and
   guarded switch transaction passed their disposable failure-injection gate,
   but generation two remains unretained, unregistered, unselected, and inactive
-  on the host. No live switch is authorized.
+  on the host. The fresh-snapshot/timed-rollback/local-console live pilot is
+  implemented and policy-pinned, but it has not been run and no live switch is
+  authorized.
 
 ## Operating model
 
@@ -182,6 +184,7 @@ System Manager generation one is already active, registered, and retained. Do
 not rerun its inactive activation or first-registration helpers, remove either
 exact root, add boot linkage, switch generations, or reboot. The reviewed
 generation-two transaction is authorized only for its disposable container
-test; any live switch needs a separate snapshot/timed-rollback/local-console
-wrapper and new explicit authorization.
+test. Its separate live wrapper now exists, but running it still requires a new
+private snapshot, verified local console, and explicit authorization bound to
+that snapshot.
 GNOME remains the recovery desktop throughout every graphical pilot.

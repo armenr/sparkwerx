@@ -82,7 +82,10 @@ extra root; no boot link or broader role exists. Its four disposable tests and
 guarded live activation/registration milestones passed. The harmless
 generation-two candidate and switch transaction passed only their disposable
 failure-injection gate; generation two has no host retention or registration,
-and no live switch is authorized.
+and no live switch is authorized. The separate live-switch wrapper is now
+implemented with a fresh private snapshot, protected-process continuity, an
+exact ten-minute rollback, repeated postflight, and local-console confirmation;
+its repository design has not been run on the host.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
@@ -150,7 +153,9 @@ and VS Code from entering the reviewed profiles.
 The bounded System Manager canary is active, registered as exact generation
 one, and retained by both its selected profile/upstream root and the pilot root.
 It is intentionally not boot-linked. The reviewed generation-two transaction
-is awaiting its disposable failure-injection result and has no live authority.
+passed its disposable failure-injection result. Its separately pinned live
+pilot remains unrun and has no live authority without a fresh snapshot and
+explicit snapshot-bound authorization.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to

@@ -169,6 +169,14 @@
       reviewedRootRegistrationTransactionSha256 = "86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9";
       rootGenerationSwitchTransactionProgram = ./scripts/root-generation-switch-transaction.sh;
       reviewedRootGenerationSwitchTransactionSha256 = "ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd";
+      rootGenerationSwitchSnapshotProgram = ./scripts/snapshot-root-generation-switch.sh;
+      reviewedRootGenerationSwitchSnapshotSha256 = "a82669f4a7001d370d0b0bb26815d466600114137b2fa26da1bc1169ae30a9ec";
+      rootGenerationSwitchPilotProgram = ./scripts/switch-root-canary-generation-pilot.sh;
+      reviewedRootGenerationSwitchPilotSha256 = "e9432ea70cc8d8705e7775b4aaddd92e5bf1d1e56c8f11d1cb537abb2c2d143c";
+      systemdSnapshotPropertyProgram = ./scripts/systemd-snapshot-property.sh;
+      reviewedSystemdSnapshotPropertySha256 = "1123fe7efa54c21aaa9b1609ba132bdbe3a66a50deff41da33e826eb37d332af";
+      systemdSnapshotPropertyTestProgram = ./scripts/test-systemd-snapshot-property.sh;
+      reviewedSystemdSnapshotPropertyTestSha256 = "d9829ce6200752e0bb93810b2cc59cc5f137483abf4dc5a5f9ea491826585009";
 
       expectedRootCanaryServiceNames = [
         "dgx-setup-canary.service"
@@ -559,7 +567,7 @@
           };
 
           guardedGenerationSwitch = {
-            status = "disposable-test-passed-live-switch-not-authorized";
+            status = "live-pilot-designed-switch-not-authorized";
             transactionProgram = {
               repositoryPath = "scripts/root-generation-switch-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram;
@@ -578,6 +586,7 @@
               generationTwo = "/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot";
             };
             requiredHostState = "ACTIVE_REGISTERED_RETAINED";
+            initialHostState = "generation one selected, extra-rooted, and live; generation two absent";
             preState = "generation one selected, extra-rooted, and live; generation two retained only";
             postState = "generation two selected, extra-rooted, and live; generation one retained";
             rollbackState = "exact registered and active generation one";
@@ -585,8 +594,55 @@
             preservesBothPilotRoots = true;
             createsBootLink = false;
             changesServiceOwnership = false;
+            hostGenerationTwoRetentionPerformed = false;
             liveSwitchPerformed = false;
             evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
+            livePilot = {
+              status = "repository-design-complete-not-run";
+              snapshotProgram = {
+                repositoryPath = "scripts/snapshot-root-generation-switch.sh";
+                sha256 = builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram;
+              };
+              switchProgram = {
+                repositoryPath = "scripts/switch-root-canary-generation-pilot.sh";
+                sha256 = builtins.hashFile "sha256" rootGenerationSwitchPilotProgram;
+              };
+              systemdSnapshotPropertyProgram = {
+                repositoryPath = "scripts/systemd-snapshot-property.sh";
+                sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyProgram;
+              };
+              systemdSnapshotPropertyTest = {
+                repositoryPath = "scripts/test-systemd-snapshot-property.sh";
+                sha256 = builtins.hashFile "sha256" systemdSnapshotPropertyTestProgram;
+                check = systemdSnapshotPropertyRegressionCheck.drvPath;
+              };
+              snapshot = {
+                root = "inventory/sparkle-01/raw/system-manager-generation-switch";
+                maximumAgeSeconds = 1800;
+                owner = "root";
+                mode = "0700";
+                exactPreStateRequired = true;
+              };
+              rollback = {
+                timerUnit = "dgx-root-generation-switch-rollback.timer";
+                delayMinutes = 10;
+                transactionAction = "rollback-switch";
+                armedBeforeSwitch = true;
+                restoresState = "exact registered and active generation one";
+                preservesBothPilotRoots = true;
+              };
+              confirmation = {
+                phrase = "KEEP GENERATION TWO";
+                timeoutSeconds = 300;
+                requiresLocalConsoleVerification = true;
+                repeatedPostflightBeforeDisarm = true;
+              };
+              createsBootLink = false;
+              changesServiceOwnership = false;
+              hostGenerationTwoRetentionPerformed = false;
+              liveSwitchPerformed = false;
+              evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-live-plan.md";
+            };
             isolatedTransactionTest =
               let
                 observedDrvPath = "/nix/store/0llhzgyraq4gr7m4agbv8wbvs7xdcql2-container-test-dgx-root-canary-generation-switch-transaction.drv";
@@ -741,6 +797,17 @@
           builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram
           == reviewedRootGenerationSwitchTransactionSha256;
         assert
+          builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram
+          == reviewedRootGenerationSwitchSnapshotSha256;
+        assert
+          builtins.hashFile "sha256" rootGenerationSwitchPilotProgram
+          == reviewedRootGenerationSwitchPilotSha256;
+        assert
+          builtins.hashFile "sha256" systemdSnapshotPropertyProgram == reviewedSystemdSnapshotPropertySha256;
+        assert
+          builtins.hashFile "sha256" systemdSnapshotPropertyTestProgram
+          == reviewedSystemdSnapshotPropertyTestSha256;
+        assert
           rootManagerManifest.registration.guardedFirstGeneration.status
           == "live-first-generation-registered-retained";
         assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
@@ -770,7 +837,7 @@
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostActivationPerformed;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.status
-          == "disposable-test-passed-live-switch-not-authorized";
+          == "live-pilot-designed-switch-not-authorized";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.requiredHostState
           == "ACTIVE_REGISTERED_RETAINED";
@@ -778,7 +845,31 @@
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesBothPilotRoots;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.createsBootLink;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.changesServiceOwnership;
+        assert
+          !rootManagerManifest.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitchPerformed;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.status
+          == "repository-design-complete-not-run";
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.snapshot.maximumAgeSeconds
+          == 1800;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.rollback.delayMinutes == 10;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.rollback.armedBeforeSwitch;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.rollback.preservesBothPilotRoots;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.confirmation.phrase
+          == "KEEP GENERATION TWO";
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.confirmation.repeatedPostflightBeforeDisarm;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.createsBootLink;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.changesServiceOwnership;
+        assert
+          !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.hostGenerationTwoRetentionPerformed;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.liveSwitchPerformed;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.result == "passed";
         assert
@@ -1178,6 +1269,16 @@
               ;
           };
 
+      systemdSnapshotPropertyRegressionCheck = pkgs.runCommand "dgx-systemd-snapshot-property-test" { } ''
+        test_root="$TMPDIR/dgx-systemd-snapshot-property-test"
+        mkdir -p "$test_root/scripts"
+        cp ${systemdSnapshotPropertyProgram} "$test_root/scripts/systemd-snapshot-property.sh"
+        cp ${systemdSnapshotPropertyTestProgram} "$test_root/scripts/test-systemd-snapshot-property.sh"
+        chmod +x "$test_root/scripts/"*.sh
+        patchShebangs "$test_root/scripts"
+        "$test_root/scripts/test-systemd-snapshot-property.sh" >"$out"
+      '';
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -1209,6 +1310,7 @@
         root-canary-container = rootCanaryContainerTest;
         root-canary-generation-switch-transaction-container =
           rootCanaryGenerationSwitchTransactionContainerTest;
+        root-canary-systemd-snapshot-property = systemdSnapshotPropertyRegressionCheck;
         root-canary-registration-container = rootCanaryRegistrationContainerTest;
         root-canary-registration-transaction-container = rootCanaryRegistrationTransactionContainerTest;
         root-manager-policy = rootManagerPolicyCheck;

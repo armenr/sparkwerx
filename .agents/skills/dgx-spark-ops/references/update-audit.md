@@ -209,9 +209,11 @@ All four exact disposable tests and their results are documented under
 lifecycle, first-registration transaction, and generation-switch transaction
 manifest results to be `passed`, each recorded/current derivation to match, and
 each host postflight to be clean. The generation-switch pass leaves the host
-generation-two pilot root absent and grants live-wrapper design authority only;
-it does not authorize candidate retention, a profile switch, activation, or any
-other host mutation.
+generation-two pilot root absent. The live wrapper design now exists and its
+manifest status must remain `repository-design-complete-not-run`; that still
+does not authorize candidate retention, a profile switch, activation, or any
+other host mutation. An ordinary audit must not create a private root snapshot,
+run the wrapper, or remove either recovery root.
 
 ### NVIDIA playbooks
 

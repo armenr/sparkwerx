@@ -44,14 +44,21 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   tests all passed, and the separately guarded live registration was retained
   after repeated postflight and independent console confirmation. The
   marker-only generation-two candidate and guarded switch transaction passed
-  only their disposable gate; the host generation-two pilot root must remain
-  absent and no live switch is authorized. Read both 2026-09-02 generation-
-  switch records before touching them. Do not rerun the one-time registration
+  their disposable gate. A separate live pilot is now designed and pinned but
+  has not run; the host generation-two pilot root must remain absent and no live
+  switch is authorized. Read all three 2026-09-02 generation-switch records
+  before touching them. Do not rerun the one-time registration
   helper, reboot, add boot linkage, switch generations, remove either current
   root, or broaden ownership without a separate plan and authorization. Its
   private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
   neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's
   prior evidence stale.
+- The generation-switch snapshot helper is read-only with respect to host
+  configuration but creates private root-owned evidence. The live wrapper is a
+  distinct root mutation: never run it, create the generation-two pilot root,
+  or infer snapshot-bound authority from repository validation. On rollback,
+  preserve both pilot roots; generation-two-root cleanup is a later exact
+  reviewed action, not automatic tidying.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
