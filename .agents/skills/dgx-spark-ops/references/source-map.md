@@ -69,8 +69,11 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
 | Exact current System Manager container-test evidence | [root/system-manager/validation/2026-08-24-container-test.md](../../../../root/system-manager/validation/2026-08-24-container-test.md) |
 | Current retained System Manager host-canary evidence | [root/system-manager/validation/2026-09-01-host-canary-attempt-3.md](../../../../root/system-manager/validation/2026-09-01-host-canary-attempt-3.md) |
+| Current full registered/live generation-one authority | [root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md](../../../../root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md) |
 | System Manager registration lifecycle design | [root/system-manager/validation/2026-09-01-registration-test-plan.md](../../../../root/system-manager/validation/2026-09-01-registration-test-plan.md) |
 | Exact System Manager registration-test result | [root/system-manager/validation/2026-09-01-registration-container-test.md](../../../../root/system-manager/validation/2026-09-01-registration-container-test.md) |
+| Guarded first-registration transaction result | [root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md) |
+| Pending guarded generation-switch transaction plan | [root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md) |
 | Sanitized retained-canary classifier | [scripts/audit-root-canary-state.sh](../../../../scripts/audit-root-canary-state.sh) |
 | Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |

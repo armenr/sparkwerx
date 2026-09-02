@@ -144,6 +144,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   authorized only transaction design; the later live registration required its
   own snapshot, rollback, authorization, repeated postflight, and independent
   console confirmation;
+- a marker-only generation-two candidate and exact generation-switch
+  transaction are now reviewed for a distinct disposable failure-injection
+  test. That test is pending; the host remains exact registered/live generation
+  one, has no generation-two pilot root, and has no live-switch authority;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -185,6 +189,8 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   Preserve exact generation one, both GC roots, the five-path/three-service
   activation surface, and the no-boot boundary until a separately approved next
   milestone.
+  The reviewed generation-two candidate remains host-absent until its pending
+  disposable gate is recorded and a later live plan is separately authorized.
   Never let it own host Nix, users, wrappers, global PATH, boot links, or factory
   services or process global factory tmpfiles rules when its managed set is
   empty; preserve the exact-version patch, regression sentinel,

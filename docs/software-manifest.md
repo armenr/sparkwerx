@@ -163,10 +163,12 @@ canary surface inside the disposable container. The valid output and clean host
 postflight are recorded in the
 [container validation record](../root/system-manager/validation/2026-08-24-container-test.md).
 
-Low-level activation would write
+Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
-the managed links/units and leaves an empty state record. No profile or GC root
-has been registered. The helper supplies temporary root-local
+the managed links/units and leaves an empty state record. The original isolated
+activation test registers no profile or GC root. Separately, the live host now
+retains exact generation one, `system-manager-current`, and the pilot root as
+recorded in the table above. The helper supplies temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
 2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but

@@ -42,9 +42,13 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   exists. Its recorded activation, registration-lifecycle, and guarded
   first-registration failure-injection container tests all passed, and the
   separately guarded live registration was retained after repeated postflight
-  and independent console confirmation. Do not rerun the one-time registration
-  helper, reboot, add boot linkage, switch generations, remove either root, or
-  broaden ownership without a separate plan and authorization. Its private
+  and independent console confirmation. The marker-only generation-two
+  candidate and guarded switch transaction are reviewed, but their disposable
+  failure-injection test is pending and the host generation-two pilot root must
+  remain absent. Read the 2026-09-02 generation-switch plan before touching
+  them. Do not rerun the one-time registration helper, reboot, add boot linkage,
+  switch generations, remove either current root, or broaden ownership without
+  a separate plan and authorization. Its private
   wrapper must stay on reviewed Nix 2.35.2, and the closure must contain neither
   Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's prior
   evidence stale.

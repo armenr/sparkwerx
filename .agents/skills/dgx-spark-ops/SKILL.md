@@ -194,6 +194,20 @@ not reboot, add a boot link, roll back registration, create/switch generations,
 retire the pilot root, or add a real managed service without a separate guarded
 milestone.
 
+The next guarded milestone is repository design plus a distinct disposable
+generation-switch transaction test. Read the
+[2026-09-02 generation-switch plan](../../../root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md)
+before touching `rootCanaryRegistrationTestGeneration`,
+`scripts/root-generation-switch-transaction.sh`, or its test/helper. Its
+manifest result is currently `pending`: generation two is not retained,
+registered, selected, or active on the host, and
+`/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot` must remain
+absent. Evaluation and the separately reviewed
+`sudo ./scripts/test-root-generation-switch-transaction.sh` container build
+grant no authority to create that host root or perform a live switch. Stop
+after a disposable pass and record exact evidence before designing the separate
+snapshot/timed-rollback/local-console live wrapper.
+
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
 build requires temporary `auto-allocate-uids` and `cgroups`. Do not persist

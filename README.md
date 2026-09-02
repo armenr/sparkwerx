@@ -38,11 +38,13 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
-  patched disposable Ubuntu activation/deactivation test passed: it managed only
-  five allowlisted paths, skipped global tmpfiles, preserved the unmanaged
-  sentinel and protected files, and rolled back inside the container. Postflight
-  proved the host unchanged. Host activation and generation registration remain
-  separate, forbidden gates.
+  activation, registration-lifecycle, and first-registration transaction
+  container tests passed. The five-path/three-service host canary is now active,
+  directly retained, and registered as exact generation one after two guarded
+  local-console confirmations. No boot link or broader root role exists. A
+  marker-only generation-two candidate and guarded switch transaction are
+  reviewed, but their new disposable failure-injection test is still pending;
+  generation two is not retained, registered, selected, or active on the host.
 
 ## Operating model
 
@@ -175,8 +177,10 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-The exact System Manager container gate passed, but do not activate or register
-the canary on the host. First satisfy the independent-console, collision,
-snapshot, exact pilot-GC-root, and timed-rollback gates and obtain explicit
-activation authorization.
+System Manager generation one is already active, registered, and retained. Do
+not rerun its inactive activation or first-registration helpers, remove either
+exact root, add boot linkage, switch generations, or reboot. The reviewed
+generation-two transaction is authorized only for its disposable container
+test; any live switch needs a separate snapshot/timed-rollback/local-console
+wrapper and new explicit authorization.
 GNOME remains the recovery desktop throughout every graphical pilot.

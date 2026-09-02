@@ -72,15 +72,17 @@ link, port, or factory/Tailscale/desktop unit. Its private engine uses exact Nix
 2.35.2 so the root closure cannot reintroduce the stale 2.34.8 runtime.
 
 The built canary owns only `/etc/dgx-setup/canary`, a no-network oneshot, and
-System Manager's two control targets. Low-level activation would leave its
-rollback record under `/var/lib/system-manager/state`; registration/profile
-roots are a separate action, and low-level activation does not otherwise retain
-its store closure. The manifest therefore declares one pilot-only direct root at
-`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`; it must exist before live
-activation and remain until verified deactivation. Its exact patched disposable
-activation/deactivation test passed with the unmanaged tmpfiles sentinel
-untouched and clean host postflight. Nothing is active, rooted, or registered on
-the pilot. Read
+System Manager's two control targets. Low-level activation leaves its rollback
+record under `/var/lib/system-manager/state`; registration/profile roots are a
+separate action, and low-level activation does not otherwise retain its store
+closure. The pilot therefore keeps the direct root
+`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
+currently active and separately registered as generation one with the upstream
+extra root; no boot link or broader role exists. Its three existing disposable
+tests and guarded live activation/registration milestones passed. A harmless
+generation-two candidate and switch transaction are reviewed for a new
+disposable test only; generation two has no host retention or registration.
+Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
 
@@ -144,10 +146,12 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The inert System Manager canary now implements only a bounded root-manager
-prototype. Its exact disposable test passed, but it is neither registered nor
-activated. Desktop-mode root control, Tailscale ownership migration, personal
-app packages, workload roles, and all Home/desktop/workload activation remain
+The bounded System Manager canary is active, registered as exact generation
+one, and retained by both its selected profile/upstream root and the pilot root.
+It is intentionally not boot-linked. The reviewed generation-two transaction
+is awaiting its disposable failure-injection result and has no live authority.
+Desktop-mode root control, Tailscale ownership migration, personal app
+packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to
 2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not
 authorize `home-manager switch`, a systemd service link/restart, or another

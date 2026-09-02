@@ -486,4 +486,4 @@ timer_state="$(systemctl show "$rollback_unit.timer" -p ActiveState --value 2>/d
 pass activation "host canary retained after automatic postflight and independent local-console confirmation"
 printf '%s\n' \
   "KEEP: $pilot_root must remain until separately authorized, verified deactivation." \
-  "NOT DONE: no System Manager profile was registered and no broader root role was activated."
+  "NOT DONE BY THIS HELPER: no System Manager profile registration or broader root-role activation."

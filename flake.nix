@@ -124,9 +124,10 @@
         modules = [ ./hosts/sparkle-01/system.nix ];
       };
 
-      # Disposable-only second generation for registration/switching tests. It
-      # inherits the exact canary policy and changes only the harmless marker
-      # payload. It is not exported as a host package or activation target.
+      # Reviewed, harmless second-generation canary candidate. It inherits the
+      # exact generation-one policy and changes only the marker payload. The
+      # package export makes its store output evaluable and buildable; nothing
+      # here retains, registers, activates, or links it at boot on the host.
       rootCanaryRegistrationTestGeneration = system-manager.lib.makeSystemConfig {
         overlays = rootManagerOverlays;
         modules = [
@@ -166,6 +167,8 @@
       rootCanaryPilotGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot";
       rootRegistrationTransactionProgram = ./scripts/root-registration-transaction.sh;
       reviewedRootRegistrationTransactionSha256 = "86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9";
+      rootGenerationSwitchTransactionProgram = ./scripts/root-generation-switch-transaction.sh;
+      reviewedRootGenerationSwitchTransactionSha256 = "ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd";
 
       expectedRootCanaryServiceNames = [
         "dgx-setup-canary.service"
@@ -554,6 +557,46 @@
                 evidence = "root/system-manager/validation/2026-09-01-first-registration-transaction-container-test.md";
               };
           };
+
+          guardedGenerationSwitch = {
+            status = "reviewed-disposable-test-pending";
+            transactionProgram = {
+              repositoryPath = "scripts/root-generation-switch-transaction.sh";
+              sha256 = builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram;
+            };
+            exactCandidates = {
+              generationOne = rootCanary.outPath;
+              generationTwo = rootCanaryRegistrationTestGeneration.outPath;
+            };
+            profileDirectory = "/nix/var/nix/profiles/system-manager-profiles";
+            selectedProfile = "/nix/var/nix/profiles/system-manager-profiles/system-manager";
+            generationOneLink = "/nix/var/nix/profiles/system-manager-profiles/system-manager-1-link";
+            generationTwoLink = "/nix/var/nix/profiles/system-manager-profiles/system-manager-2-link";
+            upstreamGcRoot = "/nix/var/nix/gcroots/system-manager-current";
+            retention = {
+              generationOne = rootCanaryPilotGcRoot;
+              generationTwo = "/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot";
+            };
+            requiredHostState = "ACTIVE_REGISTERED_RETAINED";
+            preState = "generation one selected, extra-rooted, and live; generation two retained only";
+            postState = "generation two selected, extra-rooted, and live; generation one retained";
+            rollbackState = "exact registered and active generation one";
+            preservesGenerationOne = true;
+            preservesBothPilotRoots = true;
+            createsBootLink = false;
+            changesServiceOwnership = false;
+            liveSwitchPerformed = false;
+            evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
+            isolatedTransactionTest = {
+              result = "pending";
+              currentDrvPath = rootCanaryGenerationSwitchTransactionContainerTest.drvPath;
+              currentOutputPath = rootCanaryGenerationSwitchTransactionContainerTest.outPath;
+              hostRegistrationPerformed = false;
+              hostActivationPerformed = false;
+              hostCandidateRetentionPerformed = false;
+              evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
+            };
+          };
         };
 
         pilotRetention = {
@@ -682,6 +725,9 @@
           builtins.hashFile "sha256" rootRegistrationTransactionProgram
           == reviewedRootRegistrationTransactionSha256;
         assert
+          builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram
+          == reviewedRootGenerationSwitchTransactionSha256;
+        assert
           rootManagerManifest.registration.guardedFirstGeneration.status
           == "live-first-generation-registered-retained";
         assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
@@ -709,6 +755,26 @@
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostRegistrationPerformed;
         assert
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostActivationPerformed;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.status
+          == "reviewed-disposable-test-pending";
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.requiredHostState
+          == "ACTIVE_REGISTERED_RETAINED";
+        assert rootManagerManifest.registration.guardedGenerationSwitch.preservesGenerationOne;
+        assert rootManagerManifest.registration.guardedGenerationSwitch.preservesBothPilotRoots;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.createsBootLink;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.changesServiceOwnership;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitchPerformed;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.result
+          == "pending";
+        assert
+          !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostRegistrationPerformed;
+        assert
+          !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed;
+        assert
+          !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
@@ -1082,6 +1148,19 @@
               ;
           };
 
+      rootCanaryGenerationSwitchTransactionContainerTest =
+        import ./root/system-manager/generation-switch-transaction-test.nix
+          {
+            inherit
+              pkgs
+              rootCanary
+              rootCanaryRegistrationTestGeneration
+              rootGenerationSwitchTransactionProgram
+              rootRegistrationTransactionProgram
+              system-manager
+              ;
+          };
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -1095,6 +1174,7 @@
         devbox = devboxPackage;
         hyprland = hyprlandPackage;
         root-system-canary = rootCanary;
+        root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
@@ -1110,6 +1190,8 @@
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
+        root-canary-generation-switch-transaction-container =
+          rootCanaryGenerationSwitchTransactionContainerTest;
         root-canary-registration-container = rootCanaryRegistrationContainerTest;
         root-canary-registration-transaction-container = rootCanaryRegistrationTransactionContainerTest;
         root-manager-policy = rootManagerPolicyCheck;

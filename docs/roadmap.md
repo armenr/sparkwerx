@@ -55,9 +55,18 @@ the measured software manifest; evaluation did not authorize realization.
       pinned source that low-level activation needs an explicit pilot GC root;
       declare that root and the snapshot/retention/timed-rollback gates without
       creating it or activating the host
-- [ ] Run the one-host live canary only with independent console access, a
+- [x] Run the one-host live canary only with independent console access, a
       same-window private snapshot, explicit activation authorization, the exact
-      pilot GC root, and a verified transient rollback timer
+      pilot GC root, and a verified transient rollback timer; retain attempt 3
+- [x] Pass the two-generation lifecycle and guarded first-registration
+      failure-injection tests, then retain exact live generation one with a
+      second snapshot-bound rollback/local-console gate
+- [ ] Pass the new guarded generation-switch failure-injection test while the
+      host remains exactly `ACTIVE_REGISTERED_RETAINED`; do not create the
+      host generation-two root or switch the host as part of this test
+- [ ] Design and separately authorize any live generation-two switch with its
+      own snapshot, timed rollback, local-console confirmation, and no-boot
+      boundary
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

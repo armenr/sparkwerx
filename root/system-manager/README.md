@@ -29,8 +29,9 @@ No boot link exists and no broader root role is active.
 | Local safety patch | `skip-empty-tmpfiles`, SHA-256 `32756de30fd5730ebe60cce6ef89fc924ccd4eb3530e21ceb53fdf6073ba0e9a` |
 | Built canary closure | 109 paths, 230.0 MiB NAR |
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
-| Registration lifecycle container test | **PASS** for the exact recorded derivation; host remained unregistered |
+| Registration lifecycle container test | **PASS** for the exact recorded derivation; test made no host change |
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
+| Guarded generation-switch transaction test | **PENDING**; repository design reviewed, no host generation-two retention |
 | Host registration | Attempt 3 retained and independently postflight-verified; generation one exact |
 | Host activation | Exact canary remains active and unchanged; registered, not boot-linked |
 
@@ -288,6 +289,29 @@ Do not run the registration helper again while this state is retained. A
 rollback, second generation, generation switch, reboot/boot milestone, or real
 managed service requires a separate plan and authorization.
 
+## Guarded generation switch: disposable test pending
+
+The next repository milestone defines a marker-only generation two plus
+`scripts/root-generation-switch-transaction.sh`. Generation two inherits the
+same empty package set, five-path/three-service boundary, disabled root-manager
+defaults, and absent boot edge as generation one; it changes only the harmless
+`registration-test-generation=2` canary line.
+
+The transaction requires exact registered/live generation one and two separate
+direct pilot roots, registers and explicitly activates generation two, and can
+restore exact registered/live generation one. It fails closed on unknown
+profile entries or roots, never removes either pilot root, and never adds boot
+linkage or broader service ownership. Its failure-injection modes are accepted
+only inside a systemd-nspawn container.
+
+The exact SBOM, state transitions, failure matrix, test helper, and authority
+boundary are in the
+[generation-switch transaction plan](validation/2026-09-02-generation-switch-transaction-plan.md).
+The disposable test is not yet recorded as passed. Generation two remains
+absent from the host registration and retention surfaces. Do not create
+`dgx-setup-root-canary-generation-two-pilot`, run the transaction on the host,
+or infer live-switch authority from evaluation or a future container pass.
+
 ## Defaults we rejected
 
 Upstream's nominally empty configuration is broader than this project's empty
@@ -389,8 +413,10 @@ Review missing builds without realizing anything:
 nix --extra-experimental-features "nix-command flakes" \
   build --dry-run --no-link \
   .#root-system-canary \
+  .#root-system-canary-generation-two \
   .#checks.aarch64-linux.root-manager-policy \
   .#checks.aarch64-linux.root-canary-container \
+  .#checks.aarch64-linux.root-canary-generation-switch-transaction-container \
   .#checks.aarch64-linux.root-canary-registration-container \
   .#checks.aarch64-linux.root-canary-registration-transaction-container
 ```
