@@ -4,17 +4,21 @@ set -uo pipefail
 candidate="${1:-}"
 registration_mode="${2:-unregistered}"
 other_candidate="${3:-}"
+middle_candidate="${4:-}"
 state_path=/var/lib/system-manager/state/system-manager-state.json
 profile_dir=/nix/var/nix/profiles/system-manager-profiles
 profile_path=$profile_dir/system-manager
 generation_one_path=$profile_dir/system-manager-1-link
 generation_two_path=$profile_dir/system-manager-2-link
+generation_three_path=$profile_dir/system-manager-3-link
 gcroot_path=/nix/var/nix/gcroots/system-manager-current
 pilot_root=/nix/var/nix/gcroots/dgx-setup-root-canary-pilot
 generation_two_root=/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot
+generation_three_root=/nix/var/nix/gcroots/dgx-setup-root-canary-boot-persistence-pilot
+boot_link=/etc/systemd/system/default.target.wants/system-manager.target
 
 case "$registration_mode" in
-  unregistered | registered-first | registered-first-dual-retained | registered-second)
+  unregistered | registered-first | registered-first-dual-retained | registered-second | registered-second-triple-retained | registered-third-boot)
     ;;
   *)
     printf 'DRIFT|unknown registration mode: %s\n' "$registration_mode"
@@ -33,12 +37,17 @@ managed_paths=(
 forbidden_paths=(
   /etc/profile.d/system-manager-path.sh
   /etc/environment.d/10-system-manager.conf
-  /etc/systemd/system/default.target.wants/system-manager.target
   /etc/systemd/system/system-manager-path.service
   /etc/systemd/system/userborn.service
   /run/wrappers
   /run/current-system
 )
+
+if [[ "$registration_mode" == registered-third-boot ]]; then
+  managed_paths+=("$boot_link")
+else
+  forbidden_paths+=("$boot_link")
+fi
 
 drift() {
   printf 'DRIFT|%s\n' "$1"
@@ -114,6 +123,42 @@ assert_exact_second_registration() {
     drift "System Manager extra GC root does not point directly to generation two"
 }
 
+assert_exact_third_registration() {
+  local -a entries=()
+
+  [[ -d "$profile_dir" && ! -L "$profile_dir" ]] ||
+    drift "registered profile directory is missing or not a real directory"
+  [[ "$(stat -c %u -- "$profile_dir" 2>/dev/null || true)" == 0 ]] ||
+    drift "registered profile directory is not root-owned"
+
+  mapfile -t entries < <(
+    find "$profile_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort
+  )
+  [[ "${#entries[@]}" -eq 4 &&
+    "${entries[0]:-}" == system-manager &&
+    "${entries[1]:-}" == system-manager-1-link &&
+    "${entries[2]:-}" == system-manager-2-link &&
+    "${entries[3]:-}" == system-manager-3-link ]] ||
+    drift "registration is not the exact four-link generation-three surface"
+
+  [[ -L "$profile_path" &&
+    "$(readlink -- "$profile_path" 2>/dev/null || true)" == system-manager-3-link &&
+    "$(readlink -f -- "$profile_path" 2>/dev/null || true)" == "$candidate" ]] ||
+    drift "selected profile is not exact generation three"
+  [[ -L "$generation_one_path" &&
+    "$(readlink -- "$generation_one_path" 2>/dev/null || true)" == "$other_candidate" ]] ||
+    drift "generation-one link does not point directly to the retained first candidate"
+  [[ -L "$generation_two_path" &&
+    "$(readlink -- "$generation_two_path" 2>/dev/null || true)" == "$middle_candidate" ]] ||
+    drift "generation-two link does not point directly to the retained second candidate"
+  [[ -L "$generation_three_path" &&
+    "$(readlink -- "$generation_three_path" 2>/dev/null || true)" == "$candidate" ]] ||
+    drift "generation-three link does not point directly to the active candidate"
+  [[ -L "$gcroot_path" &&
+    "$(readlink -- "$gcroot_path" 2>/dev/null || true)" == "$candidate" ]] ||
+    drift "System Manager extra GC root does not point directly to generation three"
+}
+
 if [[ ! "$candidate" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ ||
       ! -d "$candidate" ]]; then
   drift "candidate output is missing or malformed"
@@ -124,9 +169,29 @@ case "$registration_mode" in
       -d "$other_candidate" && "$other_candidate" != "$candidate" ]] ||
       drift "other retained candidate is missing, malformed, or identical"
     ;;
+  registered-third-boot)
+    [[ "$other_candidate" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ &&
+      -d "$other_candidate" && "$other_candidate" != "$candidate" ]] ||
+      drift "generation-one candidate is missing, malformed, or identical"
+    [[ "$middle_candidate" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ &&
+      -d "$middle_candidate" && "$middle_candidate" != "$candidate" &&
+      "$middle_candidate" != "$other_candidate" ]] ||
+      drift "generation-two candidate is missing, malformed, or not distinct"
+    ;;
+  registered-second-triple-retained)
+    [[ "$other_candidate" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ &&
+      -d "$other_candidate" && "$other_candidate" != "$candidate" ]] ||
+      drift "generation-one candidate is missing, malformed, or identical"
+    [[ "$middle_candidate" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ &&
+      -d "$middle_candidate" && "$middle_candidate" != "$candidate" &&
+      "$middle_candidate" != "$other_candidate" ]] ||
+      drift "generation-three candidate is missing, malformed, or not distinct"
+    ;;
   *)
     [[ -z "$other_candidate" ]] ||
       drift "an unexpected other candidate was supplied for $registration_mode"
+    [[ -z "$middle_candidate" ]] ||
+      drift "an unexpected middle candidate was supplied for $registration_mode"
     ;;
 esac
 
@@ -134,7 +199,7 @@ live_artifact=0
 for path in \
   "${managed_paths[@]}" "${forbidden_paths[@]}" \
   "$state_path" "$profile_dir" "$profile_path" "$gcroot_path" "$pilot_root" \
-  "$generation_two_root"; do
+  "$generation_two_root" "$generation_three_root"; do
   if path_exists "$path"; then
     live_artifact=1
     break
@@ -161,7 +226,7 @@ if [[ -r "$state_path" ]] &&
   for path in \
     "${managed_paths[@]}" "${forbidden_paths[@]}" \
     "$profile_dir" "$profile_path" "$gcroot_path" "$pilot_root" \
-    "$generation_two_root"; do
+    "$generation_two_root" "$generation_three_root"; do
     if path_exists "$path"; then
       empty_only=0
       break
@@ -176,7 +241,9 @@ fi
 [[ -L "$pilot_root" ]] ||
   drift "pilot retention root is absent or not a symlink"
 expected_pilot_candidate="$candidate"
-if [[ "$registration_mode" == registered-second ]]; then
+if [[ "$registration_mode" == registered-second ||
+      "$registration_mode" == registered-second-triple-retained ||
+      "$registration_mode" == registered-third-boot ]]; then
   expected_pilot_candidate="$other_candidate"
 fi
 [[ "$(readlink -- "$pilot_root" 2>/dev/null)" == "$expected_pilot_candidate" ]] ||
@@ -209,28 +276,71 @@ case "$registration_mode" in
     [[ -L "$generation_two_root" &&
       "$(readlink -- "$generation_two_root" 2>/dev/null || true)" == "$candidate" ]] ||
       drift "generation-two pilot root does not retain the exact active candidate"
+    path_exists "$generation_three_root" &&
+      drift "generation-three pilot root exists in exact generation-two mode"
+    ;;
+  registered-third-boot)
+    assert_exact_third_registration
+    [[ -L "$generation_two_root" &&
+      "$(readlink -- "$generation_two_root" 2>/dev/null || true)" == "$middle_candidate" ]] ||
+      drift "generation-two pilot root does not retain the exact second candidate"
+    [[ -L "$generation_three_root" &&
+      "$(readlink -- "$generation_three_root" 2>/dev/null || true)" == "$candidate" ]] ||
+      drift "generation-three pilot root does not retain the exact active candidate"
+    ;;
+  registered-second-triple-retained)
+    assert_exact_second_registration
+    [[ -L "$generation_two_root" &&
+      "$(readlink -- "$generation_two_root" 2>/dev/null || true)" == "$candidate" ]] ||
+      drift "generation-two pilot root does not retain the exact active candidate"
+    [[ -L "$generation_three_root" &&
+      "$(readlink -- "$generation_three_root" 2>/dev/null || true)" == "$middle_candidate" ]] ||
+      drift "generation-three pilot root does not retain the exact rollback candidate"
     ;;
 esac
 
-jq -e '
-  ((keys | sort) == ["fileTree", "services", "version"]) and
-  (.version == 1) and
-  ((.fileTree | keys | sort) == ["backedUpFiles", "files"]) and
-  ((.fileTree.files | sort) == [
-    "/etc/dgx-setup/canary",
-    "/etc/systemd/system/dgx-setup-canary.service",
-    "/etc/systemd/system/sysinit-reactivation.target",
-    "/etc/systemd/system/system-manager.target",
-    "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service"
-  ]) and
-  (.fileTree.backedUpFiles == []) and
-  ((.services | keys | sort) == [
-    "dgx-setup-canary.service",
-    "sysinit-reactivation.target",
-    "system-manager.target"
-  ])
-' "$state_path" >/dev/null 2>&1 ||
-  drift "manager state differs from the exact five-path/three-service canary"
+if [[ "$registration_mode" == registered-third-boot ]]; then
+  jq -e '
+    ((keys | sort) == ["fileTree", "services", "version"]) and
+    (.version == 1) and
+    ((.fileTree | keys | sort) == ["backedUpFiles", "files"]) and
+    ((.fileTree.files | sort) == [
+      "/etc/dgx-setup/canary",
+      "/etc/systemd/system/default.target.wants/system-manager.target",
+      "/etc/systemd/system/dgx-setup-canary.service",
+      "/etc/systemd/system/sysinit-reactivation.target",
+      "/etc/systemd/system/system-manager.target",
+      "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service"
+    ]) and
+    (.fileTree.backedUpFiles == []) and
+    ((.services | keys | sort) == [
+      "dgx-setup-canary.service",
+      "sysinit-reactivation.target",
+      "system-manager.target"
+    ])
+  ' "$state_path" >/dev/null 2>&1 ||
+    drift "manager state differs from the exact six-path/three-service boot-linked canary"
+else
+  jq -e '
+    ((keys | sort) == ["fileTree", "services", "version"]) and
+    (.version == 1) and
+    ((.fileTree | keys | sort) == ["backedUpFiles", "files"]) and
+    ((.fileTree.files | sort) == [
+      "/etc/dgx-setup/canary",
+      "/etc/systemd/system/dgx-setup-canary.service",
+      "/etc/systemd/system/sysinit-reactivation.target",
+      "/etc/systemd/system/system-manager.target",
+      "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service"
+    ]) and
+    (.fileTree.backedUpFiles == []) and
+    ((.services | keys | sort) == [
+      "dgx-setup-canary.service",
+      "sysinit-reactivation.target",
+      "system-manager.target"
+    ])
+  ' "$state_path" >/dev/null 2>&1 ||
+    drift "manager state differs from the exact five-path/three-service canary"
+fi
 
 for path in "${forbidden_paths[@]}"; do
   path_exists "$path" && drift "forbidden root-manager path exists at $path"
@@ -287,6 +397,17 @@ expected="$(
 [[ "$observed" == "$expected" ]] ||
   drift "canary target dependency does not resolve to the managed service"
 
+if [[ "$registration_mode" == registered-third-boot ]]; then
+  observed="$(readlink -f -- "$boot_link" 2>/dev/null || true)"
+  expected="$(readlink -f -- "$manager_source" 2>/dev/null || true)"
+  [[ -n "$expected" && "$observed" == "$expected" ]] ||
+    drift "boot edge does not resolve to the exact managed target"
+  grep -Fx 'registration-test-generation=2' /etc/dgx-setup/canary >/dev/null 2>&1 ||
+    drift "generation-three canary lacks the inherited generation-two marker"
+  grep -Fx 'boot-persistence-generation=3' /etc/dgx-setup/canary >/dev/null 2>&1 ||
+    drift "generation-three canary lacks the boot-persistence marker"
+fi
+
 grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary >/dev/null 2>&1 ||
   drift "canary payload does not identify sparkle-01"
 
@@ -304,7 +425,9 @@ for unit in \
   dgx-root-registration-rollback.timer \
   dgx-root-registration-rollback.service \
   dgx-root-generation-switch-rollback.timer \
-  dgx-root-generation-switch-rollback.service; do
+  dgx-root-generation-switch-rollback.service \
+  dgx-root-boot-persistence-rollback.timer \
+  dgx-root-boot-persistence-rollback.service; do
   load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
   [[ -z "$load_state" || "$load_state" == not-found ]] ||
     drift "transient rollback unit $unit is unexpectedly still loaded"
@@ -322,5 +445,11 @@ case "$registration_mode" in
     ;;
   registered-second)
     printf '%s\n' ACTIVE_REGISTERED_GENERATION_TWO_RETAINED
+    ;;
+  registered-third-boot)
+    printf '%s\n' ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED
+    ;;
+  registered-second-triple-retained)
+    printf '%s\n' ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED
     ;;
 esac

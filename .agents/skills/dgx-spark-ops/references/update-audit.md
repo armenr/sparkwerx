@@ -198,26 +198,34 @@ Resolve the exact current root-canary output, then run the repository's
 expectation declared for the local host. It emits only `INACTIVE_ABSENT`,
 `INACTIVE_EMPTY`, `ACTIVE_RETAINED`, `ACTIVE_REGISTERED_RETAINED`,
 `ACTIVE_REGISTERED_GENERATION_ONE_DUAL_RETAINED`,
-`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, or `DRIFT|reason`. On
-`sparkle-01`, pass exact generation two, `registered-second`, and exact
-generation one as the third argument. Current authority should report
-`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. That is a healthy known state,
-not an unexpected install.
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`,
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`,
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`, or `DRIFT|reason`.
+On `sparkle-01`, pass exact generation three, `registered-third-boot`, exact
+generation one as the third argument, and exact generation two as the fourth.
+Current authority should report
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. That is the healthy,
+known retained state, not an unexpected install.
 
-While retained, do not run the inactive preflight, activation helper, or
-first-registration, pre-switch snapshot, or live-switch helper. On
-`sparkle-01`, the selected profile, both numbered generation links, upstream
-generation-two root, and both direct pilot roots must all remain.
-All four exact disposable tests and their results are documented under
-`root/system-manager/validation/`. Require the activation, registration-
-lifecycle, first-registration transaction, and generation-switch transaction
-manifest results to be `passed`, each recorded/current derivation to match, and
-each host postflight to be clean. The live-switch manifest status must be
-`generation-two-retained-after-console-confirmation`, with current state
-`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED` and its dated host evidence.
-An ordinary audit must not create a private root snapshot, rerun the wrapper,
-roll back or select a generation, remove a profile link, or remove either
-recovery root.
+While retained, do not run the inactive preflight, activation helper,
+first-registration helper, pre-switch snapshot/live helper, or boot-persistence
+snapshot/live helper. On
+`sparkle-01`, the selected profile, all three numbered generation links, the
+upstream generation-three root, all three direct pilot roots, and the exact
+managed boot edge must all remain. All five exact disposable tests and their
+results are documented under `root/system-manager/validation/`. Require the
+activation, registration-lifecycle, first-registration transaction,
+generation-switch transaction, and boot-persistence transaction manifest
+results to be `passed`, each recorded/current derivation to match, and each
+host postflight to be clean. The historical live-switch milestone remains
+`generation-two-retained-after-console-confirmation`; the current
+boot-persistence status must be
+`live-generation-three-boot-linked-retained`, with current state
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED` and its dated
+generation-three host evidence. The first real reboot remains unperformed.
+An ordinary audit must not create a private root snapshot, rerun any spent
+wrapper, roll back or select a generation, remove a profile link or recovery
+root, remove or change the boot edge, or reboot.
 
 ### NVIDIA playbooks
 
@@ -252,9 +260,13 @@ new release.
 
 ### Applications outside Nix
 
-Codex CLI, the ChatGPT Debian package, Firefox, and the 1Password extension began
-as explicit user-application exceptions. Report their installed versions when
-available. Tailscale is not in this category; it has its own fleet-access
+Codex CLI, the ChatGPT Debian package, and the 1Password extension began as
+explicit manual installations. Firefox remains part of the factory/OS
+application substrate. Report their installed versions and ownership when
+available. ChatGPT and browser extensions are selected for Armen's future
+graphical overlay but are not Nix-managed yet. Codex remains manual until its
+shared developer-tools versus personal-overlay role is explicitly decided.
+Tailscale is not in this category; it has its own optional fleet-access
 migration and update policy above.
 
 Use an official machine-readable release source only where one exists. Otherwise

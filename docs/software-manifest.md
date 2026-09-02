@@ -14,6 +14,8 @@ Package/version evidence date: **2026-09-01 online audit**
 
 Root-canary operational evidence updated: **2026-09-02**
 
+Manual-install provenance inventory updated: **2026-09-02**
+
 The pinned versions below come from the current 2026-08-23 lock and exact
 upstream pins. They were rechecked against current official sources on
 2026-09-01. Stable Nixpkgs is locked at
@@ -76,17 +78,16 @@ The exact generation-two to generation-three boot-persistence transaction then
 passed all 13 failure-injection, apply/rollback, two-restart, and cleanup
 subtests inside a disposable container. Its valid output and independent host
 postflight prove the real host remained exact live generation two, with the
-generation-three pilot root and boot link absent. Generation three is an inert
-store candidate only; no live retention, registration, activation, boot edge,
-rollback timer, or reboot is authorized.
-The separate live activation is now repository-designed with exact pinned
-snapshot and activation helpers. It requires a clean commit, fresh private
-snapshot, exact generation-two pre-state, protected-process continuity,
-physical-console verification, an armed ten-minute rollback, repeated
-postflight, and exact `KEEP GENERATION THREE`. Neither helper has run. The
-activation rollback timer is transient and cannot survive reboot, so the
-wrapper performs no reboot and a real reboot remains a separately designed and
-authorized milestone.
+generation-three pilot root and boot link absent at that test milestone. The
+separate guarded live activation then used explicitly authorized fresh snapshot
+`20260902T110421Z`. It retained, registered, selected, and activated exact
+generation three, passed postflight twice, received local-console confirmation,
+and disarmed rollback before its service ran. Current state is
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: all three numbered
+generations and direct roots remain exact, generation three is selected,
+upstream-rooted and live, and version-1 state contains the original five paths
+plus the one declarative boot edge. No broader ownership or host reboot
+occurred. The first real reboot remains separately designed and authorized.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -97,7 +98,7 @@ rebuilt in Phase 1.
 | Fleet base | Exact role | REQUIRED | Implemented as exactly `ncdu`, `lazydocker`, and `devbox`; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Review the measured three-root closure and activation collision report |
 | Fleet base | ncdu | SELECTED | Stable pin `ncdu` 2.9.2 is current, free, and ARM64-available | Build only as part of an explicitly approved base build |
 | Fleet base | lazydocker | SELECTED | Stable pin `lazydocker` 0.25.2 is current, free, and ARM64-available; the module adds only a user package | Do not add Docker group membership, socket ACLs, a service, or autostart |
-| Fleet base | Devbox | SELECTED; BUILD-PASSED | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. Built ARM64 binary reports 0.18.0; 8-path runtime closure is 65.8 MiB NAR | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; retain adapter until stock catches up |
+| Fleet base | Devbox | SELECTED; BUILD-PASSED; LIVE MANUAL COPY NOT MIGRATED | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. Built ARM64 binary reports 0.18.0; 8-path runtime closure is 65.8 MiB NAR. The currently invoked `/usr/local/bin/devbox` is not dpkg- or Nix-profile-owned | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; replace the manual copy only through the guarded base-profile migration and retain the adapter until stock catches up |
 | Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.5.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
 | Factory desktop | Ubuntu GNOME/GDM | Recovery and future `gnome` host mode | Factory-owned, installed, and still running | Never replace or remove during another desktop pilot |
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
@@ -106,12 +107,13 @@ rebuilt in Phase 1.
 | Armen graphical overlay | Chromium | SELECTED browser; UPDATE AVAILABLE | Apps pin exposes `chromium` 151.0.7922.173 on ARM64/free; official Linux stable is 152.0.7977.64; not wired into the overlay | Refresh only the apps lock after approval, then review the security delta, closure, extension policy, and NVIDIA graphics behavior |
 | Armen graphical overlay | Zed | SELECTED editor; UPDATE AVAILABLE | Apps pin exposes `zed-editor` 1.16.1 on ARM64/free; official stable is 1.17.2; not wired | Refresh only the apps lock after approval, inspect intervening security notes, then test ARM64 Vulkan/Wayland/portal behavior |
 | Armen graphical overlay | LM Studio desktop | SELECTED model manager; UPDATE AVAILABLE | Apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree; the official latest Linux ARM64 redirect is 0.4.23-1; not wired | Refresh only the apps lock after approval, keep the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
-| Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Existing Debian installation is migration input; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
-| Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension is migration input; version and pin are not captured | Choose reproducible extension policy without storing account/browser state |
+| Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
+| Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
-| Access overlay | Tailscale/Tailscale SSH | ACCEPTED; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt 1.102.3 remains live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. The bounded System Manager canary is retained and healthy, but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact System Manager ownership diff and apt rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
+| Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt `tailscale` 1.102.3 plus `tailscale-archive-keyring` remain live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. System Manager is now boot-linked but does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact optional-role ownership diff and apt package/source/keyring rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
+| Developer tools | Codex CLI | MANUAL; ROLE OPEN | Standalone `codex-cli` 0.152.0 is invoked from `~/.local/bin/codex` and resolves beneath `~/.codex/packages`; it is not dpkg- or Nix-profile-owned | Decide whether it belongs in a shared opt-in developer-tools role or Armen's overlay, then pin/update/test it without expanding the exact fleet base |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; ALL FIVE DISPOSABLE TESTS PASSED; HOST CANARY ACTIVE; GENERATION TWO LIVE/REGISTERED/RETAINED; GENERATION ONE RETAINED; GENERATION THREE INERT; NO HOST BOOT LINK | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. All five exact disposable derivations passed and remain policy-pinned. The live five-path/three-service surface resolves to generation two. Exact links are `system-manager -> system-manager-2-link -> pmrq…`, `system-manager-1-link -> alrc…`, and direct `system-manager-current -> pmrq…`; the original pilot root retains generation one and the generation-two pilot root retains generation two. Current classifier result is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. The inert generation-three output `w8kn…` adds only its marker and one declarative `default.target` edge; its exact 13-subtest/two-restart transaction passed, but the host generation-three root and boot edge remain absent. No broader ownership exists | Preserve both registered generations, the selected profile, upstream root, both live pilot roots, and the no-boot host state. Do not rerun spent activation/registration/switch helpers; retain/register/activate generation three; reboot; add boot linkage; select/remove a generation; remove registration or a recovery root; or add a real managed service without a separate reviewed plan, fresh snapshot, rollback guard, local-console check, and explicit authorization |
+| Root integration | System Manager | SELECTED; ALL FIVE DISPOSABLE TESTS PASSED; GENERATION THREE LIVE/REGISTERED/BOOT-LINKED/RETAINED; GENERATIONS ONE/TWO RETAINED; HOST REBOOT NOT TESTED | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its exact-version `skip-empty-tmpfiles` patch prevents global factory-rule processing when the managed set is empty. Its private wrapper is verified Nix 2.35.2; Nix 2.34.8 and real `userborn` are closure-rejected. All five exact disposable derivations remain policy-pinned. The live six-path/three-service surface resolves to generation three. Exact profile links retain generations one/two/three, `system-manager -> system-manager-3-link -> w8kn…`, and `system-manager-current -> w8kn…`; all three direct pilot roots retain their exact candidates. Current classifier result is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. Generation three adds only its marker and the declarative `default.target` edge; no broader ownership exists and the host has not rebooted | Preserve all three generations, the selected profile, upstream root, all three direct roots, and the exact boot edge. Do not rerun spent activation/registration/switch/boot helpers; reboot; roll back; select/remove a generation; remove registration or a recovery root; or add a real managed service without a separate reviewed plan, fresh snapshot, recovery that survives reboot where applicable, local-console check, and explicit authorization |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -170,10 +172,11 @@ The root-manager canary pins System Manager 1.1.0 at revision
 `05e08c6dd739d7f3204e71322594bb8095334cfb` and uses the official Nix
 2.35.2 release flake for its private engine wrapper. Its 109-path, 230.0 MiB
 runtime closure contains no Nix 2.34.8 and no real `userborn`. The evaluated
-surface materializes exactly five filesystem entries: `/etc/dgx-setup/canary`,
-three systemd control/canary units, and their target-wants dependency symlink.
-It is not boot-linked and owns no host Nix configuration, package, users,
-wrappers, PATH hook, port, Tailscale, Docker, GDM, or NVIDIA service.
+base surface materializes exactly five filesystem entries:
+`/etc/dgx-setup/canary`, three systemd control/canary units, and their
+target-wants dependency symlink. Generation three adds only the sixth tracked
+boot edge. Neither form owns host Nix configuration, packages, users, wrappers,
+PATH hooks, ports, Tailscale, Docker, GDM, or NVIDIA services.
 
 Upstream 1.1.0 globally processes every visible tmpfiles rule when its managed
 list is empty. The repository's exact-version `skip-empty-tmpfiles` patch has
@@ -211,9 +214,10 @@ Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. The original isolated
 activation test registers no profile or GC root. Separately, the live host now
-has exact generations one and two registered, selects and upstream-roots live
-generation two, and directly pilot-roots both generations as recorded in the
-table above. The helper supplies temporary root-local
+has exact generations one, two, and three registered, selects and
+upstream-roots live generation three, directly pilot-roots all three, and owns
+only the one reviewed boot edge beyond the base surface. The helper supplies
+temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
 2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but
@@ -249,9 +253,11 @@ nix --extra-experimental-features "nix-command flakes" \
 Those booleans describe what flake evaluation/build itself performs; they do
 not probe mutable host state. The
 [retained generation-two host record](../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md)
-is the current live-state authority. The later
+is historical milestone evidence. The
 [boot-persistence test record](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md)
-proves that its disposable test left that live state unchanged.
+proves that its disposable test left that then-live state unchanged. The
+[retained generation-three host record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md)
+is the current live-state authority.
 
 The evaluation-only invariant suite is:
 

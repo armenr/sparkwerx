@@ -10,15 +10,17 @@ then rolled back on their timed guards: attempt 1 followed a verifier false
 positive, while attempt 2 passed corrected automatic postflight but did not
 receive the exact human retention confirmation. On 2026-09-01, attempt 3 passed
 the full guarded flow and was retained after independent local-console
-confirmation. The exact five-path/three-service canary is currently active.
+confirmation. That original activation owned exactly five paths and three
+services.
 Later that day, the guarded first-generation registration attempt passed and
 was retained after its own independent local-console confirmation. On
 2026-09-02, the separately guarded generation switch retained, registered,
 selected, and activated exact generation two after repeated postflight and
-local-console confirmation. Generation one remains registered and directly
-retained; both pilot roots remain. No boot link exists and no broader root role
-is active. Exact generation three and its guarded live wrapper are tested and
-repository-designed but have not run on the host.
+local-console confirmation. Later that day, the separately authorized
+boot-persistence pilot retained, registered, selected, and activated exact
+generation three plus its one declarative boot edge. Generations one and two
+remain registered and directly retained; all three pilot roots remain. No host
+reboot or broader root role has occurred.
 
 ## Reviewed candidate
 
@@ -37,9 +39,9 @@ repository-designed but have not run on the host.
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
-| Host registration | Exact generations one and two retained; generation two selected and upstream-rooted |
-| Host activation | Exact generation-two canary active after guarded live switch; not boot-linked |
-| Next inert candidate | Exact generation three adds only its marker and one declarative boot edge; not retained, registered, activated, or boot-linked on the host |
+| Host registration | Exact generations one, two, and three retained; generation three selected and upstream-rooted |
+| Host activation | Exact generation-three canary active and declaratively boot-linked after guarded live activation; first host reboot not performed |
+| Rollback anchors | All three exact direct pilot roots remain; generation two is the reviewed no-boot rollback state |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -109,17 +111,21 @@ remains the authority for that original live activation. The later
 [first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
 is the authority for the first registered-generation milestone. The
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
+is the generation-two milestone authority. The
+[retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md)
 is the current full live-state authority.
 
 Do not rerun the inactive-state preflight or activation helper while this
 canary remains active. Do not rerun the first-registration helper now that its
-required absent pre-state no longer exists. Do not remove either retention
-root, rewrite the registered generation, add boot linkage, reboot, or broaden
-the role without a new reviewed plan and explicit authorization.
+required absent pre-state no longer exists. Do not rerun the generation-switch
+or boot-persistence snapshot/live helpers against the retained post-state. Do
+not remove any retention root or generation, rewrite the selected generation,
+remove the boot edge, reboot, or broaden the role without a new reviewed plan
+and explicit authorization.
 
 ## Exact canary ownership
 
-The evaluated configuration has no global packages and declares only:
+The base evaluated configuration has no global packages and declares only:
 
 - `/etc/dgx-setup/canary`, a repository-identifying symlink that refuses to
   replace a collision;
@@ -132,7 +138,9 @@ The evaluated configuration has no global packages and declares only:
 
 It declares no port, socket, secret, user, group, setuid wrapper, application
 state, desktop change, Tailscale unit, Nix daemon unit, Docker unit, or GDM unit.
-It is not linked into the factory default target and cannot start at boot.
+Generations one and two are not linked into the factory default target.
+Generation three preserves that ownership and adds only the sixth tracked path,
+`default.target.wants/system-manager.target -> ../system-manager.target`.
 
 System Manager itself writes operational rollback bookkeeping at
 `/var/lib/system-manager/state/system-manager-state.json` during low-level
@@ -160,9 +168,11 @@ Those paths were absent until separately authorized live registration. On
 at the first-registration milestone. The later guarded switch added exact
 `system-manager-2-link`, selected generation two, and moved the upstream root
 to generation two while retaining generation one and both direct pilot roots.
-No third or unknown registered generation exists. The current exact surface
-and operating rules are in the
-[retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md).
+The guarded boot-persistence pilot then added exact `system-manager-3-link`,
+selected and upstream-rooted generation three, and preserved all earlier links
+and all three direct pilot roots. No fourth or unknown registered generation
+exists. The current exact surface and operating rules are in the
+[retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md).
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -355,12 +365,12 @@ its service ran, all protected services and Tailscale SSH remained healthy, and
 no boot edge or broader ownership appeared. See the
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md).
 
-Do not rerun the spent snapshot or live wrapper, remove either generation or
-pilot root, select generation one, deactivate generation two, add boot
-linkage, or reboot without a separate exact plan and authorization. Rollback
-and cleanup deliberately remain later milestones.
+That generation-two snapshot and live wrapper remain spent even though the
+later boot-persistence milestone superseded this as current state. Do not rerun
+them, remove either historical generation/root, or invoke their rollback as
+cleanup. The current generation-three boundaries are below.
 
-## Boot persistence: disposable transaction passed, host unchanged
+## Boot persistence: generation three retained live and boot-linked
 
 The next repository-only milestone defines exact generation three by inheriting
 generation two and changing only two things: the canary gains
@@ -382,7 +392,8 @@ partial-registration and post-activation failures, exact apply and rollback,
 duplicate-apply refusal, a first restart proving automatic start, a second
 restart proving rollback restored no-boot behavior, and final cleanup.
 
-Independent host postflight still classified `sparkle-01` as
+At the disposable-test milestone, independent host postflight still classified
+`sparkle-01` as
 `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, with the generation-three pilot
 root and boot link absent. The exact state machine and authorization boundary
 are in the
@@ -390,7 +401,7 @@ are in the
 the exact artifacts and host evidence are in the
 [container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md).
 
-That PASS authorized design only. The repository now contains
+That PASS authorized design only. The repository then added
 `scripts/snapshot-root-boot-persistence.sh` and
 `scripts/activate-root-boot-persistence-pilot.sh`, with both exact hashes
 pinned by policy. The wrapper requires exact live no-boot generation two,
@@ -401,18 +412,24 @@ protected-service/GPU/Tailscale postflight, and accepts only exact
 managed boot edge and generation-three profile link while preserving all three
 direct roots.
 
-The [guarded live plan](validation/2026-09-02-boot-persistence-live-plan.md)
-is repository design, not host authority. No helper has run: generation three
-is still not retained, registered, activated, or boot-linked on `sparkle-01`.
-The activation timer is transient and does not survive reboot, so the wrapper
-performs no reboot and explicitly forbids one during its window. A first real
-reboot requires a separate persistent recovery design and separate
-authorization even after a successful live activation.
+Armen later verified the physical console and explicitly authorized fresh
+private snapshot `20260902T110421Z`. The exact wrapper retained, registered,
+selected, and activated generation three, passed postflight twice, received
+exact confirmation, and disarmed its ten-minute rollback before the rollback
+service ran. Independent audit returned
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: all three numbered
+generations and direct roots remain, the upstream root selects generation
+three, exact version-1 state contains six paths and three service keys, and the
+one reviewed boot edge exists. Protected services, GPU, and Tailscale SSH
+remained healthy. See the
+[guarded live plan](validation/2026-09-02-boot-persistence-live-plan.md) and
+[retained host result](validation/2026-09-02-boot-persistence-host-attempt-1.md).
 
-Do not create the generation-three root or run either helper until the
-repository is clean and committed, the physical console is reverified, a fresh
-private snapshot is reviewed, and Armen explicitly authorizes that exact
-snapshot. No existing authorization carries forward.
+The activation timer was transient and no host reboot occurred. Snapshot
+`20260902T110421Z` is spent; do not rerun either helper against this post-state.
+A first real reboot still requires a persistent recovery design, fresh
+snapshot, physical-console availability, post-boot classification, and
+separate explicit authorization.
 
 ## Defaults we rejected
 
@@ -427,7 +444,11 @@ root role. The repository explicitly disables or removes:
 - `system-manager-path.service`;
 - managed tmpfiles configuration;
 - `/run/current-system`; and
-- the boot-time `default.target` link.
+- the boot-time `default.target` link in the base generations.
+
+Generation three is the narrow, separately approved exception to the last
+item. It adds exactly one declarative boot edge without enabling any other
+rejected default.
 
 The policy check fails if these defaults return, if any unexpected service or
 `/etc` entry appears, or if Nix 2.34.8 or a real `userborn` runtime re-enters the
@@ -509,10 +530,12 @@ is the original activation authority; the
 [first-registration attempt 3 record](validation/2026-09-01-first-registration-host-attempt-3.md)
 is the first-registration authority; and the
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
+is the historical generation-two authority. The
+[retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md)
 is the current full live-state authority. The
 [boot-persistence container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md)
-is repository/test evidence and explicitly records that the live host stayed on
-generation two without a boot link.
+is repository/test evidence for the pre-activation milestone and explicitly
+records that its disposable test left the then-live host on generation two.
 
 Review missing builds without realizing anything:
 

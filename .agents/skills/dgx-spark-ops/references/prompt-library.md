@@ -43,12 +43,22 @@ test, register a generation, create state, or activate the host.
 ```
 
 ```text
-$dgx-spark-ops Audit the guarded System Manager generation-switch pilot
-read-only. Verify the exact current candidates, transaction/test evidence,
-helper hashes, parser regression, completed manifest mutation record,
-registered/live generation-two classifier, retained generation one, both pilot
-roots, and no-boot edge. Do not create a private snapshot, rerun the live
-wrapper, roll back or select a generation, or remove any retained root.
+$dgx-spark-ops Audit the completed System Manager generation-switch milestone
+read-only as historical evidence. Verify its exact candidates,
+transaction/test evidence, helper hashes, parser regression, and spent-snapshot
+record without expecting generation two to remain current. Do not rerun the
+live wrapper, roll back or select a generation, or remove any retained root.
+```
+
+```text
+$dgx-spark-ops Audit the current System Manager generation-three state
+read-only. Require exact classifier
+ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED, all three numbered
+generations and direct pilot roots, upstream generation-three root, exact
+six-path/three-service state, one boot edge, unloaded rollback units, healthy
+protected services/GPU/sanitized Tailscale SSH, and no broader ownership. Treat
+the first real reboot as unperformed. Do not create a snapshot, rerun a spent
+wrapper, reboot, roll back, or clean up a generation/root.
 ```
 
 ```text
@@ -91,6 +101,15 @@ $dgx-spark-ops Make an exact update plan for <component> from <current> to
 <candidate>. Include source links, pins/digests, compatibility evidence,
 expected downloads/builds, pilot validation, activation boundary, and rollback.
 Do not modify files or the host.
+```
+
+```text
+$dgx-spark-ops Design the fresh-DGX workflow: factory update, clone this repo,
+declare the exact base plus optional roles and user overlays, render one
+read-only plan/SBOM, then apply through one guarded entry point. Include the
+checksum-pinned Nix bootstrap exception, optional Nix-managed Tailscale,
+mutable-state/secrets boundaries, previous-generation retention, health gates,
+and rollback. Do not install, activate, or reboot anything.
 ```
 
 ```text
@@ -236,6 +255,11 @@ generation two while preserving all three roots. It must explicitly say not to
 reboot: the activation timer is transient and does not survive one. A first
 real reboot requires a different persistent-recovery plan and separate explicit
 authorization; never infer it from a successful activation.
+
+That generation-three activation has completed on `sparkle-01` from spent
+snapshot `20260902T110421Z`. Do not use the activation prompt to rerun it there.
+The next permissible prompt is a read-only audit or a separately scoped design
+for persistent-recovery first reboot; neither implies reboot authorization.
 
 Activation wording is intentionally narrow. A previous audit, plan, build, or
 scaffold request is not authorization to activate.

@@ -29,6 +29,38 @@ select personal apps, a personal app does not start a server, and a workload
 selection does not enable it at boot. The accepted choices and open decisions
 live in the [decision register](decision-register.md).
 
+## Fresh-host contract
+
+The target operator experience is: update a factory DGX through NVIDIA's
+supported path, clone this repository, declare the host/user role selections,
+review one complete plan/SBOM, apply it through one guarded entry point, and
+carry on. Adding another Spark should not require replaying this pilot's manual
+discovery or hand-installing optional software.
+
+The eventual host declaration composes the exact base with explicit choices:
+
+- optional host/access roles such as Nix-managed Tailscale;
+- exactly one `dgx.desktop.mode`;
+- optional shared graphical software;
+- named user overlays such as `armen`;
+- optional developer-tool roles, including the still-to-be-placed Codex CLI;
+  and
+- independently selected workload roles.
+
+The front door must separate a read-only `plan` from a mutating `apply`, show
+the exact package/service/file/state delta, refuse unsupported host or substrate
+drift, retain the previous generation, and run role-specific health and
+rollback checks. Secrets, browser/account state, Tailscale node identity,
+models, and other mutable data remain external inputs rather than Nix-store
+contents.
+
+Nix itself is the unavoidable bootstrap exception on a pristine host. A small,
+checksum-pinned, idempotent bootstrap must install or adopt the reviewed Nix
+runtime before the repository can manage everything above it. Once adopted,
+Nix version/update/rollback ownership belongs to this repository. This unified
+fresh-host workflow is the target architecture; its bootstrap and apply
+orchestrator are not implemented yet.
+
 ## Managed by Nix
 
 - Project development shells and individually approved project tools
@@ -65,7 +97,7 @@ write into the host OS.
 ## Root-manager pilot
 
 System Manager 1.1.0 on its matching `release-26.05` branch is the selected
-candidate for small non-NixOS root integration. Its repository canary is
+candidate for small non-NixOS root integration. Its base repository canary is
 intentionally narrower than upstream's empty defaults: no host Nix ownership,
 users, wrappers, global packages/PATH, tmpfiles, `/run/current-system`, boot
 link, port, or factory/Tailscale/desktop unit. Its private engine uses exact Nix
@@ -77,14 +109,16 @@ record under `/var/lib/system-manager/state`; registration/profile roots are a
 separate action, and low-level activation does not otherwise retain its store
 closure. The pilot therefore keeps the direct root
 `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
-currently active as registered generation two with the upstream extra root.
-Generation one remains registered and directly retained; both pilot roots
-remain recovery anchors. Its four disposable tests and guarded live activation,
-registration, and generation-switch milestones passed. Generation two differs
-only by the harmless marker, and its switch used a fresh private snapshot,
+currently active as registered generation three with the upstream extra root.
+Generations one and two remain registered and directly retained; all three
+pilot roots remain recovery anchors. Its five disposable tests and guarded live
+activation, registration, generation-switch, and boot-link milestones passed.
+Generation three differs from generation two only by its marker and one
+declarative `default.target` edge; its activation used a fresh private snapshot,
 protected-process continuity, an armed ten-minute rollback, repeated
-postflight, and local-console confirmation. No boot link or broader role
-exists.
+postflight, and local-console confirmation. No broader role exists. The host
+has not rebooted since this change, so real-host boot recovery remains a
+separate gate.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
@@ -149,12 +183,13 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The bounded System Manager canary is active as exact generation two, selected
-and retained by its profile, upstream root, and generation-two pilot root.
-Exact generation one and its original pilot root remain retained for rollback.
-It is intentionally not boot-linked. The reviewed transaction and separately
-authorized live pilot both passed; their spent snapshot grants no authority for
-a rerun, rollback, cleanup, or reboot.
+The bounded System Manager canary is active as exact generation three, selected
+and retained by its profile, upstream root, and generation-three pilot root.
+Exact generations one/two and their pilot roots remain retained for rollback.
+It owns exactly one declarative boot edge beyond the original five-path
+surface. The reviewed transaction and separately authorized live pilot both
+passed; their spent snapshot grants no authority for a rerun, rollback,
+cleanup, or reboot. A real host reboot remains untested and separately gated.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to

@@ -37,31 +37,38 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `root/nix/README.md`; the current default target is a blocked downgrade.
 - Read `root/system-manager/README.md` before changing the System Manager pin,
   overlays, root module, test, state, registration, or activation. The exact
-  candidate's bounded host canary is active and directly retained. Exact
-  generation one and the upstream extra GC root are also retained; no boot link
-  exists. Its recorded activation, registration-lifecycle, guarded
+  candidate's bounded host canary is active and directly retained. Its recorded
+  activation, registration-lifecycle, guarded
   first-registration, and guarded generation-switch failure-injection container
   tests all passed, and the separately guarded live registration was retained
   after repeated postflight and independent console confirmation. The
   marker-only generation-two candidate and guarded switch transaction passed
   their disposable gate. The separately authorized live pilot then retained,
   registered, selected, and activated exact generation two after repeated
-  postflight and local-console confirmation. Generation one remains registered
-  and directly retained; both pilot roots remain recovery anchors. Current
-  classifier authority is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. Read
-  all four 2026-09-02 generation-switch records before touching this state. Do
-  not rerun the one-time activation, registration, snapshot, or switch helpers;
-  reboot; add boot linkage; select or remove a generation; remove any current
-  root; or broaden ownership without a separate plan and authorization. Its
+  postflight and local-console confirmation. At that milestone, generation one
+  remained registered and both pilot roots were recovery anchors. The
+  historical generation-two classifier was
+  `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. The later separately authorized
+  boot-persistence pilot retained exact generation three, the one declarative
+  boot edge, all three numbered generations, and all three direct roots. Current
+  classifier authority is
+  `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. Read the
+  generation-switch records, boot-persistence transaction/live plans, and
+  `2026-09-02-boot-persistence-host-attempt-1.md` before touching this state.
+  Do not rerun the one-time activation, registration, snapshot, switch, or
+  boot-persistence helpers; reboot; change boot linkage; select or remove a
+  generation; remove any current root; or broaden ownership without a separate
+  plan and authorization. Its
   private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
   neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's
   prior evidence stale.
-- The generation-switch snapshot helper was read-only with respect to host
-  configuration but created private root-owned evidence. The live wrapper was
-  the distinct, separately authorized root mutation and has completed. Never
-  rerun either helper against the post-switch state or infer new authority from
-  that spent snapshot. Preserve both pilot roots; generation cleanup or
-  rollback is a later exact reviewed action, not automatic tidying.
+- The generation-switch and boot-persistence snapshot helpers were read-only
+  with respect to host configuration but created private root-owned evidence.
+  Their distinct live wrappers completed under separate authorization. Never
+  rerun any of those helpers against the current post-state or infer new
+  authority from their spent snapshots. Preserve all three pilot roots;
+  generation cleanup, rollback, and first reboot are later exact reviewed
+  actions, not automatic tidying.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
@@ -69,12 +76,13 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Low-level System Manager activation does not register or GC-root its output.
   The live pilot therefore still requires the documented
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The guarded
-  registration and switch now retain both numbered generation links, select
-  generation two, and point
-  `/nix/var/nix/gcroots/system-manager-current` to generation two. Preserve
-  those links plus both direct pilot roots while this state is retained; never
-  infer permission to rerun upstream `register-profile`, remove registration,
-  select a different generation, or retire either pilot root.
+  registration, switch, and boot-persistence activation now retain all three
+  numbered generation links, select generation three, and point
+  `/nix/var/nix/gcroots/system-manager-current` to generation three. Preserve
+  those links plus all three direct pilot roots and the exact boot edge while
+  this state is retained; never infer permission to rerun upstream
+  `register-profile`, remove registration, select a different generation, or
+  retire any pilot root.
 - Preserve the helper's root-only `--store local` path: Nix 2.35 strips
   experimental-feature overrides on daemon connections, while this test needs
   temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings

@@ -153,7 +153,9 @@ from Armen's personal desktop overlay.
 Tailscale and Tailscale SSH are outside the factory substrate and will move from
 the current official apt installation to reviewed Nix/root-service ownership.
 The migration must preserve node identity and remote access and must keep
-`tailscaled.service` available in headless mode. The dedicated Tailscale
+`tailscaled.service` available in headless mode whenever the host selects the
+access role. Tailscale is an explicit optional per-host role, not an implicit
+dependency of the fleet base or every machine. The dedicated Tailscale
 reference controls this work.
 
 The repository now pins and build-validates the official current-stable 1.102.3
@@ -381,20 +383,54 @@ and exact
 [container-test result](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
 
 That PASS selected the declarative mechanism and authorized design of a guarded
-live pilot only. The resulting exact snapshot helper and activation wrapper are
-now hash-pinned. They require a clean commit, exact generation-two pre-state,
-fresh private snapshot, unchanged protected processes, independent console,
-rollback armed before activation, repeated postflight, and exact
-`KEEP GENERATION THREE`. Neither has run, so generation three and the host boot
-edge remain absent.
+live pilot only. The resulting exact snapshot helper and activation wrapper
+were hash-pinned with clean-commit, exact-generation-two, fresh-private-snapshot,
+unchanged-process, independent-console, rollback-before-activation,
+repeated-postflight, and exact-`KEEP GENERATION THREE` gates.
 
-Live activation and the first real reboot remain two distinct gates. The
-activation rollback timer is independent of Tailscale but transient under
-`/run`, so it cannot survive reboot or sudden power loss. The wrapper therefore
-performs no reboot and explicitly forbids one during its window. A real reboot
-requires a separate persistent recovery design, snapshot, console check, and
-explicit authorization. See the
+Armen later created fresh snapshot `20260902T110421Z`, verified the physical
+console, and explicitly authorized that exact snapshot without authorizing a
+reboot. The wrapper retained, registered, selected, and activated generation
+three, installed only the declarative boot edge, passed postflight twice, and
+disarmed rollback before its service ran. Independent audit classified the host
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: generations one,
+two, and three plus all three direct roots remain exact; generation three is
+selected/upstream-rooted/live; the version-1 state is six paths/three services;
+and protected services, GPU, and Tailscale SSH are healthy. Snapshot
+`20260902T110421Z` is spent.
+
+Live activation and the first real reboot remain two distinct gates. The live
+activation is complete, but its rollback timer was transient under `/run` and
+could not protect a reboot or sudden power loss. No reboot occurred. A real
+reboot requires a separate persistent recovery design, fresh snapshot, console
+check, and explicit authorization. See the
 [guarded live activation plan](../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
+The current host authority is the
+[retained generation-three record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md).
+
+### D-015: one declarative fresh-host workflow
+
+**Status:** ACCEPTED
+
+The intended operating experience for another factory DGX is: complete NVIDIA
+updates, clone this repository, declare the host and user role selections,
+review one exact plan/SBOM, apply through one guarded entry point, and continue
+working. A new machine must not require replaying `sparkle-01`'s manual
+discovery or hand-installing selected optional software.
+
+The host declaration composes the exact common base with explicit optional
+access roles such as Tailscale, one desktop mode, named user overlays,
+developer-tool roles, and workload roles. Planning and application remain
+separate operations. The apply path must preserve the factory substrate,
+retain the previous generation, reject unknown drift, and run role-specific
+health/rollback checks.
+
+Nix is the bootstrap exception: a pristine machine needs a small,
+checksum-pinned, idempotent install-or-adopt step before Nix can manage the
+remaining layers. Tailscale identity, browser/account state, secrets, models,
+and other mutable data remain outside the Nix store even when Nix owns their
+packages, units, and declarative settings. This decision defines the target;
+the unified bootstrap/plan/apply implementation remains OPEN.
 
 ## Explicit non-selections
 
@@ -409,14 +445,13 @@ explicit authorization. See the
 
 ## Open decisions
 
-- Generation two is retained and live. The exact generation-three declarative
-  boot candidate and disposable transaction are selected and test-passed, but
-  generation three is not retained, registered, activated, or boot-linked on
-  the host. Guarded live activation is designed but unrun. Its transient
-  rollback does not survive reboot, so the first real reboot, rollback,
+- Generation three is retained, registered, selected, live, and declaratively
+  boot-linked; generations one/two and all three direct roots remain rollback
+  anchors. The first real host reboot is not yet tested or authorized. Design
+  recovery that survives reboot before proposing it. Reboot, rollback,
   generation or pilot-root retirement, and the first real managed service
-  remain separate decisions. Do not conflate a container restart proof with
-  permission to change or reboot `sparkle-01`.
+  remain separate decisions. Do not conflate the container restart proof or
+  live boot-edge activation with permission to reboot `sparkle-01`.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

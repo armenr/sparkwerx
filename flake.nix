@@ -622,7 +622,7 @@
               generationTwo = "/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot";
             };
             requiredHostState = "ACTIVE_REGISTERED_RETAINED";
-            currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+            currentHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
             initialHostState = "generation one selected, extra-rooted, and live; generation two absent";
             preState = "generation one selected, extra-rooted, and live; generation two retained only";
             postState = "generation two selected, extra-rooted, and live; generation one retained";
@@ -718,9 +718,9 @@
         };
 
         bootPersistence = {
-          status = "live-pilot-designed-activation-not-authorized";
+          status = "live-generation-three-boot-linked-retained";
           requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
-          currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+          currentHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
           exactCandidates = {
             generationOne = rootCanary.outPath;
             generationTwo = rootCanaryRegistrationTestGeneration.outPath;
@@ -743,7 +743,7 @@
           };
           retention = {
             path = "/nix/var/nix/gcroots/dgx-setup-root-canary-boot-persistence-pilot";
-            hostCreated = false;
+            hostCreated = true;
             requiredBeforeTransaction = true;
             preservedByRollback = true;
           };
@@ -779,11 +779,13 @@
             evidence = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md";
           };
           livePilot = {
-            status = "repository-design-complete-not-run";
+            status = "generation-three-retained-after-console-confirmation";
             evidencePlan = "root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md";
             requiredPreState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
             snapshot = {
               root = "inventory/sparkle-01/raw/system-manager-boot-persistence";
+              used = "inventory/sparkle-01/raw/system-manager-boot-persistence/20260902T110421Z";
+              createdAt = "2026-09-02T11:04:21Z";
               mode = "0700";
               owner = "root";
               maximumAgeSeconds = 1800;
@@ -826,10 +828,28 @@
               performed = false;
               forbiddenDuringActivationWindow = true;
             };
-            hostCandidateRetentionPerformed = false;
-            hostRegistrationPerformed = false;
-            hostActivationPerformed = false;
-            hostBootLinkCreated = false;
+            hostCandidateRetentionPerformed = true;
+            hostRegistrationPerformed = true;
+            hostActivationPerformed = true;
+            hostBootLinkCreated = true;
+            hostRebootPerformed = false;
+          };
+          liveActivation = {
+            stateClass = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
+            host = "sparkle-01";
+            activatedAt = "2026-09-02T11:16:42Z";
+            confirmedAt = "2026-09-02T11:16:50Z";
+            repositoryCommit = "2e58f537e92ef0522fb0b9e8748de192fb62d230";
+            snapshot = "inventory/sparkle-01/raw/system-manager-boot-persistence/20260902T110421Z";
+            evidence = "root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md";
+            localConsoleConfirmed = true;
+            rollbackDisarmed = true;
+            rollbackServiceRan = false;
+            protectedServicesUnchanged = true;
+            bootLinkCreated = true;
+            managedPathCount = 6;
+            managedServiceCount = 3;
+            stateFileSha256 = "513bc468705ed5322cd50e734172621c5b87aef59af805682ef9ae5f70d5fba8";
             hostRebootPerformed = false;
           };
         };
@@ -1034,7 +1054,7 @@
           == "ACTIVE_REGISTERED_RETAINED";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.currentHostState
-          == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesGenerationOne;
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesBothPilotRoots;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.createsBootLink;
@@ -1084,17 +1104,17 @@
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed;
         assert
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed;
+        assert rootManagerManifest.bootPersistence.status == "live-generation-three-boot-linked-retained";
         assert
-          rootManagerManifest.bootPersistence.status == "live-pilot-designed-activation-not-authorized";
-        assert
-          rootManagerManifest.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+          rootManagerManifest.bootPersistence.currentHostState
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
         assert rootManagerManifest.bootPersistence.delta.serviceInventoryUnchanged;
         assert rootManagerManifest.bootPersistence.delta.globalPackagesUnchanged;
         assert !rootManagerManifest.bootPersistence.delta.linksCurrentSystem;
         assert
           rootManagerManifest.bootPersistence.transactionProgram.sha256
           == reviewedRootBootPersistenceTransactionSha256;
-        assert !rootManagerManifest.bootPersistence.retention.hostCreated;
+        assert rootManagerManifest.bootPersistence.retention.hostCreated;
         assert rootManagerManifest.bootPersistence.retention.requiredBeforeTransaction;
         assert rootManagerManifest.bootPersistence.retention.preservedByRollback;
         assert rootManagerManifest.bootPersistence.isolatedTransactionTest.result == "passed";
@@ -1108,7 +1128,9 @@
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostCandidateRetentionPerformed;
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostBootLinkCreated;
         assert !rootManagerManifest.bootPersistence.isolatedTransactionTest.hostRebootPerformed;
-        assert rootManagerManifest.bootPersistence.livePilot.status == "repository-design-complete-not-run";
+        assert
+          rootManagerManifest.bootPersistence.livePilot.status
+          == "generation-three-retained-after-console-confirmation";
         assert
           rootManagerManifest.bootPersistence.livePilot.snapshotProgram.sha256
           == reviewedRootBootPersistenceSnapshotSha256;
@@ -1125,11 +1147,23 @@
         assert !rootManagerManifest.bootPersistence.livePilot.rollback.survivesHostReboot;
         assert rootManagerManifest.bootPersistence.livePilot.reboot.forbiddenDuringActivationWindow;
         assert !rootManagerManifest.bootPersistence.livePilot.reboot.performed;
-        assert !rootManagerManifest.bootPersistence.livePilot.hostCandidateRetentionPerformed;
-        assert !rootManagerManifest.bootPersistence.livePilot.hostRegistrationPerformed;
-        assert !rootManagerManifest.bootPersistence.livePilot.hostActivationPerformed;
-        assert !rootManagerManifest.bootPersistence.livePilot.hostBootLinkCreated;
+        assert rootManagerManifest.bootPersistence.livePilot.hostCandidateRetentionPerformed;
+        assert rootManagerManifest.bootPersistence.livePilot.hostRegistrationPerformed;
+        assert rootManagerManifest.bootPersistence.livePilot.hostActivationPerformed;
+        assert rootManagerManifest.bootPersistence.livePilot.hostBootLinkCreated;
         assert !rootManagerManifest.bootPersistence.livePilot.hostRebootPerformed;
+        assert
+          rootManagerManifest.bootPersistence.liveActivation.stateClass
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
+        assert rootManagerManifest.bootPersistence.liveActivation.host == "sparkle-01";
+        assert rootManagerManifest.bootPersistence.liveActivation.localConsoleConfirmed;
+        assert rootManagerManifest.bootPersistence.liveActivation.rollbackDisarmed;
+        assert !rootManagerManifest.bootPersistence.liveActivation.rollbackServiceRan;
+        assert rootManagerManifest.bootPersistence.liveActivation.protectedServicesUnchanged;
+        assert rootManagerManifest.bootPersistence.liveActivation.bootLinkCreated;
+        assert rootManagerManifest.bootPersistence.liveActivation.managedPathCount == 6;
+        assert rootManagerManifest.bootPersistence.liveActivation.managedServiceCount == 3;
+        assert !rootManagerManifest.bootPersistence.liveActivation.hostRebootPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;

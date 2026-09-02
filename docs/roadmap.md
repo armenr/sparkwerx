@@ -71,7 +71,23 @@ the measured software manifest; evaluation did not authorize realization.
       `20260902T083437Z`; retain generation two after repeated postflight and
       local-console confirmation, preserve both pilot roots, and independently
       verify exact `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`
-- [ ] Define an idempotent bootstrap and uninstall/rollback path
+- [x] Pass the exact 13-subtest/two-restart boot-persistence transaction in a
+      disposable container without changing the host
+- [x] Design and policy-pin the separate generation-three live activation with
+      exact snapshot, all-three-root retention, rollback-before-activation,
+      repeated postflight, local-console confirmation, and an explicit
+      no-reboot boundary
+- [x] Separately authorize and run that exact activation from fresh snapshot
+      `20260902T110421Z`; retain exact six-path/three-service generation three
+      plus its one boot edge and independently verify
+      `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`
+- [ ] Design recovery that survives reboot, then separately authorize one real
+      pilot reboot and verify the exact post-boot state before calling host boot
+      persistence proven
+- [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
+      complete uninstall/rollback path
+- [ ] Build a single read-only host `plan` and guarded host `apply` entry point
+      that composes the exact base, optional roles, user overlays, and workloads
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration
@@ -131,6 +147,11 @@ approval, graphical validation, activation approval, and rollback.
 
 ## Phase 8: fleet rollout
 
+- [ ] Define one declarative per-host selection surface for the exact base,
+      optional Tailscale/access role, desktop mode, named user overlays,
+      developer tools, and workload roles
+- [ ] Make the supported new-host path: factory update, clone, declare roles,
+      review plan/SBOM, guarded apply, and health verification
 - [ ] Add the remaining host definitions and explicit user-overlay mappings
 - [ ] Add bootstrap and Tailscale enrollment automation with bounded,
       auditable output and external secret delivery

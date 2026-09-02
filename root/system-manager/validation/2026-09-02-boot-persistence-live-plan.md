@@ -2,19 +2,20 @@
 
 ## Status and authority boundary
 
-**REPOSITORY DESIGN COMPLETE; LIVE ACTIVATION NOT AUTHORIZED; HOST REBOOT NOT
-AUTHORIZED.**
+**LIVE ACTIVATION EXECUTED AND RETAINED; HOST REBOOT NOT AUTHORIZED OR
+PERFORMED.**
 
-This milestone defines and validates the host snapshot helper and live wrapper
-for an exact System Manager generation-two to generation-three activation. It
-does not authorize running either helper as a live transaction, creating the
-generation-three pilot root, registering or activating generation three,
-adding the host boot edge, or rebooting `sparkle-01`.
+This milestone defined and validated the host snapshot helper and live wrapper
+for an exact System Manager generation-two to generation-three activation.
+Armen later created and authorized fresh snapshot `20260902T110421Z`; the exact
+wrapper completed and retained generation three. This plan never authorized a
+host reboot, and none occurred.
 
-The current host remains
-`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`: generation two is selected,
-upstream-rooted, directly retained, and live; generation one is registered and
-directly retained; generation three and the host boot edge are absent.
+The current host is
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: generation three is
+selected, upstream-rooted, directly retained, live, and linked into
+`default.target`; generations one and two remain registered and directly
+retained. The first real host reboot remains a separate milestone.
 
 ## Exact reviewed inputs
 
@@ -183,3 +184,26 @@ At `2026-09-02T10:57:33Z`, against base commit
 
 These results validate repository design only. They created no host root,
 profile link, activation, boot edge, rollback timer, service change, or reboot.
+
+## Live execution result
+
+Armen verified the physical console and explicitly authorized private snapshot
+`20260902T110421Z`. At `2026-09-02T11:16:42Z`, the wrapper retained the exact
+generation-three candidate, armed the exact ten-minute generation-two
+rollback, registered/selected/activated generation three, and passed automatic
+postflight. The exact confirmation path repeated postflight and stopped the
+timer at `11:16:50Z`; the rollback service did not run.
+
+Independent read-only observation found the exact three-generation profile and
+root surface, version-1 six-path/three-service state, both canary markers, the
+one reviewed boot edge, all rejected broader paths absent, zero failed units,
+healthy protected services/GPU/Tailscale SSH, and classifier result
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. The host boot time
+predates the activation, so no reboot occurred. The full evidence and its
+transcript/inference boundary are recorded in the
+[retained host result](2026-09-02-boot-persistence-host-attempt-1.md).
+
+The snapshot is spent. Do not rerun either helper against the retained
+post-state. The next boundary is a separately designed, snapshot-bound,
+persistent-recovery first-host reboot; this activation grants no reboot,
+rollback, cleanup, root retirement, or broader-ownership authority.

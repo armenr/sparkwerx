@@ -455,6 +455,12 @@ audit_root_integration() {
   generation_switch_test_matches="$(
     jq -r '.registration.guardedGenerationSwitch.isolatedTransactionTest.matchesCurrent // false' <<<"$manifest"
   )"
+  boot_persistence_test_result="$(
+    jq -r '.bootPersistence.isolatedTransactionTest.result // empty' <<<"$manifest"
+  )"
+  boot_persistence_test_matches="$(
+    jq -r '.bootPersistence.isolatedTransactionTest.matchesCurrent // false' <<<"$manifest"
+  )"
   live_registration_host="$(
     jq -r '.registration.guardedFirstGeneration.liveRegistration.host // empty' <<<"$manifest"
   )"
@@ -467,14 +473,23 @@ audit_root_integration() {
   live_switch_state="$(
     jq -r '.registration.guardedGenerationSwitch.liveSwitch.stateClass // empty' <<<"$manifest"
   )"
+  live_boot_host="$(
+    jq -r '.bootPersistence.liveActivation.host // empty' <<<"$manifest"
+  )"
+  live_boot_state="$(
+    jq -r '.bootPersistence.liveActivation.stateClass // empty' <<<"$manifest"
+  )"
   generation_one_output="$(
     jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationOne // empty' <<<"$manifest"
   )"
   generation_two_output="$(
     jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationTwo // empty' <<<"$manifest"
   )"
+  generation_three_output="$(
+    jq -r '.bootPersistence.exactCandidates.generationThree // empty' <<<"$manifest"
+  )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};live-state=${live_switch_state:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};live-state=${live_boot_state:-${live_switch_state:-UNKNOWN}}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -498,7 +513,7 @@ audit_root_integration() {
     (.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed == true) and
     (.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed == true) and
     (.registration.guardedGenerationSwitch.status == "live-generation-two-registered-retained") and
-    (.registration.guardedGenerationSwitch.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED") and
+    (.registration.guardedGenerationSwitch.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
     (.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed == true) and
     (.registration.guardedGenerationSwitch.liveSwitchPerformed == true) and
     (.registration.guardedGenerationSwitch.livePilot.status == "generation-two-retained-after-console-confirmation") and
@@ -518,6 +533,29 @@ audit_root_integration() {
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostPostflight == "clean") and
+    (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
+    (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (.bootPersistence.retention.hostCreated == true) and
+    (.bootPersistence.isolatedTransactionTest.result == "passed") and
+    (.bootPersistence.isolatedTransactionTest.matchesCurrent == true) and
+    (.bootPersistence.isolatedTransactionTest.hostPostflight == "clean") and
+    (.bootPersistence.livePilot.status == "generation-three-retained-after-console-confirmation") and
+    (.bootPersistence.livePilot.hostCandidateRetentionPerformed == true) and
+    (.bootPersistence.livePilot.hostRegistrationPerformed == true) and
+    (.bootPersistence.livePilot.hostActivationPerformed == true) and
+    (.bootPersistence.livePilot.hostBootLinkCreated == true) and
+    (.bootPersistence.livePilot.hostRebootPerformed == false) and
+    (.bootPersistence.liveActivation.host == "sparkle-01") and
+    (.bootPersistence.liveActivation.stateClass == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (.bootPersistence.liveActivation.evidence == "root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md") and
+    (.bootPersistence.liveActivation.localConsoleConfirmed == true) and
+    (.bootPersistence.liveActivation.rollbackDisarmed == true) and
+    (.bootPersistence.liveActivation.rollbackServiceRan == false) and
+    (.bootPersistence.liveActivation.protectedServicesUnchanged == true) and
+    (.bootPersistence.liveActivation.bootLinkCreated == true) and
+    (.bootPersistence.liveActivation.managedPathCount == 6) and
+    (.bootPersistence.liveActivation.managedServiceCount == 3) and
+    (.bootPersistence.liveActivation.hostRebootPerformed == false) and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
     (.pilotRetention.created == false) and
     (.pilotRetention.requiredForLowLevelActivation == true) and
@@ -553,7 +591,14 @@ audit_root_integration() {
   root_output="$(jq -r '.manager.rootOutputPath // empty' <<<"$manifest")"
   registration_mode=unregistered
   other_root_output=
-  if [[ "$host_name" == "$live_switch_host" &&
+  middle_root_output=
+  if [[ "$host_name" == "$live_boot_host" &&
+        "$live_boot_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
+    root_output="$generation_three_output"
+    other_root_output="$generation_one_output"
+    middle_root_output="$generation_two_output"
+    registration_mode=registered-third-boot
+  elif [[ "$host_name" == "$live_switch_host" &&
         "$live_switch_state" == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED" ]]; then
     root_output="$generation_two_output"
     other_root_output="$generation_one_output"
@@ -564,7 +609,8 @@ audit_root_integration() {
   fi
   live_state="$(
     "$repo_dir/scripts/audit-root-canary-state.sh" \
-      "$root_output" "$registration_mode" "$other_root_output" 2>/dev/null ||
+      "$root_output" "$registration_mode" "$other_root_output" \
+      "$middle_root_output" 2>/dev/null ||
       true
   )"
 
@@ -579,6 +625,14 @@ audit_root_integration() {
   elif [[ "$policy_ok" != "true" ]]; then
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
+  elif [[ "$host_name" == "$live_boot_host" &&
+          "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
+    status="CURRENT"
+    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. The first real host reboot remains unperformed and separately gated."
+  elif [[ "$host_name" == "$live_boot_host" ]]; then
+    status="HOLD"
+    detail="${live_state#DRIFT|}"
+    detail="${detail:-The declared pilot host does not match its retained generation-three boot-linked state.}"
   elif [[ "$host_name" == "$live_switch_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED" ]]; then
     status="CURRENT"
@@ -612,7 +666,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md" \
+    "repo:root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md" \
     "$detail"
 }
 
@@ -1232,7 +1286,7 @@ else
   codex_version="NOT_FOUND"
 fi
 if [[ "$offline" -eq 1 || "$codex_version" == "NOT_FOUND" ]]; then
-  emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+  emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
     "REMOTE_SUPPRESSED" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
     "Official npm metadata was not queried."
 else
@@ -1243,12 +1297,12 @@ else
   )"
   if [[ -n "$codex_candidate" ]]; then
     codex_status="$(version_status "$codex_version" "$codex_candidate")"
-    emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+    emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
       "$codex_candidate" "$codex_status" \
       "https://www.npmjs.com/package/@openai/codex" \
       "Availability only; update ownership has not yet been migrated into Nix."
   else
-    emit "USER_APP" "manual exception" "Codex CLI" "$codex_version" \
+    emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
       "UNKNOWN" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
       "Unable to read official npm release metadata."
   fi
@@ -1259,12 +1313,12 @@ chatgpt_packages="$(
     awk 'BEGIN {IGNORECASE=1} $1 ~ /(chatgpt|openai)/ {print $1 "=" $2}' |
     paste -sd ';' - || true
 )"
-emit "USER_APP" "manual exception" "ChatGPT desktop package" \
+emit "USER_APP" "manual package; Armen overlay input" "ChatGPT desktop package" \
   "${chatgpt_packages:-NOT_DETECTED}" "CHECK_OFFICIAL_APP" "MANUAL" \
   "https://openai.com/chatgpt/desktop/" \
   "No stable package feed is assumed; do not replace the installed deb during an audit."
 firefox_version="$(firefox --version 2>/dev/null | sed 's/^[^0-9]*//' || true)"
-emit "USER_APP" "DGX OS/manual exception" "Firefox" \
+emit "USER_APP" "DGX OS application substrate" "Firefox" \
   "${firefox_version:-NOT_FOUND}" "CHECK_VENDOR_CHANNEL" "MANUAL" \
   "local:firefox-version" "Preserve the existing OS/application ownership."
 emit "USER_APP" "Firefox extension store" "1Password extension" \
