@@ -88,9 +88,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Build, review, test, and policy-pin the live recovery snapshot, arm,
       same-boot disarm, status, post-boot confirmation, rollback-verification,
       and cleanup helpers; keep all reboot execution outside those helpers
-- [ ] Separately authorize recovery arming, then separately authorize one real
-      pilot reboot and verify the exact post-boot state before calling host boot
-      persistence proven
+- [x] Separately authorize recovery arming and the first real pilot reboot; let
+      the missed deadline automatically restore exact generation two, then
+      verify rollback and clean the recovery surface
+- [ ] Use the hash-pinned, timed, local-console-confirmed no-reboot restoration
+      path to return generation three to selected/live/boot-linked state
 - [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
       complete uninstall/rollback path
 - [ ] Build a single read-only host `plan` and guarded host `apply` entry point

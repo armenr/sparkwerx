@@ -398,6 +398,10 @@ audit_root_integration() {
   local private_nix_rev release_version release_rev current candidate
   local test_result registration_test_result registration_test_matches
   local live_registration_host live_registration_state registration_mode
+  local live_switch_host live_switch_state live_boot_host live_boot_state
+  local declared_current_state recovery_live_host recovery_live_state
+  local restoration_status generation_one_output generation_two_output
+  local generation_three_output other_root_output middle_root_output
   local policy_ok live_state root_output status detail
   local -a nix_args
 
@@ -488,6 +492,18 @@ audit_root_integration() {
   live_boot_state="$(
     jq -r '.bootPersistence.liveActivation.stateClass // empty' <<<"$manifest"
   )"
+  declared_current_state="$(
+    jq -r '.bootPersistence.currentHostState // empty' <<<"$manifest"
+  )"
+  recovery_live_host="$(
+    jq -r '.bootPersistence.rebootRecovery.liveAttempt.host // empty' <<<"$manifest"
+  )"
+  recovery_live_state="$(
+    jq -r '.bootPersistence.rebootRecovery.liveAttempt.currentHostState // empty' <<<"$manifest"
+  )"
+  restoration_status="$(
+    jq -r '.bootPersistence.rebootRecovery.restoration.status // empty' <<<"$manifest"
+  )"
   generation_one_output="$(
     jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationOne // empty' <<<"$manifest"
   )"
@@ -498,7 +514,7 @@ audit_root_integration() {
     jq -r '.bootPersistence.exactCandidates.generationThree // empty' <<<"$manifest"
   )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};live-state=${live_boot_state:-${live_switch_state:-UNKNOWN}}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};restoration=${restoration_status:-UNKNOWN};live-state=${declared_current_state:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -522,7 +538,7 @@ audit_root_integration() {
     (.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed == true) and
     (.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed == true) and
     (.registration.guardedGenerationSwitch.status == "live-generation-two-registered-retained") and
-    (.registration.guardedGenerationSwitch.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (.registration.guardedGenerationSwitch.currentHostState == .bootPersistence.currentHostState) and
     (.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed == true) and
     (.registration.guardedGenerationSwitch.liveSwitchPerformed == true) and
     (.registration.guardedGenerationSwitch.livePilot.status == "generation-two-retained-after-console-confirmation") and
@@ -542,8 +558,20 @@ audit_root_integration() {
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostPostflight == "clean") and
-    (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
-    (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (
+      (
+        (.bootPersistence.status == "first-reboot-rollback-verified-restoration-ready") and
+        (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
+        (.bootPersistence.rebootRecovery.restoration.status == "repository-ready-not-run") and
+        (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == false)
+      ) or
+      (
+        (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
+        (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+        (.bootPersistence.rebootRecovery.restoration.status == "generation-three-restored-after-console-confirmation") and
+        (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == true)
+      )
+    ) and
     (.bootPersistence.retention.hostCreated == true) and
     (.bootPersistence.isolatedTransactionTest.result == "passed") and
     (.bootPersistence.isolatedTransactionTest.matchesCurrent == true) and
@@ -565,7 +593,7 @@ audit_root_integration() {
     (.bootPersistence.liveActivation.managedPathCount == 6) and
     (.bootPersistence.liveActivation.managedServiceCount == 3) and
     (.bootPersistence.liveActivation.hostRebootPerformed == false) and
-    (.bootPersistence.rebootRecovery.status == "live-recovery-designed-host-not-armed") and
+    (.bootPersistence.rebootRecovery.status == "live-recovery-operational-host-not-armed") and
     (.bootPersistence.rebootRecovery.requiredHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
     (.bootPersistence.rebootRecovery.postbootAuditor.stateClass == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED") and
     (.bootPersistence.rebootRecovery.postbootAuditor.requiresManagerAndCanaryActive == true) and
@@ -595,12 +623,42 @@ audit_root_integration() {
       "cleanup-rolled-back"
     ]) and
     (.bootPersistence.rebootRecovery.livePilot.pilotProgram.performsReboot == false) and
+    (.bootPersistence.rebootRecovery.livePilot.operatorProgram.actions == [
+      "snapshot",
+      "restore",
+      "arm",
+      "disarm-preboot",
+      "status",
+      "confirm",
+      "verify-rolled-back",
+      "cleanup-rolled-back"
+    ]) and
+    (.bootPersistence.rebootRecovery.livePilot.operatorProgram.invokesExactSnapshotCopyPostboot == true) and
+    (.bootPersistence.rebootRecovery.livePilot.operatorProgram.performsReboot == false) and
+    (.bootPersistence.rebootRecovery.livePilot.nixDaemonPostbootPolicy.activeServiceAccepted == true) and
+    (.bootPersistence.rebootRecovery.livePilot.nixDaemonPostbootPolicy.idleServiceWithActiveSocketAccepted == true) and
+    (.bootPersistence.rebootRecovery.livePilot.nixDaemonPostbootPolicy.socket == "nix-daemon.socket") and
+    (.bootPersistence.rebootRecovery.livePilot.nixDaemonPostbootPolicy.preservesStrictSameBootProcessContinuity == true) and
     (.bootPersistence.rebootRecovery.livePilot.requiresSeparateRebootAuthorization == true) and
-    (.bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated == false) and
+    (.bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated == true) and
     (.bootPersistence.rebootRecovery.livePilot.hostRecoveryArmed == false) and
-    (.bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == false) and
+    (.bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.status == "automatic-rollback-verified-cleaned") and
+    (.bootPersistence.rebootRecovery.liveAttempt.host == "sparkle-01") and
+    (.bootPersistence.rebootRecovery.liveAttempt.operatorRebootPerformed == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.confirmedBeforeDeadline == false) and
+    (.bootPersistence.rebootRecovery.liveAttempt.automaticRollbackCompleted == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.rollbackVerified == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.cleanupCompleted == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
+    (.bootPersistence.rebootRecovery.liveAttempt.recoverySurface == "absent") and
+    (.bootPersistence.rebootRecovery.liveAttempt.generationsOneTwoThreeDirectlyRetained == true) and
+    (.bootPersistence.rebootRecovery.liveAttempt.nixDaemonIdleSocketLessonRecorded == true) and
+    (.bootPersistence.rebootRecovery.restoration.requiredHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
+    (.bootPersistence.rebootRecovery.restoration.preservesAllThreePilotRoots == true) and
+    (.bootPersistence.rebootRecovery.restoration.performsReboot == false) and
     (.bootPersistence.rebootRecovery.hostRecoveryArmed == false) and
-    (.bootPersistence.rebootRecovery.hostRebootPerformed == false) and
+    (.bootPersistence.rebootRecovery.hostRebootPerformed == true) and
     (.pilotRetention.path == "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot") and
     (.pilotRetention.created == false) and
     (.pilotRetention.requiredForLowLevelActivation == true) and
@@ -638,7 +696,13 @@ audit_root_integration() {
   other_root_output=
   middle_root_output=
   if [[ "$host_name" == "$live_boot_host" &&
-        "$live_boot_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
+        "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" ]]; then
+    root_output="$generation_two_output"
+    other_root_output="$generation_one_output"
+    middle_root_output="$generation_three_output"
+    registration_mode=registered-second-triple-retained
+  elif [[ "$host_name" == "$live_boot_host" &&
+        "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     root_output="$generation_three_output"
     other_root_output="$generation_one_output"
     middle_root_output="$generation_two_output"
@@ -671,9 +735,16 @@ audit_root_integration() {
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
   elif [[ "$host_name" == "$live_boot_host" &&
+          "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" &&
+          "$recovery_live_host" == "$host_name" &&
+          "$recovery_live_state" == "$declared_current_state" &&
+          "$live_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" ]]; then
+    status="CURRENT"
+    detail="The first guarded host reboot exercised the real persistent deadline: confirmation missed it by two seconds, automatic rollback restored exact registered/live no-boot generation two, cleanup removed the recovery surface, and all three direct pilot roots remain. The active Nix daemon may be running or cleanly idle behind nix-daemon.socket after boot. The repository-pinned, no-reboot restoration helper is ready; no recovery timer is armed."
+  elif [[ "$host_name" == "$live_boot_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     status="CURRENT"
-    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Persistent first-reboot recovery passed its current 13-subtest lifecycle and its no-reboot live helpers are policy-pinned; the host recovery surface remains unarmed and the first real host reboot remains unperformed and separately gated."
+    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Persistent recovery is operational and unarmed; the first host reboot's verified automatic rollback remains recorded."
   elif [[ "$host_name" == "$live_boot_host" ]]; then
     status="HOLD"
     detail="${live_state#DRIFT|}"
@@ -711,7 +782,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md" \
+    "repo:root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md" \
     "$detail"
 }
 

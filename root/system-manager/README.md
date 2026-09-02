@@ -18,9 +18,12 @@ was retained after its own independent local-console confirmation. On
 selected, and activated exact generation two after repeated postflight and
 local-console confirmation. Later that day, the separately authorized
 boot-persistence pilot retained, registered, selected, and activated exact
-generation three plus its one declarative boot edge. Generations one and two
-remain registered and directly retained; all three pilot roots remain. No host
-reboot or broader root role has occurred.
+generation three plus its one declarative boot edge. The separately authorized
+first real reboot then exercised persistent recovery. Its ten-minute deadline
+expired, automatic rollback restored exact registered/live no-boot generation
+two, and snapshot-bound verification plus exact cleanup passed. Generations
+one and two remain registered, all three pilot roots remain, generation three
+is available for guarded restoration, and no broader root role exists.
 
 ## Reviewed candidate
 
@@ -39,9 +42,9 @@ reboot or broader root role has occurred.
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
-| Persistent first-reboot recovery test | **PASS** for exact 13-subtest/two-restart lifecycle, including same-boot cancellation; host recovery remains unarmed |
-| Host registration | Exact generations one, two, and three retained; generation three selected and upstream-rooted |
-| Host activation | Exact generation-three canary active and declaratively boot-linked after guarded live activation; first host reboot not performed |
+| Persistent first-reboot recovery | **PASS** for exact 13-subtest/two-restart lifecycle and first real reboot; missed deadline automatically restored generation two, verification/cleanup passed, host recovery is unarmed |
+| Host registration | Exact generations one and two registered; generation two selected/upstream-rooted; generation three directly retained for restoration |
+| Host activation | Exact generation-two canary active with no boot edge after verified automatic rollback |
 | Rollback anchors | All three exact direct pilot roots remain; generation two is the reviewed no-boot rollback state |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
@@ -429,7 +432,7 @@ remained healthy. See the
 The activation timer was transient and no host reboot occurred. Snapshot
 `20260902T110421Z` is spent; do not rerun either helper against this post-state.
 
-## Persistent first-reboot recovery: disposable lifecycle passed
+## Persistent first-reboot recovery: real rollback verified and cleaned
 
 The repository now builds an exact temporary recovery bundle for the first real
 generation-three reboot. `arm` creates one direct bundle GC root, one private
@@ -497,11 +500,30 @@ reboot action. Read the
 [live recovery plan](validation/2026-09-03-reboot-recovery-live-plan.md) before
 using either helper.
 
-This PASS authorizes no host arming and no reboot. Arming requires a fresh
-private snapshot plus explicit snapshot-bound authorization. The actual reboot
-is a second, separate authorization and must never be inferred from successful
-arming. At this checkpoint no recovery path is installed and no real reboot
-has occurred.
+The separately authorized live attempt used snapshot `20260902T204546Z` and
+then rebooted outside the helpers. The persistent timer started on the new boot
+and its ten-minute deadline expired before a valid confirmation arrived.
+Automatic rollback restored exact registered/live no-boot generation two.
+Snapshot-bound `verify-rolled-back` passed, exact cleanup removed the recovery
+surface, and independent classification returned
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`. All three direct pilot
+roots remain; generation three's numbered profile link and boot edge are
+absent; no recovery timer is armed.
+
+The first correctly formed confirmation command began two seconds after the
+deadline and also exposed a false assumption: after a clean boot,
+`nix-daemon.service` may be cleanly inactive while `nix-daemon.socket` is
+active/listening. Updated helpers accept that normal postboot state while
+retaining strict same-boot continuity. `scripts/dgx-recovery` now supplies the
+short operator interface and deliberately has no reboot action. Full evidence
+is in the
+[first real reboot record](validation/2026-09-03-reboot-recovery-host-attempt-1.md).
+
+The next mutation is a hash-pinned no-reboot restoration helper that requires
+this exact generation-two state, a clean commit, a new private snapshot,
+independent console access, a transient ten-minute rollback, repeated health
+checks, and exact `RESTORE GENERATION THREE` / `KEEP RESTORED GENERATION THREE`
+confirmations. Any later recovery arming and reboot remain separate gates.
 
 ## Defaults we rejected
 

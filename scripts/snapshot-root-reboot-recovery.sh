@@ -8,6 +8,7 @@ set -euo pipefail
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 snapshot_source=$repo_dir/scripts/snapshot-root-reboot-recovery.sh
 pilot_source=$repo_dir/scripts/root-reboot-recovery-pilot.sh
+operator_source=$repo_dir/scripts/dgx-recovery
 property_parser_source=$repo_dir/scripts/systemd-snapshot-property.sh
 property_parser_test=$repo_dir/scripts/test-systemd-snapshot-property.sh
 generation_one=/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
@@ -48,6 +49,10 @@ protected_units=(
   dgx-dashboard.service
   dgx-dashboard-admin.service
   nvidia-persistenced.service
+)
+
+protected_sockets=(
+  nix-daemon.socket
 )
 
 managed_paths=(
@@ -138,7 +143,7 @@ fi
   die 'active root-profile Nix is not exact reviewed 2.35.2'
 
 for program in \
-  "$snapshot_source" "$pilot_source" \
+  "$snapshot_source" "$pilot_source" "$operator_source" \
   "$property_parser_source" "$property_parser_test"; do
   [[ -x "$program" ]] ||
     die "required reviewed program is missing or not executable: $program"
@@ -149,6 +154,7 @@ done
 
 snapshot_sha256="$(sha256sum "$snapshot_source" | awk '{print $1}')"
 pilot_sha256="$(sha256sum "$pilot_source" | awk '{print $1}')"
+operator_sha256="$(sha256sum "$operator_source" | awk '{print $1}')"
 property_parser_sha256="$(sha256sum "$property_parser_source" | awk '{print $1}')"
 property_parser_test_sha256="$(sha256sum "$property_parser_test" | awk '{print $1}')"
 
@@ -178,13 +184,14 @@ manifest_json="$($nix_bin --extra-experimental-features 'nix-command flakes' eva
 jq -e \
   --arg snapshot_sha "$snapshot_sha256" \
   --arg pilot_sha "$pilot_sha256" \
+  --arg operator_sha "$operator_sha256" \
   --arg parser_sha "$property_parser_sha256" \
   --arg parser_test_sha "$property_parser_test_sha256" \
   --arg transaction_sha "$recovery_transaction_sha256" \
   --arg audit_sha "$recovery_audit_sha256" '
     .bootPersistence.status == "live-generation-three-boot-linked-retained" and
     .bootPersistence.rebootRecovery.status ==
-      "live-recovery-designed-host-not-armed" and
+      "live-recovery-operational-host-not-armed" and
     .bootPersistence.rebootRecovery.transactionProgram.sha256 ==
       $transaction_sha and
     .bootPersistence.rebootRecovery.postbootAuditor.sha256 == $audit_sha and
@@ -197,13 +204,17 @@ jq -e \
       $snapshot_sha and
     .bootPersistence.rebootRecovery.livePilot.pilotProgram.sha256 ==
       $pilot_sha and
+    .bootPersistence.rebootRecovery.livePilot.operatorProgram.sha256 ==
+      $operator_sha and
+    .bootPersistence.rebootRecovery.livePilot.operatorProgram.performsReboot ==
+      false and
     .bootPersistence.rebootRecovery.livePilot.systemdSnapshotPropertyProgram.sha256 ==
       $parser_sha and
     .bootPersistence.rebootRecovery.livePilot.systemdSnapshotPropertyTest.sha256 ==
       $parser_test_sha and
-    .bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated == false and
+    .bootPersistence.rebootRecovery.livePilot.hostSnapshotCreated == true and
     .bootPersistence.rebootRecovery.livePilot.hostRecoveryArmed == false and
-    .bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == false
+    .bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == true
   ' >/dev/null <<<"$manifest_json" ||
   die 'root-manager manifest does not retain the exact reviewed/unarmed live-recovery gate'
 
@@ -263,6 +274,20 @@ for unit in "${protected_units[@]}"; do
     die "$unit has no active-enter timestamp"
 done
 
+for unit in "${protected_sockets[@]}"; do
+  load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+  active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+  substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
+  reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+  fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+  result="$(systemctl show "$unit" -p Result --value 2>/dev/null || true)"
+  [[ "$load_state" == loaded && "$active" == active &&
+    ("$substate" == listening || "$substate" == running) &&
+    "$reload" == no && "$result" == success ]] ||
+    die "$unit is not loaded/active/socket-ready/reload-clean"
+  [[ -n "$fragment" ]] || die "$unit has no fragment path"
+done
+
 system_state="$(systemctl is-system-running 2>/dev/null || true)"
 [[ "$system_state" == running ]] ||
   die "systemd state is ${system_state:-UNKNOWN}, not running"
@@ -301,7 +326,7 @@ install -m 0700 "$pilot_source" "$destination/root-reboot-recovery-pilot.sh"
 install -m 0700 "$property_parser_source" "$destination/systemd-snapshot-property.sh"
 
 {
-  printf 'schema=1\n'
+  printf 'schema=2\n'
   printf 'purpose=system-manager-first-reboot-recovery\n'
   printf 'timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'host=sparkle-01\n'
@@ -317,6 +342,7 @@ install -m 0700 "$property_parser_source" "$destination/systemd-snapshot-propert
   printf 'recovery_audit_sha256=%s\n' "$recovery_audit_sha256"
   printf 'snapshot_program_sha256=%s\n' "$snapshot_sha256"
   printf 'pilot_program_sha256=%s\n' "$pilot_sha256"
+  printf 'operator_program_sha256=%s\n' "$operator_sha256"
   printf 'property_parser_sha256=%s\n' "$property_parser_sha256"
   printf 'property_parser_test_sha256=%s\n' "$property_parser_test_sha256"
   printf 'test_drv=%s\n' "$test_drv"
@@ -361,9 +387,9 @@ install -m 0600 "$state_path" "$destination/manager-state.before.json"
 sha256sum /etc/nix/nix.conf /etc/passwd /etc/group /etc/shadow \
   >"$destination/protected-files.before.sha256"
 
-systemctl show "${protected_units[@]}" \
+systemctl show "${protected_units[@]}" "${protected_sockets[@]}" \
   -p Id -p LoadState -p ActiveState -p SubState -p FragmentPath -p MainPID \
-  -p ActiveEnterTimestampMonotonic -p NeedDaemonReload --no-pager \
+  -p ActiveEnterTimestampMonotonic -p NeedDaemonReload -p Result --no-pager \
   >"$destination/services.before.txt"
 
 {
@@ -374,6 +400,7 @@ systemctl show "${protected_units[@]}" \
   printf 'tailscale_online=%s\n' "$online"
   printf 'tailscale_want_running=%s\n' "$want_running"
   printf 'tailscale_run_ssh=%s\n' "$run_ssh"
+  printf 'nix_daemon_socket=active/%s\n' "$substate"
   printf 'seat0_can_graphical=%s\n' "$seat_can_graphical"
   printf 'seat0_active_session_present=true\n'
 } >"$destination/sanitized-health.before.txt"
@@ -396,6 +423,7 @@ snapshot_stamp="${destination##*/}"
 printf 'Snapshot created at %s\n' "$destination"
 printf '%s\n' \
   'Recorded state: exact registered/live boot-linked generation three; recovery surface absent.' \
+  'Recorded Nix runtime: daemon active and daemon socket ready.' \
   "Recorded recovery bundle: $recovery_bundle" \
   "Recorded passed test: $test_drv" \
   'It contains private host configuration and must remain mode 0700/root-owned.' \

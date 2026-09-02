@@ -40,19 +40,16 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
   activation, registration-lifecycle, first-registration, generation-switch,
   boot-persistence, and persistent first-reboot recovery container tests passed.
-  After separately
-  authorized fresh-snapshot/timed-rollback/local-console pilots, exact
-  generation three is selected, upstream-rooted, directly retained, live, and
-  linked into `default.target`; generations one/two and all three direct roots
-  remain for rollback. The live state is exactly six paths and three services,
-  and the current classifier result is
-  `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. No broader root
-  role exists. Persistent recovery passed its current exact 13-subtest,
-  two-restart disposable lifecycle, including safe same-boot cancellation.
-  Hash-pinned snapshot and live lifecycle helpers are complete, but no recovery
-  path is armed on the host and the host has not rebooted since activation. A
-  fresh snapshot, separately authorized arming, and a separately authorized
-  guarded real-host boot proof remain the next root-manager milestones.
+  The first separately authorized real reboot exercised that recovery: the
+  ten-minute deadline expired, exact no-boot generation two was restored, the
+  rollback passed verification, and its recovery surface was cleaned. Current
+  classifier result is `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`;
+  generation two is selected/upstream-rooted/live, generation three remains
+  directly rooted, and no boot or recovery edge is armed. No broader root role
+  exists. The postboot Nix gate now recognizes a cleanly idle daemon behind its
+  active socket, and `scripts/dgx-recovery` provides short commands without a
+  reboot action. A guarded no-reboot restoration of generation three is the
+  next root-manager step.
 
 ## Operating model
 
@@ -185,12 +182,13 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-System Manager generation three is already active, registered, selected,
-directly retained, and boot-linked; generations one/two and all three direct
-pilot roots remain rollback anchors. Do not rerun any spent activation,
-registration, generation-switch, or boot-persistence helper; remove a profile
-generation or root; select another generation; remove/change the boot edge; arm
-recovery; or reboot without its exact current plan and explicit authorization.
-Recovery arming and reboot are distinct approvals; the recovery helper has no
-reboot action.
+System Manager is currently exact registered/live no-boot generation two after
+the first real reboot's verified automatic rollback. All three direct pilot
+roots remain rollback/restoration anchors, the recovery surface is clean, and
+no timer is armed. Do not rerun spent activation, registration,
+generation-switch, boot-persistence, or first-reboot helpers; remove a profile
+generation/root; or reboot without the current plan. The next reviewed mutation
+is the hash-pinned no-reboot generation-three restoration; later recovery
+arming and reboot remain distinct gates, and the helpers expose no reboot
+action.
 GNOME remains the recovery desktop throughout every graphical pilot.

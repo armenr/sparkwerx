@@ -203,40 +203,43 @@ expectation declared for the local host. It emits only `INACTIVE_ABSENT`,
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`, or `DRIFT|reason`.
 Its explicit post-reboot mode may additionally emit
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED` and requires
-the reactivation-only sysinit target inactive. Do not use post-reboot mode on
-the current pre-reboot host.
-On `sparkle-01`, pass exact generation three, `registered-third-boot`, exact
-generation one as the third argument, and exact generation two as the fourth.
+the reactivation-only sysinit target inactive. Do not use post-reboot mode for
+the current rolled-back generation-two state.
+On `sparkle-01`, pass exact generation two,
+`registered-second-triple-retained`, exact generation one as the third
+argument, and exact generation three as the fourth.
 Current authority should report
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. That is the healthy,
-known retained state, not an unexpected install.
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`. That is the healthy,
+verified automatic-rollback state, not unexpected drift.
 
 While retained, do not run the inactive preflight, activation helper,
-first-registration helper, pre-switch snapshot/live helper, or boot-persistence
-snapshot/live helper. On
-`sparkle-01`, the selected profile, all three numbered generation links, the
-upstream generation-three root, all three direct pilot roots, and the exact
-managed boot edge must all remain. All six exact disposable tests and their
+first-registration helper, pre-switch snapshot/live helper, boot-persistence
+snapshot/live helper, or spent first-reboot snapshot helper. On `sparkle-01`,
+the selected profile and numbered links must be exact generation two, the
+upstream root must select generation two, all three direct pilot roots must
+remain, and the generation-three numbered link plus boot/recovery edges must be
+absent. All six exact disposable tests and their
 results are documented under `root/system-manager/validation/`. Require the
 activation, registration-lifecycle, first-registration transaction,
 generation-switch transaction, boot-persistence transaction, and persistent
 reboot-recovery transaction manifest
 results to be `passed`, each recorded/current derivation to match, and each
-host postflight to be clean. The historical live-switch milestone remains
-`generation-two-retained-after-console-confirmation`; the current
-boot-persistence status must be
-`live-generation-three-boot-linked-retained`, with current state
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED` and its dated
-generation-three host evidence. Reboot-recovery status must be
-`live-recovery-designed-host-not-armed`, its 13-subtest current derivation must
-match, and live-pilot status must be
-`repository-design-complete-host-not-armed`; the first real reboot remains
-unperformed. Recovery paths are forbidden drift in a normal audit. The
+host postflight to be clean. The historical live-switch and generation-three
+activation records remain valid history. Current boot-persistence status must
+be `first-reboot-rollback-verified-restoration-ready`, with current state
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`. Reboot-recovery status must
+be `live-recovery-operational-host-not-armed`, its 13-subtest current
+derivation must match, live-attempt status must be
+`automatic-rollback-verified-cleaned`, and restoration status must be
+`repository-ready-not-run`. Recovery paths are forbidden drift in a normal
+audit. A cleanly idle `nix-daemon.service` is healthy postboot only when the
+exact `nix-daemon.socket` is active/listening and reload-clean. The
 auditor's `verified-by-caller` mode is reserved for the hash-pinned recovery
 transaction after its own exact surface verification.
 An ordinary audit must not create a private root snapshot, rerun any spent
 wrapper, roll back or select a generation, remove a profile link or recovery
-root, remove or change the boot edge, or reboot.
+root, restore a generation, add a boot edge, or reboot. Restoration is a
+separate guarded mutation through `scripts/dgx-recovery restore`.
 
 ### NVIDIA playbooks
 

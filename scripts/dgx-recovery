@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Short, unprivileged router for the guarded recovery helpers. It never reboots
+# and never runs privileged logic itself; sudo executes either the reviewed
+# repository helper or the exact root-owned helper copied into a snapshot.
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+snapshot_root=$repo_dir/inventory/sparkle-01/raw/system-manager-reboot-recovery
+
+usage() {
+  printf '%s\n' \
+    "Usage: $(basename "$0") snapshot" \
+    "       $(basename "$0") restore" \
+    "       $(basename "$0") arm SNAPSHOT_STAMP" \
+    "       $(basename "$0") disarm-preboot SNAPSHOT_STAMP" \
+    "       $(basename "$0") status SNAPSHOT_STAMP" \
+    "       $(basename "$0") confirm SNAPSHOT_STAMP" \
+    "       $(basename "$0") verify-rolled-back SNAPSHOT_STAMP" \
+    "       $(basename "$0") cleanup-rolled-back SNAPSHOT_STAMP" >&2
+}
+
+die() {
+  printf 'FAIL|%s\n' "$1" >&2
+  exit 1
+}
+
+[[ "$EUID" -ne 0 ]] ||
+  die "run this router without sudo; it invokes sudo only for the exact helper"
+[[ -x /usr/bin/sudo ]] || die '/usr/bin/sudo is unavailable'
+
+action="${1:-}"
+if [[ "$action" == restore ]]; then
+  [[ "$#" -eq 1 ]] || {
+    usage
+    exit 2
+  }
+  exec /usr/bin/sudo -- "$repo_dir/scripts/root-recovery-restore-generation-three.sh"
+fi
+if [[ "$action" == snapshot ]]; then
+  [[ "$#" -eq 1 ]] || {
+    usage
+    exit 2
+  }
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  destination=$snapshot_root/$stamp
+  exec /usr/bin/sudo -- "$repo_dir/scripts/snapshot-root-reboot-recovery.sh" "$destination"
+fi
+
+case "$action" in
+  arm | disarm-preboot | status | confirm | verify-rolled-back | cleanup-rolled-back)
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+[[ "$#" -eq 2 ]] || {
+  usage
+  exit 2
+}
+stamp="$2"
+[[ "$stamp" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] ||
+  die 'snapshot stamp must have exact UTC form YYYYMMDDTHHMMSSZ'
+snapshot=$snapshot_root/$stamp
+
+if [[ "$action" == arm ]]; then
+  program=$repo_dir/scripts/root-reboot-recovery-pilot.sh
+else
+  program=$snapshot/root-reboot-recovery-pilot.sh
+fi
+
+exec /usr/bin/sudo -- "$program" "$action" "$snapshot"

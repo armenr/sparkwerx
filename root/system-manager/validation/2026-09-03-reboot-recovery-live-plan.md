@@ -1,5 +1,11 @@
 # System Manager first-reboot live recovery plan — 2026-09-03
 
+> Historical execution plan. The separately authorized reboot was performed,
+> its confirmation deadline expired, automatic generation-two rollback passed,
+> and exact verification/cleanup completed. Current authority is the
+> [host attempt record](2026-09-03-reboot-recovery-host-attempt-1.md). The plan
+> below preserves the pre-execution gates and exact inputs.
+
 ## Status and authorization boundary
 
 **REPOSITORY DESIGN, HASH PINNING, AND DISPOSABLE PROOF COMPLETE. HOST RECOVERY

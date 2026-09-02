@@ -163,18 +163,26 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   armed generation-two rollback, repeated postflight, and exact
   `KEEP GENERATION THREE`. It retained exact registered/live boot-linked
   generation three while preserving all earlier generations and roots. The
-  transient rollback was disarmed before its service ran. No host reboot
-  occurred, so the first real reboot remains a separate persistent-recovery
-  milestone;
+  transient rollback was disarmed before its service ran. That activation
+  record is now historical authority;
 - the current persistent first-reboot recovery bundle and transaction passed a
   distinct 13-subtest/two-restart disposable lifecycle. It proved boot-ID
   gating, collision preservation, partial-failure cleanup, exact same-boot
   cancellation and re-arming, automatic generation-two rollback, confirmed
   generation-three retention, and exact cleanup. Hash-pinned live snapshot,
   arm, same-boot disarm, status, post-boot confirmation, rollback-verification,
-  and cleanup helpers are complete and deliberately have no reboot action. The
-  host recovery surface remains absent and unarmed; arming and the actual reboot
-  remain separately gated;
+  and cleanup helpers are complete and deliberately have no reboot action;
+- the separately authorized first real reboot used snapshot
+  `20260902T204546Z`. The ten-minute deadline expired before valid
+  confirmation, automatic rollback restored exact registered/live no-boot
+  generation two, verification passed, and exact cleanup removed the recovery
+  surface. Current class is
+  `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`; all three direct roots
+  remain and no boot/recovery edge or timer exists. Postboot checks must accept
+  a cleanly idle `nix-daemon.service` behind active `nix-daemon.socket` while
+  preserving strict same-boot process continuity. `scripts/dgx-recovery`
+  supplies the short no-reboot operator path, and guarded generation-three
+  restoration is next;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -213,22 +221,21 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
 - The exact System Manager container tests and retained host canary passed.
-  Preserve exact live generation three, all three numbered profile links, the
-  upstream generation-three root, all three direct pilot roots, the
-  six-path/three-service activation surface, and the one exact boot edge.
-  Snapshot `20260902T110421Z` and every earlier live snapshot are spent; do not
-  rerun their wrappers. Read the boot-persistence transaction plan, exact test
-  record, guarded live plan, and retained host record before touching this
-  state. The exact persistent recovery lifecycle and live-helper design passed
-  review, but no host recovery is armed and the first real reboot remains
-  untested. Fresh snapshot-bound arming and reboot need separate authorization.
-  Rollback, cleanup, generation
-  selection/removal, and pilot-root retirement also require separate authority.
+  Preserve exact live generation two, its two numbered profile links, the
+  upstream generation-two root, all three direct pilot roots, the original
+  five-path/three-service activation surface, and absent boot/recovery edges.
+  Snapshots `20260902T110421Z`, `20260902T204546Z`, and every earlier live
+  snapshot are spent; do not rerun their wrappers. Read the boot-persistence
+  records and first-reboot result before touching this state. The persistent
+  recovery mechanism passed on the real host and is now clean/unarmed. Use only
+  the hash-pinned transiently guarded restoration path to return generation
+  three. Later arming, reboot, rollback, generation selection/removal, and
+  pilot-root retirement require separate authority.
   Never let it own host Nix, users, wrappers, global PATH, any additional boot
   link, or factory services, or process global factory tmpfiles rules when its
   managed set is empty; preserve the exact-version patch, regression sentinel,
   current-test match, exact registration links, all three current retention
-  roots, and the exact single boot edge.
+  roots, and the single-boot-edge maximum.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

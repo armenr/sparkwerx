@@ -399,26 +399,24 @@ selected/upstream-rooted/live; the version-1 state is six paths/three services;
 and protected services, GPU, and Tailscale SSH are healthy. Snapshot
 `20260902T110421Z` is spent.
 
-Live activation and the first real reboot remain two distinct gates. The live
-activation is complete, but its rollback timer was transient under `/run` and
-could not protect a reboot or sudden power loss. A separate persistent recovery
-bundle has now passed its current exact 13-subtest/two-restart disposable
-lifecycle, including exact same-boot cancellation, automatic rollback, and
-confirmed retention. Hash-pinned live snapshot and lifecycle helpers are
-complete; they expose arming, same-boot disarm, status, postboot confirmation,
-rollback verification, and exact cleanup but deliberately no reboot action. No
-host recovery path is armed and no reboot occurred. A fresh snapshot, console
-check, snapshot-bound recovery-arming authorization, and separate reboot
-authorization are still required. See the
+Live activation and the first real reboot were distinct gates. After the live
+activation, the separately authorized persistent recovery survived the first
+real reboot. The ten-minute confirmation deadline expired, so automatic
+rollback restored exact registered/live no-boot generation two; subsequent
+snapshot-bound verification and exact recovery cleanup passed. All three
+direct pilot roots remain, the recovery surface and boot edge are absent, and
+no timer is armed. The postboot health gate now recognizes Nix's normal idle
+daemon behind its active socket, and a short operator router removes fragile
+private-snapshot paths while still exposing no reboot action. See the
 [guarded live activation plan](../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
 The recovery design and exact result are in the
 [persistent recovery plan](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md)
 and
 [container-test result](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
-The unarmed host lifecycle is in the
+The original live sequence is in the
 [live recovery plan](../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md).
 The current host authority is the
-[retained generation-three record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md).
+[first real reboot record](../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md).
 
 ### D-015: one declarative fresh-host workflow
 
@@ -457,15 +455,13 @@ the unified bootstrap/plan/apply implementation remains OPEN.
 
 ## Open decisions
 
-- Generation three is retained, registered, selected, live, and declaratively
-  boot-linked; generations one/two and all three direct roots remain rollback
-  anchors. Persistent recovery and its live wrappers are designed and
-  disposable-tested, but the host is unarmed and the first real host reboot is
-  not yet tested or authorized. Recovery arming, reboot, postboot retention or
-  rollback cleanup, generation or pilot-root retirement, and the first real
-  managed service remain separate decisions. Do not conflate the container
-  restart proof, live boot-edge activation, or recovery arming with permission
-  to reboot `sparkle-01`.
+- The first real host reboot and automatic recovery rollback are proven.
+  Generation two is now selected/upstream-rooted/live with no boot edge;
+  generation three is directly retained, and all three pilot roots remain.
+  Exact recovery cleanup passed and no timer is armed. Guarded no-reboot
+  restoration of generation three is next. Any later recovery arming, reboot,
+  generation/pilot-root retirement, or first real managed service remains a
+  separate decision.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

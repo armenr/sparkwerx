@@ -109,18 +109,20 @@ record under `/var/lib/system-manager/state`; registration/profile roots are a
 separate action, and low-level activation does not otherwise retain its store
 closure. The pilot therefore keeps the direct root
 `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
-currently active as registered generation three with the upstream extra root.
-Generations one and two remain registered and directly retained; all three
-pilot roots remain recovery anchors. Its six disposable tests and guarded live
-activation, registration, generation-switch, and boot-link milestones passed.
+currently active as registered no-boot generation two with the upstream extra
+root after the first real reboot's verified automatic rollback. Generations
+one and two remain registered; all three candidates remain directly retained
+by their pilot roots. Its six disposable tests and guarded live activation,
+registration, generation-switch, boot-link, and first-reboot milestones passed.
 Generation three differs from generation two only by its marker and one
 declarative `default.target` edge; its activation used a fresh private snapshot,
 protected-process continuity, an armed ten-minute rollback, repeated
- postflight, and local-console confirmation. No broader role exists. The host
- has not rebooted since this change. Its persistent recovery transaction now
- passes 13 disposable subtests across two restarts, including exact same-boot
- cancellation; hash-pinned live lifecycle helpers are complete but the host is
- still unarmed. Recovery arming and the real reboot remain separate gates.
+postflight, and local-console confirmation. No broader role exists. Persistent
+recovery then survived a real host reboot and restored exact generation two
+when the confirmation deadline expired; verification and exact cleanup
+passed. Hash-pinned lifecycle helpers now accept Nix's normal postboot
+socket-idle state, and a short operator router avoids long private paths. The
+host is unarmed, and guarded no-reboot generation-three restoration is next.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
@@ -185,18 +187,16 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The bounded System Manager canary is active as exact generation three, selected
-and retained by its profile, upstream root, and generation-three pilot root.
-Exact generations one/two and their pilot roots remain retained for rollback.
-It owns exactly one declarative boot edge beyond the original five-path
-surface. The reviewed transaction and separately authorized live pilot both
-passed; their spent snapshot grants no authority for a rerun, rollback,
-cleanup, or reboot. The persistent recovery transaction has separately passed
-its current 13-subtest/two-restart disposable lifecycle. Hash-pinned snapshot
-and live lifecycle helpers are complete and deliberately contain no reboot
-action, but no recovery path is installed or armed on the host. Fresh
-snapshot-bound arming and a real host reboot remain unperformed and separately
-gated.
+The bounded System Manager canary is active as exact registered/live no-boot
+generation two after the first real reboot's persistent deadline correctly
+rolled generation three back. Generations one and two remain registered; all
+three exact candidates remain directly rooted. The boot edge and recovery
+surface are absent, no countdown is active, and the classifier is
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`. The reviewed transaction,
+live pilots, disposable recovery lifecycle, real reboot rollback,
+snapshot-bound verification, and exact cleanup all passed. Updated hash-pinned
+helpers deliberately contain no reboot action. The next narrow mutation is a
+timed, local-console-confirmed, no-reboot restoration of generation three.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to

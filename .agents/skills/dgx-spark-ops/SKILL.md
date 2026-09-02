@@ -137,26 +137,27 @@ as the generation-two milestone authority. Later on 2026-09-02, the separately
 authorized boot-persistence pilot retained generation three after repeated
 postflight and local-console confirmation. Read
 `../../../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md`
-as the current full live-state authority. The inactive preflight/activation,
+as historical generation-three authority. The separately authorized first real
+reboot later reached its persistent deadline, automatically restored exact
+generation two, passed snapshot-bound rollback verification, and cleaned its
+recovery surface. Read
+`../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md`
+as current full live-state authority. The inactive preflight/activation,
 absent-prestate first-registration, pre-switch, and boot-persistence
 snapshot/wrapper helpers are now all inapplicable; do not run them and
-misclassify their expected refusal as drift. Audit the active
-six-path/three-service boundary, all four profile links, the upstream root, all
-three pilot roots, and the one exact boot edge directly. Keep first reboot,
-rollback, deactivation, generation cleanup, pilot-root retirement, and broader
-ownership behind separate plans and authorization.
+misclassify their expected refusal as drift. Audit the active original
+five-path/three-service boundary, the selected generation-two profile and its
+two numbered links, upstream generation-two root, all three pilot roots, and
+absent boot/recovery edges directly. Keep restoration, another reboot,
+deactivation, generation cleanup, pilot-root retirement, and broader ownership
+behind separate plans and authorization.
 
 Use `../../../scripts/audit-root-canary-state.sh` with the exact evaluated
-generation-three candidate, the `registered-third-boot` expectation, exact
-generation one as the third argument, and exact generation two as the fourth.
-The expected current result is
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; any `DRIFT|...`
-result is a stop condition. After a separately authorized rollback to
-generation two that deliberately retains all three direct roots, use
-`registered-second-triple-retained` and require
-`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`; that is a transition class,
-not the current host state. For generation switching, registration rollback,
-or later-generation work, also read the
+generation-two candidate, `registered-second-triple-retained`, exact
+generation one as the third argument, and exact generation three as the
+fourth. Require `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`; any
+`DRIFT|...` result is a stop condition. For restoration, generation switching,
+registration rollback, or later-generation work, also read the
 [registration lifecycle plan](../../../root/system-manager/validation/2026-09-01-registration-test-plan.md).
 The plan's `sudo ./scripts/test-root-registration.sh` command is a distinct
 root-assisted disposable-container gate. Its exact derivation passed on
@@ -245,8 +246,8 @@ invoke rollback, select or remove a generation, or remove either pilot root
 without a new exact plan and authorization. Rollback keeps both pilot roots;
 never remove the generation-two root as incidental cleanup.
 
-The current live candidate is exact generation three, which inherits
-generation two and adds only `boot-persistence-generation=3` plus the declarative
+Exact generation three inherits generation two and adds only
+`boot-persistence-generation=3` plus the declarative
 `default.target.wants/system-manager.target` edge. Before touching
 `dgx.root.bootPersistence`, `rootCanaryBootPersistenceGeneration`,
 `scripts/root-boot-persistence-transaction.sh`,
@@ -257,7 +258,7 @@ and exact
 [container-test result](../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md).
 Also read the
 [guarded live activation plan](../../../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
-The current retained-state authority is the
+The historical retained generation-three authority is the
 [host attempt record](../../../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md).
 Its 13-subtest/two-restart disposable derivation passed with a hash-valid output
 and clean host postflight. Require the manifest's boot-persistence test
@@ -266,18 +267,16 @@ and clean host postflight. Require the manifest's boot-persistence test
 derivation invalidates that evidence.
 
 That PASS authorized the live-wrapper design, not the later host action. Armen
-separately authorized snapshot `20260902T110421Z`; exact generation three is now
+separately authorized snapshot `20260902T110421Z`; exact generation three was
 registered, selected, upstream-rooted, directly rooted, live, and boot-linked,
-with generations one/two and all three direct roots retained. Require manifest
-status `live-generation-three-boot-linked-retained` and current classifier
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. The snapshot is
-spent. Do not rerun either live helper, recreate the activation timer, or infer
-rollback/reboot/cleanup authority from the completed activation.
+with generations one/two and all three direct roots retained. That snapshot is
+spent. The later real-reboot recovery attempt supersedes it as current-state
+authority. Do not rerun either activation helper or recreate its timer.
 
-Live generation-three activation and the first real reboot are distinct gates.
-Activation is complete, and the persistent recovery lifecycle has now passed
-its current exact 13-subtest/two-restart disposable test, including exact
-same-boot cancellation and re-arming. Before touching
+Live generation-three activation and the first real reboot were distinct
+gates. The persistent recovery lifecycle passed its exact
+13-subtest/two-restart disposable test, including same-boot cancellation and
+re-arming. Before touching
 `scripts/root-reboot-recovery-transaction.sh`,
 `scripts/audit-root-canary-state.sh`,
 `root/system-manager/reboot-recovery-transaction-test.nix`, or the recovery
@@ -287,9 +286,12 @@ and exact
 [test result](../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
 Also read the
 [live lifecycle plan](../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md)
-before touching `scripts/snapshot-root-reboot-recovery.sh` or
-`scripts/root-reboot-recovery-pilot.sh`. Require manifest recovery status
-`live-recovery-designed-host-not-armed`, live-pilot status
+and the current
+[first real reboot result](../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md)
+before touching `scripts/snapshot-root-reboot-recovery.sh`,
+`scripts/root-reboot-recovery-pilot.sh`, `scripts/dgx-recovery`, or
+`scripts/root-recovery-restore-generation-three.sh`. Require manifest recovery
+status `live-recovery-operational-host-not-armed`, live-pilot status
 `repository-design-complete-host-not-armed`, test `result == "passed"`,
 `matchesCurrent == true`, `subtestCount == 13`, same-boot-disarm proof, exact
 helper hashes, and clean host postflight.
@@ -304,19 +306,34 @@ recovery transaction may request the auditor's explicit
 `verified-by-caller` exception after it independently verifies the complete
 recovery surface.
 
-No host recovery path is installed or armed and no real reboot occurred. The
-hash-pinned snapshot and live wrapper now expose only `arm`,
-`disarm-preboot`, `status`, `confirm`, `verify-rolled-back`, and
-`cleanup-rolled-back`; they deliberately contain no reboot action. Snapshot
-creation, arming, and reboot are separate boundaries. Arming requires a fresh
-root-owned snapshot from a clean commit, independent local-console verification,
-and authorization naming that snapshot. A successful arm still authorizes no
-reboot. If the window is canceled on the original boot, exact
-`DISARM PREBOOT RECOVERY` removes the recovery surface while preserving
-generation three. The actual reboot requires a second explicit authorization.
-Never run the disposable helper during an ordinary audit, invoke the bare
-bundle on the host, infer arming or reboot authority from the PASS, reuse a
-spent snapshot, or treat the live boot edge as real-host post-reboot proof.
+The separately authorized first real reboot used snapshot
+`20260902T204546Z`. Its ten-minute deadline expired before a valid confirmation,
+automatic rollback restored exact generation two, snapshot-bound verification
+passed, and exact cleanup removed the recovery surface. Current classifier is
+`ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`: generations one/two are
+registered, generation two is selected/upstream-rooted/live, generation three
+is directly retained, and the boot/recovery edges are absent. No timer is
+armed. Require manifest boot status
+`first-reboot-rollback-verified-restoration-ready`, the same current state,
+live-attempt status `automatic-rollback-verified-cleaned`, and restoration
+status `repository-ready-not-run` until restoration succeeds.
+
+After a clean boot, `nix-daemon.service` may legitimately be inactive/dead
+while the unchanged `nix-daemon.socket` is active/listening. Accept that exact
+socket-activated postboot state; do not treat it as Nix failure or start the
+daemon merely to satisfy an audit. Same-boot process continuity remains strict.
+
+`scripts/dgx-recovery` is the short unprivileged operator route. It exposes
+`snapshot`, `restore`, `arm`, `disarm-preboot`, `status`, `confirm`,
+`verify-rolled-back`, and `cleanup-rolled-back`; neither it nor the underlying
+helpers exposes a reboot action. Postboot actions invoke the exact root-owned
+snapshot copy. The next mutation is `./scripts/dgx-recovery restore`, which
+requires the exact current rollback state, creates a new private snapshot,
+arms a transient ten-minute generation-two rollback, performs no reboot,
+preserves all three direct roots, and requires exact `RESTORE GENERATION THREE`
+then `KEEP RESTORED GENERATION THREE` after local-console checks. Never invoke
+the bare transaction, reuse a spent snapshot, remove a root, or infer later
+arming/reboot authority from restoration.
 
 The current disposable rerun initially refused a legitimate pending systemd
 unit-graph reload caused by the completed factory Thunderbird Snap revision
@@ -438,12 +455,13 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   confirmation, repeated postflight, and no-boot/no-broader-ownership boundary.
   The spent snapshot grants no authority for a rerun, rollback, cleanup, or
   reboot. The later generation-three pilot completed from snapshot
-  `20260902T110421Z`; its host record is current authority. Preserve its exact
-  six-path/three-service state, one boot edge, all three generations/roots,
-  repeated postflight, and exact confirmation. That snapshot is also spent.
-  Persistent recovery and its live lifecycle wrappers are now exact and
-  disposable-tested, but the host is unarmed. The first host reboot is untested
-  and separately gated from both snapshot creation and recovery arming.
+  `20260902T110421Z`; its host record is historical authority and its snapshot
+  is spent. Persistent recovery then ran from snapshot `20260902T204546Z` on
+  the separately authorized first real reboot. Its deadline expired,
+  automatic rollback restored generation two, and verification/cleanup passed.
+  The first-reboot record is current authority. Preserve exact generation two,
+  all three direct roots, absent boot/recovery edges, the Nix socket-idle
+  lesson, and the guarded no-reboot restoration boundary.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

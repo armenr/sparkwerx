@@ -51,18 +51,19 @@ live wrapper, roll back or select a generation, or remove any retained root.
 ```
 
 ```text
-$dgx-spark-ops Audit the current System Manager generation-three state
-read-only. Require exact classifier
-ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED, all three numbered
-generations and direct pilot roots, upstream generation-three root, exact
-six-path/three-service state, one boot edge, unloaded rollback units, healthy
-protected services/GPU/sanitized Tailscale SSH, and no broader ownership. Treat
-the first real reboot as unperformed. Require persistent recovery manifest
-status live-recovery-designed-host-not-armed, live-pilot status
-repository-design-complete-host-not-armed, matching 13-subtest test output,
-absent recovery paths, and unloaded recovery units. Do not create a snapshot,
-invoke the bare recovery bundle, rerun a spent wrapper, arm, reboot, roll back,
-or clean up a generation/root.
+$dgx-spark-ops Audit the current System Manager post-recovery state read-only.
+Require exact classifier ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED,
+generation-one/two numbered links, selected/upstream-rooted/live generation
+two, all three direct pilot roots, absent generation-three numbered link and
+boot/recovery edges, unloaded recovery units, healthy protected
+services/GPU/sanitized Tailscale SSH, and no broader ownership. Accept a
+cleanly idle nix-daemon.service only behind exact active/listening
+nix-daemon.socket. Require recovery status
+live-recovery-operational-host-not-armed, live-attempt status
+automatic-rollback-verified-cleaned, restoration status
+repository-ready-not-run, and matching 13-subtest evidence. Do not create a
+snapshot, invoke a bare transaction, rerun a spent wrapper, restore, arm,
+reboot, or remove a generation/root.
 ```
 
 ```text

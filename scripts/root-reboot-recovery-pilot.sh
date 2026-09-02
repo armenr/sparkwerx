@@ -8,6 +8,7 @@ set -euo pipefail
 repo_dir=/home/n0b0dy/Development/DGX-setup
 repo_source=$repo_dir/scripts/root-reboot-recovery-pilot.sh
 snapshot_source=$repo_dir/scripts/snapshot-root-reboot-recovery.sh
+operator_source=$repo_dir/scripts/dgx-recovery
 property_parser_source=$repo_dir/scripts/systemd-snapshot-property.sh
 property_parser_test=$repo_dir/scripts/test-systemd-snapshot-property.sh
 generation_one=/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
@@ -164,7 +165,8 @@ assert_snapshot_fresh() {
 }
 
 assert_snapshot() {
-  local self_sha snapshot_helper_sha pilot_sha parser_sha parser_test_sha
+  local self_sha snapshot_helper_sha pilot_sha operator_sha parser_sha
+  local parser_test_sha
   local -a expected_files observed_files
 
   expected_files=(
@@ -198,7 +200,7 @@ assert_snapshot() {
   ) || die 'snapshot checksum verification failed'
 
   for exact_record in \
-    schema=1 \
+    schema=2 \
     purpose=system-manager-first-reboot-recovery \
     host=sparkle-01 \
     repo_dir="$repo_dir" \
@@ -222,6 +224,7 @@ assert_snapshot() {
 
   snapshot_helper_sha="$(context_value snapshot_program_sha256)"
   pilot_sha="$(context_value pilot_program_sha256)"
+  operator_sha="$(context_value operator_program_sha256)"
   parser_sha="$(context_value property_parser_sha256)"
   parser_test_sha="$(context_value property_parser_test_sha256)"
   [[ -n "$snapshot_helper_sha" &&
@@ -233,6 +236,8 @@ assert_snapshot() {
   self_sha="$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')"
   [[ "$self_sha" == "$pilot_sha" ]] ||
     die 'running recovery pilot differs from the snapshot-bound program'
+  [[ "$operator_sha" =~ ^[0-9a-f]{64}$ ]] ||
+    die 'snapshot operator-program checksum is malformed'
   [[ -n "$parser_sha" &&
     "$parser_sha" == "$(sha256sum "$snapshot/systemd-snapshot-property.sh" | awk '{print $1}')" ]] ||
     die 'snapshotted systemd parser differs from its recorded checksum'
@@ -281,7 +286,7 @@ assert_repo_arm_evidence() {
   local current_commit current_status current_policy_drv manifest_json
   local current_generation_one current_generation_two current_generation_three
   local current_bundle current_test_drv current_test_output
-  local snapshot_sha pilot_sha parser_sha parser_test_sha
+  local snapshot_sha pilot_sha operator_sha parser_sha parser_test_sha
 
   [[ "$(readlink -f -- "${BASH_SOURCE[0]}")" == "$repo_source" ]] ||
     die 'run arm from the exact repository pilot, not the snapshotted postboot copy'
@@ -311,10 +316,12 @@ assert_repo_arm_evidence() {
 
   snapshot_sha="$(sha256sum "$snapshot_source" | awk '{print $1}')"
   pilot_sha="$(sha256sum "$repo_source" | awk '{print $1}')"
+  operator_sha="$(sha256sum "$operator_source" | awk '{print $1}')"
   parser_sha="$(sha256sum "$property_parser_source" | awk '{print $1}')"
   parser_test_sha="$(sha256sum "$property_parser_test" | awk '{print $1}')"
   [[ "$snapshot_sha" == "$(context_value snapshot_program_sha256)" &&
     "$pilot_sha" == "$(context_value pilot_program_sha256)" &&
+    "$operator_sha" == "$(context_value operator_program_sha256)" &&
     "$parser_sha" == "$(context_value property_parser_sha256)" &&
     "$parser_test_sha" == "$(context_value property_parser_test_sha256)" ]] ||
     die 'repository helper changed after the snapshot'
@@ -324,10 +331,11 @@ assert_repo_arm_evidence() {
   manifest_json="$($nix_bin --extra-experimental-features 'nix-command flakes' eval --json --no-write-lock-file .#lib.dgxRootManagerManifest.aarch64-linux)"
   jq -e \
     --arg snapshot_sha "$snapshot_sha" --arg pilot_sha "$pilot_sha" \
+    --arg operator_sha "$operator_sha" \
     --arg parser_sha "$parser_sha" --arg parser_test_sha "$parser_test_sha" '
       .bootPersistence.status == "live-generation-three-boot-linked-retained" and
       .bootPersistence.rebootRecovery.status ==
-        "live-recovery-designed-host-not-armed" and
+        "live-recovery-operational-host-not-armed" and
       .bootPersistence.rebootRecovery.isolatedTransactionTest.result == "passed" and
       .bootPersistence.rebootRecovery.isolatedTransactionTest.matchesCurrent == true and
       .bootPersistence.rebootRecovery.livePilot.status ==
@@ -336,12 +344,16 @@ assert_repo_arm_evidence() {
         $snapshot_sha and
       .bootPersistence.rebootRecovery.livePilot.pilotProgram.sha256 ==
         $pilot_sha and
+      .bootPersistence.rebootRecovery.livePilot.operatorProgram.sha256 ==
+        $operator_sha and
+      .bootPersistence.rebootRecovery.livePilot.operatorProgram.performsReboot ==
+        false and
       .bootPersistence.rebootRecovery.livePilot.systemdSnapshotPropertyProgram.sha256 ==
         $parser_sha and
       .bootPersistence.rebootRecovery.livePilot.systemdSnapshotPropertyTest.sha256 ==
         $parser_test_sha and
       .bootPersistence.rebootRecovery.livePilot.hostRecoveryArmed == false and
-      .bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == false
+      .bootPersistence.rebootRecovery.livePilot.hostRebootPerformed == true
     ' >/dev/null <<<"$manifest_json" ||
     die 'current manifest no longer matches the exact unarmed recovery design'
   pass repository 'clean commit, helper hashes, manifest, policy, and passed recovery test remain exact'
@@ -369,7 +381,29 @@ assert_protected_units() {
   local mode="$1" unit before_load current_load before_active current_active
   local before_fragment current_fragment before_reload current_reload
   local before_substate current_substate before_pid current_pid
-  local before_started current_started
+  local before_started current_started current_result
+  local socket_fallback=false
+
+  before_load="$(snapshot_property nix-daemon.socket LoadState)"
+  current_load="$(systemctl show nix-daemon.socket -p LoadState --value 2>/dev/null || true)"
+  before_active="$(snapshot_property nix-daemon.socket ActiveState)"
+  current_active="$(systemctl show nix-daemon.socket -p ActiveState --value 2>/dev/null || true)"
+  before_fragment="$(snapshot_property nix-daemon.socket FragmentPath)"
+  current_fragment="$(systemctl show nix-daemon.socket -p FragmentPath --value 2>/dev/null || true)"
+  before_reload="$(snapshot_property nix-daemon.socket NeedDaemonReload)"
+  current_reload="$(systemctl show nix-daemon.socket -p NeedDaemonReload --value 2>/dev/null || true)"
+  current_substate="$(systemctl show nix-daemon.socket -p SubState --value 2>/dev/null || true)"
+  current_result="$(systemctl show nix-daemon.socket -p Result --value 2>/dev/null || true)"
+  [[ "$before_load" == loaded && "$current_load" == loaded &&
+    "$before_active" == active && "$current_active" == active ]] ||
+    die 'nix-daemon.socket is not loaded and active as required'
+  [[ -n "$before_fragment" && "$current_fragment" == "$before_fragment" ]] ||
+    die 'nix-daemon.socket changed FragmentPath'
+  [[ "$before_reload" == no && "$current_reload" == no ]] ||
+    die 'nix-daemon.socket has a pending daemon reload'
+  [[ ("$current_substate" == listening || "$current_substate" == running) &&
+    "$current_result" == success ]] ||
+    die 'nix-daemon.socket is not ready'
 
   for unit in "${protected_units[@]}"; do
     before_load="$(snapshot_property "$unit" LoadState)"
@@ -380,20 +414,31 @@ assert_protected_units() {
     current_fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
     before_reload="$(snapshot_property "$unit" NeedDaemonReload)"
     current_reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    current_substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
     current_pid="$(systemctl show "$unit" -p MainPID --value 2>/dev/null || true)"
     current_started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value 2>/dev/null || true)"
+    current_result="$(systemctl show "$unit" -p Result --value 2>/dev/null || true)"
     [[ "$before_load" == loaded && "$current_load" == loaded &&
-      "$before_active" == active && "$current_active" == active ]] ||
-      die "$unit is not loaded and active as required"
+      "$before_active" == active ]] ||
+      die "$unit was not snapshotted active or is no longer loaded"
     [[ -n "$before_fragment" && "$current_fragment" == "$before_fragment" ]] ||
       die "$unit changed FragmentPath"
     [[ "$before_reload" == no && "$current_reload" == no ]] ||
       die "$unit has a pending daemon reload"
+    if [[ "$mode" == postboot && "$unit" == nix-daemon.service &&
+      "$current_active" == inactive ]]; then
+      [[ "$current_substate" == dead && "$current_pid" == 0 &&
+        "$current_result" == success ]] ||
+        die 'idle nix-daemon.service is not cleanly socket-activatable'
+      socket_fallback=true
+      continue
+    fi
+    [[ "$current_active" == active ]] ||
+      die "$unit is not active as required"
     [[ "$current_pid" =~ ^[1-9][0-9]*$ && "$current_started" =~ ^[1-9][0-9]*$ ]] ||
       die "$unit lacks a live process/start timestamp"
     if [[ "$mode" == same-boot ]]; then
       before_substate="$(snapshot_property "$unit" SubState)"
-      current_substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
       before_pid="$(snapshot_property "$unit" MainPID)"
       before_started="$(snapshot_property "$unit" ActiveEnterTimestampMonotonic)"
       [[ -n "$before_substate" && "$current_substate" == "$before_substate" ]] ||
@@ -403,7 +448,11 @@ assert_protected_units() {
         die "$unit changed active-enter timestamp before arming"
     fi
   done
-  pass protected_units "all seven factory/access services satisfy $mode continuity"
+  if [[ "$socket_fallback" == true ]]; then
+    pass protected_units "all seven factory/access services satisfy $mode continuity; Nix daemon is cleanly idle behind its active socket"
+  else
+    pass protected_units "all seven factory/access services and the Nix daemon socket satisfy $mode continuity"
+  fi
 }
 
 assert_health() {
