@@ -39,6 +39,7 @@ reboot or broader root role has occurred.
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
+| Persistent first-reboot recovery test | **PASS** for exact 12-subtest/two-restart lifecycle; host recovery remains unarmed |
 | Host registration | Exact generations one, two, and three retained; generation three selected and upstream-rooted |
 | Host activation | Exact generation-three canary active and declaratively boot-linked after guarded live activation; first host reboot not performed |
 | Rollback anchors | All three exact direct pilot roots remain; generation two is the reviewed no-boot rollback state |
@@ -427,9 +428,58 @@ remained healthy. See the
 
 The activation timer was transient and no host reboot occurred. Snapshot
 `20260902T110421Z` is spent; do not rerun either helper against this post-state.
-A first real reboot still requires a persistent recovery design, fresh
-snapshot, physical-console availability, post-boot classification, and
-separate explicit authorization.
+
+## Persistent first-reboot recovery: disposable lifecycle passed
+
+The repository now builds an exact temporary recovery bundle for the first real
+generation-three reboot. `arm` creates one direct bundle GC root, one private
+state file recording the arming boot ID and exact candidates, an exact service
+and timer pair, and one `timers.target.wants` edge. It enables but does not start
+the timer in the current boot. On the next boot, the production timer waits ten
+minutes for exact `KEEP REBOOTED GENERATION THREE`; otherwise it invokes the
+tested rollback to exact registered/live no-boot generation two. Rollback
+evidence remains until exact `CLEAN ROLLED BACK REBOOT RECOVERY` cleanup.
+
+The transaction refuses to roll back or confirm until the kernel boot ID
+changes. It preserves foreign collisions, owns only exact symlinks and a
+root-owned mode-`0600` state file, and cleans only its own partial work. The
+bundle pins the three candidates, the reviewed boot transaction, the recovery
+transaction, and a reviewed state auditor. Ordinary tools come from Nix, while
+host service control deliberately uses the factory systemd implementation.
+
+The exact lifecycle derivation
+`/nix/store/1jidbq39jy4xqngsybdla16535wwm6dl-container-test-dgx-root-canary-reboot-recovery-transaction.drv`
+**passed** on 2026-09-02. Its output is
+`/nix/store/x147g1l7haxqhvrwpvhpajwiiphmal70-container-test-dgx-root-canary-reboot-recovery-transaction`,
+with hash
+`sha256:122gr5rhzqicxm8ndgbd3vpkjsgrybg75a2y6ni459ajm4p5jg05`. All 12 subtests
+passed, including three injected partial failures, same-boot refusal, one
+restart with automatic rollback, exact rollback-evidence cleanup, a second
+restart with confirmed retention, and final empty manager cleanup.
+
+The test also made the runtime distinction explicit: immediately after
+activation, all three managed units are active; after a clean boot,
+`system-manager.target` and `dgx-setup-canary.service` are active while the
+reactivation-only `sysinit-reactivation.target` is inactive. The hash-pinned
+auditor exposes a `postboot` mode for that exact state and emits
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED`. Its normal
+activation-time behavior is unchanged. Recovery paths remain drift unless the
+already-verified recovery transaction explicitly invokes the auditor with its
+caller-verification mode.
+
+Read the
+[recovery transaction plan](validation/2026-09-02-reboot-recovery-transaction-plan.md)
+and exact
+[container-test result](validation/2026-09-02-reboot-recovery-transaction-container-test.md)
+before touching the bundle, auditor, transaction, or test. The host postflight
+remained exact pre-reboot generation three, with both recovery units `not-found`
+and all recovery paths absent.
+
+This PASS authorizes no host arming and no reboot. Hash-pinned host snapshot,
+arm, post-boot confirmation, rollback-verification, and cleanup helpers still
+need to be built and reviewed. Their future arming action requires a fresh
+private snapshot plus explicit authorization. The actual reboot is a second,
+separate authorization and must never be inferred from successful arming.
 
 ## Defaults we rejected
 

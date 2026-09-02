@@ -5,6 +5,8 @@ candidate="${1:-}"
 registration_mode="${2:-unregistered}"
 other_candidate="${3:-}"
 middle_candidate="${4:-}"
+runtime_mode="${5:-activation}"
+recovery_mode="${6:-absent}"
 state_path=/var/lib/system-manager/state/system-manager-state.json
 profile_dir=/nix/var/nix/profiles/system-manager-profiles
 profile_path=$profile_dir/system-manager
@@ -26,6 +28,30 @@ case "$registration_mode" in
     ;;
 esac
 
+case "$runtime_mode" in
+  activation | postboot)
+    ;;
+  *)
+    printf 'DRIFT|unknown runtime mode: %s\n' "$runtime_mode"
+    exit 1
+    ;;
+esac
+
+case "$recovery_mode" in
+  absent | verified-by-caller)
+    ;;
+  *)
+    printf 'DRIFT|unknown recovery mode: %s\n' "$recovery_mode"
+    exit 1
+    ;;
+esac
+
+if [[ "$runtime_mode" == postboot &&
+      "$registration_mode" != registered-third-boot ]]; then
+  printf 'DRIFT|postboot runtime mode requires registered-third-boot\n'
+  exit 1
+fi
+
 managed_paths=(
   /etc/dgx-setup/canary
   /etc/systemd/system/dgx-setup-canary.service
@@ -42,6 +68,18 @@ forbidden_paths=(
   /run/wrappers
   /run/current-system
 )
+
+recovery_paths=(
+  /etc/systemd/system/dgx-root-reboot-recovery.service
+  /etc/systemd/system/dgx-root-reboot-recovery.timer
+  /etc/systemd/system/timers.target.wants/dgx-root-reboot-recovery.timer
+  /var/lib/dgx-setup/reboot-recovery
+  /nix/var/nix/gcroots/dgx-setup-root-canary-reboot-recovery-pilot
+)
+
+if [[ "$recovery_mode" == absent ]]; then
+  forbidden_paths+=("${recovery_paths[@]}")
+fi
 
 if [[ "$registration_mode" == registered-third-boot ]]; then
   managed_paths+=("$boot_link")
@@ -411,10 +449,24 @@ fi
 grep -Fx 'host=sparkle-01' /etc/dgx-setup/canary >/dev/null 2>&1 ||
   drift "canary payload does not identify sparkle-01"
 
-for unit in \
-  dgx-setup-canary.service sysinit-reactivation.target system-manager.target; do
+for unit in dgx-setup-canary.service system-manager.target; do
   [[ "$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)" == active ]] ||
     drift "managed unit $unit is not active"
+done
+
+sysinit_state="$(
+  systemctl show sysinit-reactivation.target -p ActiveState --value 2>/dev/null || true
+)"
+if [[ "$runtime_mode" == activation ]]; then
+  [[ "$sysinit_state" == active ]] ||
+    drift "managed unit sysinit-reactivation.target is not active"
+else
+  [[ "$sysinit_state" == inactive ]] ||
+    drift "reactivation-only sysinit target is not inactive after boot"
+fi
+
+for unit in \
+  dgx-setup-canary.service sysinit-reactivation.target system-manager.target; do
   [[ "$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)" == no ]] ||
     drift "managed unit $unit has a pending daemon reload"
 done
@@ -447,7 +499,11 @@ case "$registration_mode" in
     printf '%s\n' ACTIVE_REGISTERED_GENERATION_TWO_RETAINED
     ;;
   registered-third-boot)
-    printf '%s\n' ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED
+    if [[ "$runtime_mode" == postboot ]]; then
+      printf '%s\n' ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED
+    else
+      printf '%s\n' ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED
+    fi
     ;;
   registered-second-triple-retained)
     printf '%s\n' ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED

@@ -39,15 +39,18 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
   activation, registration-lifecycle, first-registration, generation-switch,
-  and boot-persistence transaction container tests passed. After separately
+  boot-persistence, and persistent first-reboot recovery container tests passed.
+  After separately
   authorized fresh-snapshot/timed-rollback/local-console pilots, exact
   generation three is selected, upstream-rooted, directly retained, live, and
   linked into `default.target`; generations one/two and all three direct roots
   remain for rollback. The live state is exactly six paths and three services,
   and the current classifier result is
   `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. No broader root
-  role exists. The host has not rebooted since activation, so the first guarded
-  real-host boot proof remains the next root-manager milestone.
+  role exists. Persistent recovery passed its exact two-restart disposable
+  lifecycle, but no recovery path is armed on the host and the host has not
+  rebooted since activation. Hash-pinned live recovery helpers and the first
+  guarded real-host boot proof remain the next root-manager milestones.
 
 ## Operating model
 

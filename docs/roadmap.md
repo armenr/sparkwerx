@@ -81,7 +81,12 @@ the measured software manifest; evaluation did not authorize realization.
       `20260902T110421Z`; retain exact six-path/three-service generation three
       plus its one boot edge and independently verify
       `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`
-- [ ] Design recovery that survives reboot, then separately authorize one real
+- [x] Design and pass the exact persistent first-reboot recovery transaction in
+      a 12-subtest/two-restart disposable lifecycle, proving both automatic
+      rollback and confirmed retention without arming or rebooting the host
+- [ ] Build and policy-pin the live recovery snapshot, arm, post-boot
+      confirmation, rollback-verification, and cleanup helpers
+- [ ] Separately authorize recovery arming, then separately authorize one real
       pilot reboot and verify the exact post-boot state before calling host boot
       persistence proven
 - [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a

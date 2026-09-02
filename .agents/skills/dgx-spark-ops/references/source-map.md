@@ -81,6 +81,8 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Exact guarded boot-persistence transaction result | [root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md) |
 | Guarded boot-persistence live plan (executed, retained) | [root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md](../../../../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md) |
 | Current retained registered/live generation-three authority | [root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md) |
+| Persistent first-reboot recovery transaction plan | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md) |
+| Exact persistent first-reboot recovery lifecycle result | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md) |
 | Sanitized retained-canary classifier | [scripts/audit-root-canary-state.sh](../../../../scripts/audit-root-canary-state.sh) |
 | Repository empty-tmpfiles safety patch | [patches/system-manager/skip-empty-tmpfiles.patch](../../../../patches/system-manager/skip-empty-tmpfiles.patch) |
 | Narrow fast-moving apps branch | https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable |

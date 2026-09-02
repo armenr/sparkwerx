@@ -166,6 +166,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   transient rollback was disarmed before its service ran. No host reboot
   occurred, so the first real reboot remains a separate persistent-recovery
   milestone;
+- the persistent first-reboot recovery bundle and transaction passed a distinct
+  12-subtest/two-restart disposable lifecycle. It proved boot-ID gating,
+  collision preservation, partial-failure cleanup, automatic generation-two
+  rollback, confirmed generation-three retention, and exact cleanup. The host
+  recovery surface remains absent and unarmed; live snapshot/arm/post-boot
+  helpers and the actual reboot remain separately gated;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -210,8 +216,10 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   Snapshot `20260902T110421Z` and every earlier live snapshot are spent; do not
   rerun their wrappers. Read the boot-persistence transaction plan, exact test
   record, guarded live plan, and retained host record before touching this
-  state. The first real reboot is still untested and needs recovery that
-  survives reboot plus separate authorization. Rollback, cleanup, generation
+  state. The exact persistent recovery lifecycle passed in a disposable
+  container, but no host recovery is armed and the first real reboot remains
+  untested. Live recovery helpers, arming, and reboot need separate review and
+  authorization. Rollback, cleanup, generation
   selection/removal, and pilot-root retirement also require separate authority.
   Never let it own host Nix, users, wrappers, global PATH, any additional boot
   link, or factory services, or process global factory tmpfiles rules when its

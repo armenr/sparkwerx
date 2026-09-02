@@ -57,8 +57,11 @@ ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED, all three numbered
 generations and direct pilot roots, upstream generation-three root, exact
 six-path/three-service state, one boot edge, unloaded rollback units, healthy
 protected services/GPU/sanitized Tailscale SSH, and no broader ownership. Treat
-the first real reboot as unperformed. Do not create a snapshot, rerun a spent
-wrapper, reboot, roll back, or clean up a generation/root.
+the first real reboot as unperformed. Require persistent recovery manifest
+status isolated-lifecycle-passed-host-not-armed, matching test output, absent
+recovery paths, and unloaded recovery units. Do not create a snapshot, invoke
+the bare recovery bundle, rerun a spent wrapper, reboot, roll back, or clean up
+a generation/root.
 ```
 
 ```text

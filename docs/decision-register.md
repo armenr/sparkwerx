@@ -401,10 +401,17 @@ and protected services, GPU, and Tailscale SSH are healthy. Snapshot
 
 Live activation and the first real reboot remain two distinct gates. The live
 activation is complete, but its rollback timer was transient under `/run` and
-could not protect a reboot or sudden power loss. No reboot occurred. A real
-reboot requires a separate persistent recovery design, fresh snapshot, console
-check, and explicit authorization. See the
+could not protect a reboot or sudden power loss. A separate persistent recovery
+bundle has now passed its exact 12-subtest/two-restart disposable lifecycle,
+including automatic rollback and confirmed retention. No host recovery path is
+armed and no reboot occurred. Hash-pinned live recovery helpers, a fresh
+snapshot, console check, recovery-arming authorization, and separate reboot
+authorization are still required. See the
 [guarded live activation plan](../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
+The recovery design and exact result are in the
+[persistent recovery plan](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md)
+and
+[container-test result](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
 The current host authority is the
 [retained generation-three record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md).
 

@@ -275,12 +275,36 @@ spent. Do not rerun either live helper, recreate the activation timer, or infer
 rollback/reboot/cleanup authority from the completed activation.
 
 Live generation-three activation and the first real reboot are distinct gates.
-Activation is complete, but its Tailscale-independent rollback timer was
-transient and no reboot occurred. A first reboot requires a separate persistent
-recovery design, fresh snapshot, console availability, and authorization.
-Never run the disposable helper during an ordinary audit, infer reboot
-authority from its pass, reuse the spent snapshot, or treat the live boot edge
-as real-host post-reboot proof.
+Activation is complete, and the persistent recovery lifecycle has now passed
+its exact 12-subtest/two-restart disposable test. Before touching
+`scripts/root-reboot-recovery-transaction.sh`,
+`scripts/audit-root-canary-state.sh`,
+`root/system-manager/reboot-recovery-transaction-test.nix`, or the recovery
+bundle, read the
+[recovery plan](../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md)
+and exact
+[test result](../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
+Require manifest recovery status `isolated-lifecycle-passed-host-not-armed`,
+test `result == "passed"`, `matchesCurrent == true`, and clean host postflight.
+
+The production bundle uses a ten-minute `OnBootSec` timer, exact boot-ID guard,
+confirmation `KEEP REBOOTED GENERATION THREE`, and rolled-back cleanup phrase
+`CLEAN ROLLED BACK REBOOT RECOVERY`. The post-boot state class is
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED`; unlike the
+activation-time class, it requires the reactivation-only sysinit target to be
+inactive. Recovery paths are ordinary audit drift. Only the hash-pinned
+recovery transaction may request the auditor's explicit
+`verified-by-caller` exception after it independently verifies the complete
+recovery surface.
+
+No host recovery path is installed or armed and no real reboot occurred. The
+tested transaction is not yet a live-host wrapper. Hash-pinned snapshot, arm,
+post-boot confirmation, rollback-verification, and cleanup helpers remain the
+next design milestone. Never run the disposable helper during an ordinary
+audit, invoke the bare bundle on the host, infer arming or reboot authority from
+the PASS, reuse the spent activation snapshot, or treat the live boot edge as
+real-host post-reboot proof. Recovery arming and the actual reboot require two
+separate explicit authorizations.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`

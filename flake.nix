@@ -205,6 +205,83 @@
       reviewedRootBootPersistenceSnapshotSha256 = "bb726566b5e11ed466aaab0ab7ab12e3f40f7f93af4561767bfbdb500f4640ff";
       rootBootPersistencePilotProgram = ./scripts/activate-root-boot-persistence-pilot.sh;
       reviewedRootBootPersistencePilotSha256 = "464f2b8283fbed336722ae96ee3786d3188b1cfba09f588974dd9381b8a58e70";
+      rootCanaryAuditProgram = ./scripts/audit-root-canary-state.sh;
+      reviewedRootCanaryAuditSha256 = "19cac3ba416dc3705c9dc1a996afb82840e8f4bc2d657a78f969f3f42cfddb12";
+      rootRebootRecoveryTransactionProgram = ./scripts/root-reboot-recovery-transaction.sh;
+      reviewedRootRebootRecoveryTransactionSha256 = "1cbc0c67fa25005a0271ed6e183e047663a7f5dee80fcdaa82e7c032fee06888";
+      rootRebootRecoveryGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-reboot-recovery-pilot";
+      mkRootRebootRecoveryBundle =
+        {
+          name,
+          onBootSec,
+        }:
+        pkgs.runCommand name
+          {
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+          }
+          ''
+            mkdir -p "$out/bin" "$out/lib/systemd/system"
+
+            makeWrapper ${pkgs.bash}/bin/bash "$out/bin/dgx-root-reboot-recovery" \
+              --add-flags '${rootRebootRecoveryTransactionProgram}' \
+              --set DGX_RECOVERY_BUNDLE "$out" \
+              --set DGX_RECOVERY_GENERATION_ONE '${rootCanary}' \
+              --set DGX_RECOVERY_GENERATION_TWO '${rootCanaryRegistrationTestGeneration}' \
+              --set DGX_RECOVERY_GENERATION_THREE '${rootCanaryBootPersistenceGeneration}' \
+              --set DGX_RECOVERY_BOOT_TRANSACTION '${rootBootPersistenceTransactionProgram}' \
+              --set DGX_RECOVERY_AUDIT '${rootCanaryAuditProgram}' \
+              --set DGX_RECOVERY_PATH '${
+                lib.makeBinPath [
+                  pkgs.coreutils
+                  pkgs.findutils
+                  pkgs.gnugrep
+                  pkgs.jq
+                  pkgs.util-linux
+                ]
+              }:/nix/var/nix/profiles/default/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+            cat >"$out/lib/systemd/system/dgx-root-reboot-recovery.service" <<EOF
+            [Unit]
+            Description=DGX System Manager first-reboot automatic rollback
+            After=local-fs.target
+            RequiresMountsFor=/nix /var/lib/system-manager
+            ConditionPathExists=/var/lib/dgx-setup/reboot-recovery/state
+
+            [Service]
+            Type=oneshot
+            ExecStart=$out/bin/dgx-root-reboot-recovery rollback
+            TimeoutStartSec=5min
+            StandardOutput=journal+console
+            StandardError=journal+console
+            EOF
+
+            cat >"$out/lib/systemd/system/dgx-root-reboot-recovery.timer" <<EOF
+            [Unit]
+            Description=DGX System Manager first-reboot rollback deadline
+            ConditionPathExists=/var/lib/dgx-setup/reboot-recovery/state
+
+            [Timer]
+            OnBootSec=${onBootSec}
+            AccuracySec=1s
+            RandomizedDelaySec=0
+            Unit=dgx-root-reboot-recovery.service
+            RemainAfterElapse=no
+
+            [Install]
+            WantedBy=timers.target
+            EOF
+
+            chmod 0444 "$out/lib/systemd/system/"*.service \
+              "$out/lib/systemd/system/"*.timer
+          '';
+      rootRebootRecoveryBundle = mkRootRebootRecoveryBundle {
+        name = "dgx-root-reboot-recovery";
+        onBootSec = "10min";
+      };
+      rootRebootRecoveryTestBundle = mkRootRebootRecoveryBundle {
+        name = "dgx-root-reboot-recovery-test";
+        onBootSec = "30s";
+      };
       rootGenerationSwitchSnapshotProgram = ./scripts/snapshot-root-generation-switch.sh;
       reviewedRootGenerationSwitchSnapshotSha256 = "a82669f4a7001d370d0b0bb26815d466600114137b2fa26da1bc1169ae30a9ec";
       rootGenerationSwitchPilotProgram = ./scripts/switch-root-canary-generation-pilot.sh;
@@ -778,6 +855,76 @@
             evidencePlan = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-plan.md";
             evidence = "root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md";
           };
+          rebootRecovery =
+            let
+              observedDrvPath = "/nix/store/1jidbq39jy4xqngsybdla16535wwm6dl-container-test-dgx-root-canary-reboot-recovery-transaction.drv";
+              observedOutputPath = "/nix/store/x147g1l7haxqhvrwpvhpajwiiphmal70-container-test-dgx-root-canary-reboot-recovery-transaction";
+            in
+            {
+              status = "isolated-lifecycle-passed-host-not-armed";
+              requiredHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
+              transactionProgram = {
+                repositoryPath = "scripts/root-reboot-recovery-transaction.sh";
+                sha256 = builtins.hashFile "sha256" rootRebootRecoveryTransactionProgram;
+              };
+              postbootAuditor = {
+                repositoryPath = "scripts/audit-root-canary-state.sh";
+                sha256 = builtins.hashFile "sha256" rootCanaryAuditProgram;
+                stateClass = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED";
+                requiresManagerAndCanaryActive = true;
+                requiresReactivationTargetInactive = true;
+              };
+              productionBundle = {
+                outputPath = rootRebootRecoveryBundle.outPath;
+                drvPath = rootRebootRecoveryBundle.drvPath;
+                timerUnit = "dgx-root-reboot-recovery.timer";
+                serviceUnit = "dgx-root-reboot-recovery.service";
+                delayMinutes = 10;
+                statePath = "/var/lib/dgx-setup/reboot-recovery/state";
+                gcRoot = rootRebootRecoveryGcRoot;
+              };
+              confirmation = {
+                phrase = "KEEP REBOOTED GENERATION THREE";
+                removesRecoverySurface = true;
+              };
+              rollback = {
+                action = "rollback";
+                restoresState = "exact registered and active no-boot generation two";
+                cleanupPhrase = "CLEAN ROLLED BACK REBOOT RECOVERY";
+                retainsEvidenceUntilVerifiedCleanup = true;
+              };
+              isolatedTransactionTest = {
+                verifiedAt = "2026-09-02T13:39:12Z";
+                result = "passed";
+                inherit observedDrvPath observedOutputPath;
+                outputHash = "sha256:122gr5rhzqicxm8ndgbd3vpkjsgrybg75a2y6ni459ajm4p5jg05";
+                currentDrvPath = rootCanaryRebootRecoveryTransactionContainerTest.drvPath;
+                currentOutputPath = rootCanaryRebootRecoveryTransactionContainerTest.outPath;
+                matchesCurrent =
+                  rootCanaryRebootRecoveryTransactionContainerTest.drvPath == observedDrvPath
+                  && rootCanaryRebootRecoveryTransactionContainerTest.outPath == observedOutputPath;
+                priorDisposableAttempts = 2;
+                failureInjectionStages = [
+                  "after-root"
+                  "after-state"
+                  "after-units"
+                ];
+                disposableRestarts = 2;
+                provesAutomaticRollback = true;
+                provesConfirmedRetention = true;
+                provesExactCleanup = true;
+                hostRecoveryArmed = false;
+                hostRegistrationPerformed = false;
+                hostActivationPerformed = false;
+                hostBootLinkChanged = false;
+                hostRebootPerformed = false;
+                hostPostflight = "clean";
+                evidencePlan = "root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md";
+                evidence = "root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md";
+              };
+              hostRecoveryArmed = false;
+              hostRebootPerformed = false;
+            };
           livePilot = {
             status = "generation-three-retained-after-console-confirmation";
             evidencePlan = "root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md";
@@ -1007,6 +1154,10 @@
         assert
           builtins.hashFile "sha256" rootBootPersistencePilotProgram
           == reviewedRootBootPersistencePilotSha256;
+        assert builtins.hashFile "sha256" rootCanaryAuditProgram == reviewedRootCanaryAuditSha256;
+        assert
+          builtins.hashFile "sha256" rootRebootRecoveryTransactionProgram
+          == reviewedRootRebootRecoveryTransactionSha256;
         assert
           builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram
           == reviewedRootGenerationSwitchSnapshotSha256;
@@ -1164,6 +1315,38 @@
         assert rootManagerManifest.bootPersistence.liveActivation.managedPathCount == 6;
         assert rootManagerManifest.bootPersistence.liveActivation.managedServiceCount == 3;
         assert !rootManagerManifest.bootPersistence.liveActivation.hostRebootPerformed;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.status
+          == "isolated-lifecycle-passed-host-not-armed";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.transactionProgram.sha256
+          == reviewedRootRebootRecoveryTransactionSha256;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.postbootAuditor.sha256
+          == reviewedRootCanaryAuditSha256;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.productionBundle.outputPath
+          == rootRebootRecoveryBundle.outPath;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.productionBundle.gcRoot
+          == rootRebootRecoveryGcRoot;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.result == "passed";
+        assert rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.matchesCurrent;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.disposableRestarts == 2;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesAutomaticRollback;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesConfirmedRetention;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.provesExactCleanup;
+        assert
+          !rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRecoveryArmed;
+        assert
+          !rootManagerManifest.bootPersistence.rebootRecovery.isolatedTransactionTest.hostRebootPerformed;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.hostRecoveryArmed;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.hostRebootPerformed;
         assert !rootCanaryConfig.services.userborn.enable;
         assert !rootCanaryConfig.security.enableWrappers;
         assert !rootCanaryConfig.system-manager.linkCurrentSystem;
@@ -1594,6 +1777,24 @@
               ;
           };
 
+      rootCanaryRebootRecoveryTransactionContainerTest =
+        import ./root/system-manager/reboot-recovery-transaction-test.nix
+          {
+            inherit
+              pkgs
+              rootBootPersistenceTransactionProgram
+              rootCanaryAuditProgram
+              rootCanary
+              rootCanaryBootPersistenceGeneration
+              rootCanaryRegistrationTestGeneration
+              rootGenerationSwitchTransactionProgram
+              rootRebootRecoveryBundle
+              rootRebootRecoveryTestBundle
+              rootRegistrationTransactionProgram
+              system-manager
+              ;
+          };
+
       systemdSnapshotPropertyRegressionCheck = pkgs.runCommand "dgx-systemd-snapshot-property-test" { } ''
         test_root="$TMPDIR/dgx-systemd-snapshot-property-test"
         mkdir -p "$test_root/scripts"
@@ -1619,6 +1820,7 @@
         root-system-canary = rootCanary;
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
+        root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
@@ -1641,6 +1843,8 @@
         root-canary-systemd-snapshot-property = systemdSnapshotPropertyRegressionCheck;
         root-canary-registration-container = rootCanaryRegistrationContainerTest;
         root-canary-registration-transaction-container = rootCanaryRegistrationTransactionContainerTest;
+        root-canary-reboot-recovery-transaction-container =
+          rootCanaryRebootRecoveryTransactionContainerTest;
         root-manager-policy = rootManagerPolicyCheck;
         root-system-canary = rootCanary;
         tailscale-package = tailscalePackage;

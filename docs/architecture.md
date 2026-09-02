@@ -111,7 +111,7 @@ closure. The pilot therefore keeps the direct root
 `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
 currently active as registered generation three with the upstream extra root.
 Generations one and two remain registered and directly retained; all three
-pilot roots remain recovery anchors. Its five disposable tests and guarded live
+pilot roots remain recovery anchors. Its six disposable tests and guarded live
 activation, registration, generation-switch, and boot-link milestones passed.
 Generation three differs from generation two only by its marker and one
 declarative `default.target` edge; its activation used a fresh private snapshot,
@@ -189,7 +189,10 @@ Exact generations one/two and their pilot roots remain retained for rollback.
 It owns exactly one declarative boot edge beyond the original five-path
 surface. The reviewed transaction and separately authorized live pilot both
 passed; their spent snapshot grants no authority for a rerun, rollback,
-cleanup, or reboot. A real host reboot remains untested and separately gated.
+cleanup, or reboot. The persistent recovery transaction has separately passed
+its two-restart disposable lifecycle, but no recovery path is installed or
+armed on the host. Live recovery helpers and a real host reboot remain untested
+and separately gated.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to
