@@ -44,32 +44,37 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   tests all passed, and the separately guarded live registration was retained
   after repeated postflight and independent console confirmation. The
   marker-only generation-two candidate and guarded switch transaction passed
-  their disposable gate. A separate live pilot is now designed and pinned but
-  has not run; the host generation-two pilot root must remain absent and no live
-  switch is authorized. Read all three 2026-09-02 generation-switch records
-  before touching them. Do not rerun the one-time registration
-  helper, reboot, add boot linkage, switch generations, remove either current
-  root, or broaden ownership without a separate plan and authorization. Its
+  their disposable gate. The separately authorized live pilot then retained,
+  registered, selected, and activated exact generation two after repeated
+  postflight and local-console confirmation. Generation one remains registered
+  and directly retained; both pilot roots remain recovery anchors. Current
+  classifier authority is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. Read
+  all four 2026-09-02 generation-switch records before touching this state. Do
+  not rerun the one-time activation, registration, snapshot, or switch helpers;
+  reboot; add boot linkage; select or remove a generation; remove any current
+  root; or broaden ownership without a separate plan and authorization. Its
   private wrapper must stay on reviewed Nix 2.35.2, and the closure must contain
   neither Nix 2.34.8 nor real `userborn`. Any derivation change makes that test's
   prior evidence stale.
-- The generation-switch snapshot helper is read-only with respect to host
-  configuration but creates private root-owned evidence. The live wrapper is a
-  distinct root mutation: never run it, create the generation-two pilot root,
-  or infer snapshot-bound authority from repository validation. On rollback,
-  preserve both pilot roots; generation-two-root cleanup is a later exact
-  reviewed action, not automatic tidying.
+- The generation-switch snapshot helper was read-only with respect to host
+  configuration but created private root-owned evidence. The live wrapper was
+  the distinct, separately authorized root mutation and has completed. Never
+  rerun either helper against the post-switch state or infer new authority from
+  that spent snapshot. Preserve both pilot roots; generation cleanup or
+  rollback is a later exact reviewed action, not automatic tidying.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
   build; host activation additionally requires local recovery, collisions,
   snapshots, timed rollback, retained store closure, and explicit authorization.
 - Low-level System Manager activation does not register or GC-root its output.
   The live pilot therefore still requires the documented
-  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The later guarded
-  registration added the exact selected profile, generation-one link, and
-  `/nix/var/nix/gcroots/system-manager-current` root. Preserve all of them while
-  this state is retained; never infer permission to rerun upstream
-  `register-profile`, remove registration, or retire the pilot root.
+  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The guarded
+  registration and switch now retain both numbered generation links, select
+  generation two, and point
+  `/nix/var/nix/gcroots/system-manager-current` to generation two. Preserve
+  those links plus both direct pilot roots while this state is retained; never
+  infer permission to rerun upstream `register-profile`, remove registration,
+  select a different generation, or retire either pilot root.
 - Preserve the helper's root-only `--store local` path: Nix 2.35 strips
   experimental-feature overrides on daemon connections, while this test needs
   temporary `auto-allocate-uids` plus `cgroups`. Do not persist those settings

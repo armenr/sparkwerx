@@ -196,24 +196,28 @@ installer. Never claim that all dependencies are current merely because
 Resolve the exact current root-canary output, then run the repository's
 `scripts/audit-root-canary-state.sh` classifier with the registration
 expectation declared for the local host. It emits only `INACTIVE_ABSENT`,
-`INACTIVE_EMPTY`, `ACTIVE_RETAINED`, `ACTIVE_REGISTERED_RETAINED`, or
-`DRIFT|reason`. On `sparkle-01`, pass `registered-first`; the current retained
-registration authority should report `ACTIVE_REGISTERED_RETAINED`. That is a
-healthy known state, not an unexpected install.
+`INACTIVE_EMPTY`, `ACTIVE_RETAINED`, `ACTIVE_REGISTERED_RETAINED`,
+`ACTIVE_REGISTERED_GENERATION_ONE_DUAL_RETAINED`,
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`, or `DRIFT|reason`. On
+`sparkle-01`, pass exact generation two, `registered-second`, and exact
+generation one as the third argument. Current authority should report
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. That is a healthy known state,
+not an unexpected install.
 
 While retained, do not run the inactive preflight, activation helper, or
-first-registration helper. On `sparkle-01`, the exact selected profile,
-generation-one link, upstream extra GC root, and pilot root must all remain.
+first-registration, pre-switch snapshot, or live-switch helper. On
+`sparkle-01`, the selected profile, both numbered generation links, upstream
+generation-two root, and both direct pilot roots must all remain.
 All four exact disposable tests and their results are documented under
 `root/system-manager/validation/`. Require the activation, registration-
 lifecycle, first-registration transaction, and generation-switch transaction
 manifest results to be `passed`, each recorded/current derivation to match, and
-each host postflight to be clean. The generation-switch pass leaves the host
-generation-two pilot root absent. The live wrapper design now exists and its
-manifest status must remain `repository-design-complete-not-run`; that still
-does not authorize candidate retention, a profile switch, activation, or any
-other host mutation. An ordinary audit must not create a private root snapshot,
-run the wrapper, or remove either recovery root.
+each host postflight to be clean. The live-switch manifest status must be
+`generation-two-retained-after-console-confirmation`, with current state
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED` and its dated host evidence.
+An ordinary audit must not create a private root snapshot, rerun the wrapper,
+roll back or select a generation, remove a profile link, or remove either
+recovery root.
 
 ### NVIDIA playbooks
 

@@ -2,7 +2,11 @@
 
 Date: 2026-09-02
 
-Status: **repository design complete; live switch not run or authorized**
+Status: **executed and retained; generation two live; no boot link**
+
+The planning and preflight sections below are preserved as the exact approved
+design. Execution evidence is recorded at the end and in the linked host
+attempt.
 
 ## Decision boundary
 
@@ -185,7 +189,21 @@ At `2026-09-02T08:18:54Z`, before any live authorization:
 These results changed no registration, root, managed path, service, or boot
 state. They validate the repository design only.
 
-After these repository gates pass, stop at the genuine authority boundary:
-create no host generation-two root and run no live wrapper until Armen verifies
-the local console, reviews a fresh snapshot, and explicitly authorizes that
-exact snapshot.
+After these repository gates passed, work stopped at the genuine authority
+boundary until Armen verified the local console, reviewed a fresh snapshot, and
+explicitly authorized that exact snapshot.
+
+## Live execution result
+
+Armen created snapshot `20260902T083437Z` and explicitly authorized that exact
+snapshot after local-console verification. The wrapper switched the host at
+`2026-09-02T08:38:17Z`. Read-only postflight returned
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`; the generation-two rollback
+timer was unloaded, its service did not run, all protected services and
+sanitized Tailscale SSH remained healthy, and the boot edge remained absent.
+Generation one and both pilot roots remain retained.
+
+The current authority is the
+[generation-two host record](2026-09-02-generation-switch-host-attempt-1.md).
+The snapshot is spent. No rerun, rollback, cleanup, reboot, boot linkage, or
+broader root role is authorized by this completed milestone.

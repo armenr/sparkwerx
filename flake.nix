@@ -512,7 +512,7 @@
             };
 
           guardedFirstGeneration = {
-            status = "live-first-generation-registered-retained";
+            status = "completed-first-generation-registration-retained";
             transactionProgram = {
               repositoryPath = "scripts/root-registration-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootRegistrationTransactionProgram;
@@ -567,7 +567,7 @@
           };
 
           guardedGenerationSwitch = {
-            status = "live-pilot-designed-switch-not-authorized";
+            status = "live-generation-two-registered-retained";
             transactionProgram = {
               repositoryPath = "scripts/root-generation-switch-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootGenerationSwitchTransactionProgram;
@@ -586,6 +586,7 @@
               generationTwo = "/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot";
             };
             requiredHostState = "ACTIVE_REGISTERED_RETAINED";
+            currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
             initialHostState = "generation one selected, extra-rooted, and live; generation two absent";
             preState = "generation one selected, extra-rooted, and live; generation two retained only";
             postState = "generation two selected, extra-rooted, and live; generation one retained";
@@ -594,11 +595,11 @@
             preservesBothPilotRoots = true;
             createsBootLink = false;
             changesServiceOwnership = false;
-            hostGenerationTwoRetentionPerformed = false;
-            liveSwitchPerformed = false;
+            hostGenerationTwoRetentionPerformed = true;
+            liveSwitchPerformed = true;
             evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-transaction-plan.md";
             livePilot = {
-              status = "repository-design-complete-not-run";
+              status = "generation-two-retained-after-console-confirmation";
               snapshotProgram = {
                 repositoryPath = "scripts/snapshot-root-generation-switch.sh";
                 sha256 = builtins.hashFile "sha256" rootGenerationSwitchSnapshotProgram;
@@ -639,9 +640,21 @@
               };
               createsBootLink = false;
               changesServiceOwnership = false;
-              hostGenerationTwoRetentionPerformed = false;
-              liveSwitchPerformed = false;
+              hostGenerationTwoRetentionPerformed = true;
+              liveSwitchPerformed = true;
               evidencePlan = "root/system-manager/validation/2026-09-02-generation-switch-live-plan.md";
+            };
+            liveSwitch = {
+              stateClass = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+              host = "sparkle-01";
+              switchedAt = "2026-09-02T08:38:17Z";
+              repositoryCommit = "df6f53c7403c468722cdd709c7c9b1d568612592";
+              snapshot = "inventory/sparkle-01/raw/system-manager-generation-switch/20260902T083437Z";
+              evidence = "root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md";
+              localConsoleConfirmed = true;
+              rollbackDisarmed = true;
+              rollbackServiceRan = false;
+              bootLinkCreated = false;
             };
             isolatedTransactionTest =
               let
@@ -809,7 +822,7 @@
           == reviewedSystemdSnapshotPropertyTestSha256;
         assert
           rootManagerManifest.registration.guardedFirstGeneration.status
-          == "live-first-generation-registered-retained";
+          == "completed-first-generation-registration-retained";
         assert rootManagerManifest.registration.guardedFirstGeneration.requiresActiveUnregisteredCanary;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesLiveActivation;
         assert rootManagerManifest.registration.guardedFirstGeneration.preservesPilotRetention;
@@ -837,20 +850,22 @@
           !rootManagerManifest.registration.guardedFirstGeneration.isolatedTransactionTest.hostActivationPerformed;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.status
-          == "live-pilot-designed-switch-not-authorized";
+          == "live-generation-two-registered-retained";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.requiredHostState
           == "ACTIVE_REGISTERED_RETAINED";
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.currentHostState
+          == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesGenerationOne;
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesBothPilotRoots;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.createsBootLink;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.changesServiceOwnership;
-        assert
-          !rootManagerManifest.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed;
-        assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitchPerformed;
+        assert rootManagerManifest.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed;
+        assert rootManagerManifest.registration.guardedGenerationSwitch.liveSwitchPerformed;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.livePilot.status
-          == "repository-design-complete-not-run";
+          == "generation-two-retained-after-console-confirmation";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.livePilot.snapshot.maximumAgeSeconds
           == 1800;
@@ -868,8 +883,16 @@
         assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.createsBootLink;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.changesServiceOwnership;
         assert
-          !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.hostGenerationTwoRetentionPerformed;
-        assert !rootManagerManifest.registration.guardedGenerationSwitch.livePilot.liveSwitchPerformed;
+          rootManagerManifest.registration.guardedGenerationSwitch.livePilot.hostGenerationTwoRetentionPerformed;
+        assert rootManagerManifest.registration.guardedGenerationSwitch.livePilot.liveSwitchPerformed;
+        assert
+          rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.stateClass
+          == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
+        assert rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.host == "sparkle-01";
+        assert rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.localConsoleConfirmed;
+        assert rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.rollbackDisarmed;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.rollbackServiceRan;
+        assert !rootManagerManifest.registration.guardedGenerationSwitch.liveSwitch.bootLinkCreated;
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.result == "passed";
         assert

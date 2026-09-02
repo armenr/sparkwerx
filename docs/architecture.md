@@ -77,15 +77,14 @@ record under `/var/lib/system-manager/state`; registration/profile roots are a
 separate action, and low-level activation does not otherwise retain its store
 closure. The pilot therefore keeps the direct root
 `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
-currently active and separately registered as generation one with the upstream
-extra root; no boot link or broader role exists. Its four disposable tests and
-guarded live activation/registration milestones passed. The harmless
-generation-two candidate and switch transaction passed only their disposable
-failure-injection gate; generation two has no host retention or registration,
-and no live switch is authorized. The separate live-switch wrapper is now
-implemented with a fresh private snapshot, protected-process continuity, an
-exact ten-minute rollback, repeated postflight, and local-console confirmation;
-its repository design has not been run on the host.
+currently active as registered generation two with the upstream extra root.
+Generation one remains registered and directly retained; both pilot roots
+remain recovery anchors. Its four disposable tests and guarded live activation,
+registration, and generation-switch milestones passed. Generation two differs
+only by the harmless marker, and its switch used a fresh private snapshot,
+protected-process continuity, an armed ten-minute rollback, repeated
+postflight, and local-console confirmation. No boot link or broader role
+exists.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
@@ -150,12 +149,12 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The bounded System Manager canary is active, registered as exact generation
-one, and retained by both its selected profile/upstream root and the pilot root.
-It is intentionally not boot-linked. The reviewed generation-two transaction
-passed its disposable failure-injection result. Its separately pinned live
-pilot remains unrun and has no live authority without a fresh snapshot and
-explicit snapshot-bound authorization.
+The bounded System Manager canary is active as exact generation two, selected
+and retained by its profile, upstream root, and generation-two pilot root.
+Exact generation one and its original pilot root remain retained for rollback.
+It is intentionally not boot-linked. The reviewed transaction and separately
+authorized live pilot both passed; their spent snapshot grants no authority for
+a rerun, rollback, cleanup, or reboot.
 Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all Home/desktop/workload activation remain
 deliberately unimplemented. The separately gated pilot Nix runtime update to

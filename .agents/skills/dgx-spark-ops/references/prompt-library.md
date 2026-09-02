@@ -45,10 +45,10 @@ test, register a generation, create state, or activate the host.
 ```text
 $dgx-spark-ops Audit the guarded System Manager generation-switch pilot
 read-only. Verify the exact current candidates, transaction/test evidence,
-helper hashes, parser regression, manifest false mutation flags, registered/live
-generation-one classifier, absent generation-two pilot root, and no-boot edge.
-Do not create a private snapshot, retain generation two, or run the live
-wrapper.
+helper hashes, parser regression, completed manifest mutation record,
+registered/live generation-two classifier, retained generation one, both pilot
+roots, and no-boot edge. Do not create a private snapshot, rerun the live
+wrapper, roll back or select a generation, or remove any retained root.
 ```
 
 ```text

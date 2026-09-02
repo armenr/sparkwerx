@@ -146,10 +146,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   console confirmation;
 - a marker-only generation-two candidate and exact generation-switch
   transaction passed their distinct eleven-subtest disposable failure-injection
-  derivation with a hash-valid output and clean host postflight. The host remains
-  exact registered/live generation one, has no generation-two pilot root, and
-  has no live-switch authority. The separate live wrapper/private snapshot/
-  parser-regression design is now implemented and pinned but has not run;
+  derivation with a hash-valid output and clean host postflight. A later
+  separately authorized live pilot used fresh snapshot `20260902T083437Z`,
+  repeated postflight, and local-console confirmation to retain exact
+  registered/live generation two. Generation one remains registered and
+  directly retained, both pilot roots remain, and no boot link exists;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until
@@ -188,17 +189,16 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
 - The exact System Manager container tests and retained host canary passed.
-  Preserve exact generation one, both GC roots, the five-path/three-service
-  activation surface, and the no-boot boundary until a separately approved next
-  milestone.
-  The reviewed generation-two candidate remains host-absent after its passed
-  disposable gate. Its implemented live plan still requires a fresh private
-  snapshot, local-console verification, and exact snapshot-bound authorization.
-  Rollback preserves both direct pilot roots; cleanup is a separate milestone.
+  Preserve exact live generation two, registered generation one, all three
+  profile links, the upstream generation-two root, both direct pilot roots, the
+  five-path/three-service activation surface, and the no-boot boundary until a
+  separately approved next milestone. The reviewed generation-two live pilot
+  completed from a now-spent snapshot; rerun, rollback, cleanup, or reboot each
+  requires separate authority. Rollback preserves both direct pilot roots.
   Never let it own host Nix, users, wrappers, global PATH, boot links, or factory
   services or process global factory tmpfiles rules when its managed set is
   empty; preserve the exact-version patch, regression sentinel,
-  current-test match, exact registration links, and both retention roots.
+  current-test match, exact registration links, and all three retention roots.
 - Run one memory-heavy GPU workload per node by default. Multiple services may
   share a node only after memory and performance validation.
 - Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as

@@ -342,9 +342,22 @@ preflight, arms the tested generation-one rollback before switching, requires
 exact `KEEP GENERATION TWO` after local-console verification, and repeats full
 postflight before disarming. Rollback removes only the exact generation-two
 profile link and restores registered/live generation one; both pilot roots stay
-as recovery anchors. This design is pinned and unrun. It creates no live-switch
-authority and no permission to clean up either root. See the
+as recovery anchors. At design time this granted no live-switch authority and
+no permission to clean up either root. See the
 [live plan](../root/system-manager/validation/2026-09-02-generation-switch-live-plan.md).
+
+Armen later created fresh private snapshot `20260902T083437Z`, verified the
+local console, and explicitly authorized that exact snapshot. The guarded
+wrapper retained, registered, selected, and activated generation two, repeated
+postflight, and disarmed rollback without its service running. Read-only
+postflight classified the host
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`: generation two is selected,
+upstream-rooted, directly retained, and live; generation one remains registered
+and directly retained. Both pilot roots remain, protected services and
+Tailscale SSH stayed healthy, and no boot edge or broader ownership appeared.
+The spent snapshot grants no authority to rerun the wrapper, roll back, clean
+up a root or generation, or reboot. See the
+[retained generation-two record](../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md).
 
 ## Explicit non-selections
 
@@ -359,12 +372,11 @@ authority and no permission to clean up either root. See the
 
 ## Open decisions
 
-- The live generation-two pilot is designed but still needs a fresh private
-  snapshot, local-console verification, and explicit snapshot-bound
-  authorization. The live switch, reboot/boot behavior, pilot-root retirement,
-  and the first real managed service remain separate decisions. Registration is
-  not activation or boot persistence; do not reboot or add boot linkage without
-  a separately guarded plan.
+- Generation two is retained and live. Reboot/boot behavior, rollback,
+  generation or pilot-root retirement, and the first real managed service
+  remain separate decisions. Registration and live activation are not boot
+  persistence; do not reboot or add boot linkage without a separately guarded
+  plan.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

@@ -40,14 +40,12 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
   activation, registration-lifecycle, first-registration transaction, and
   generation-switch transaction container tests passed. The five-path/three-service
-  host canary is active, directly retained, and registered as exact generation
-  one after two guarded local-console confirmations. No boot link or broader
-  root role exists. The marker-only generation-two candidate and
-  guarded switch transaction passed their disposable failure-injection gate,
-  but generation two remains unretained, unregistered, unselected, and inactive
-  on the host. The fresh-snapshot/timed-rollback/local-console live pilot is
-  implemented and policy-pinned, but it has not been run and no live switch is
-  authorized.
+  host canary is active and registered. After the separately authorized
+  fresh-snapshot/timed-rollback/local-console pilot, exact generation two is
+  selected, upstream-rooted, directly retained, and live; exact generation one
+  remains registered and directly retained for rollback. The current classifier
+  result is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. No boot link or
+  broader root role exists.
 
 ## Operating model
 
@@ -180,11 +178,10 @@ passed explicitly scoped no-link builds; that does not authorize a Home
 profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
-System Manager generation one is already active, registered, and retained. Do
-not rerun its inactive activation or first-registration helpers, remove either
-exact root, add boot linkage, switch generations, or reboot. The reviewed
-generation-two transaction is authorized only for its disposable container
-test. Its separate live wrapper now exists, but running it still requires a new
-private snapshot, verified local console, and explicit authorization bound to
-that snapshot.
+System Manager generation two is already active, registered, selected, and
+retained; generation one and both direct pilot roots remain rollback anchors.
+Do not rerun the inactive activation, first-registration, snapshot, or live
+generation-switch helpers; remove a profile generation or root; select another
+generation; add boot linkage; or reboot. The next root mutation or reboot needs
+its own reviewed plan and explicit authorization.
 GNOME remains the recovery desktop throughout every graphical pilot.

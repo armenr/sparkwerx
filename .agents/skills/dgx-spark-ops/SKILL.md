@@ -115,19 +115,27 @@ The exact candidate's third guarded host activation attempt was retained on
 as the live-activation authority. Later that day, the separately guarded first
 generation was registered and retained. Read
 `../../../root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md`
-as the current full live-state authority. While this state remains, the
-inactive preflight/activation helper and the absent-prestate first-registration
-helper are inapplicable; do not run them and misclassify their expected
-collision/refusal as drift. Audit the active five-path/three-service boundary
-and exact registration links directly. Keep reboot/boot linkage, deactivation,
-registration rollback, later generations or switching, pilot-root retirement,
-and broader ownership behind separate plans and authorization.
+as the generation-one registration authority. On 2026-09-02, the separately
+authorized guarded switch retained generation two after repeated postflight and
+local-console confirmation. Read
+`../../../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md`
+as the current full live-state authority. The inactive
+preflight/activation, absent-prestate first-registration, and pre-switch
+snapshot/wrapper helpers are now all inapplicable; do not run them and
+misclassify their expected collision/refusal as drift. Audit the active
+five-path/three-service boundary, all three profile links, the upstream root,
+and both pilot roots directly. Keep reboot/boot linkage, rollback,
+deactivation, generation cleanup, pilot-root retirement, and broader ownership
+behind separate plans and authorization.
 
 Use `../../../scripts/audit-root-canary-state.sh` with the exact evaluated
-candidate and the `registered-first` expectation for a sanitized live-state
-classification. `ACTIVE_REGISTERED_RETAINED` is the expected current result;
-any `DRIFT|...` result is a stop condition. For generation switching,
-registration rollback, or later-generation work, also read the
+generation-two candidate, the `registered-second` expectation, and the exact
+evaluated generation-one candidate as the third argument. The expected current
+result is `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`; any `DRIFT|...`
+result is a stop condition. If an explicitly authorized rollback completes,
+the expected classifier mode is `registered-first-dual-retained`, with
+generation one first and retained generation two third. For generation
+switching, registration rollback, or later-generation work, also read the
 [registration lifecycle plan](../../../root/system-manager/validation/2026-09-01-registration-test-plan.md).
 The plan's `sudo ./scripts/test-root-registration.sh` command is a distinct
 root-assisted disposable-container gate. Its exact derivation passed on
@@ -187,12 +195,10 @@ The third attempt used corrected commit `0f03d01` and fresh snapshot
 `20260901T201613Z`; it armed the exact rollback, registered generation one and
 the upstream extra root, passed postflight, received independent-console
 confirmation plus exact `KEEP REGISTRATION`, passed repeated postflight, and
-disarmed rollback before its service ran. Current state is
-`ACTIVE_REGISTERED_RETAINED`. Preserve the exact profile, numbered generation,
-upstream extra root, and pilot root. Registration is not boot persistence: do
-not reboot, add a boot link, roll back registration, create/switch generations,
-retire the pilot root, or add a real managed service without a separate guarded
-milestone.
+disarmed rollback before its service ran. State at that milestone was
+`ACTIVE_REGISTERED_RETAINED`; the later generation-two switch supersedes it
+as current authority. Preserve the historical evidence and never reuse its
+spent snapshot.
 
 The distinct disposable generation-switch transaction derivation passed all
 eleven named subtests with a hash-valid output and clean host postflight. Read
@@ -203,21 +209,20 @@ and the exact
 before touching `rootCanaryRegistrationTestGeneration`,
 `scripts/root-generation-switch-transaction.sh`, or its test/helper. Its
 manifest result is `passed` and must match the exact current derivation/output.
-That is not live-switch authority: generation two is not retained, registered,
-selected, or active on the host, and
-`/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot` must remain
-absent. Do not rerun the one-time disposable build during an ordinary audit.
-Its pass grants no authority to create that host root or perform a live switch.
-The separate live pilot has now been designed. Also read the
+That disposable pass did not itself grant live-switch authority. Do not rerun
+the one-time disposable build during an ordinary audit. The later live pilot
+was separately designed, snapshot-bound, authorized, executed, and retained.
+Also read the
 [2026-09-02 live plan](../../../root/system-manager/validation/2026-09-02-generation-switch-live-plan.md)
+and the
+[retained host result](../../../root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md)
 before touching `scripts/snapshot-root-generation-switch.sh`,
 `scripts/switch-root-canary-generation-pilot.sh`, or
-`scripts/systemd-snapshot-property.sh`. Repository validation does not
-authorize running the root snapshot helper or live wrapper. Stop before
-creating host generation-two retention or invoking the transaction unless a
-fresh root-owned snapshot, independent local-console verification, and explicit
-authorization bound to that exact snapshot exist. Rollback keeps both pilot
-roots; never remove the generation-two root as incidental cleanup.
+`scripts/systemd-snapshot-property.sh`. The snapshot is spent and the
+pre-switch state no longer exists. Do not rerun the snapshot or live wrapper,
+invoke rollback, select or remove a generation, or remove either pilot root
+without a new exact plan and authorization. Rollback keeps both pilot roots;
+never remove the generation-two root as incidental cleanup.
 
 Keep the helper's direct `--store local` execution. Nix 2.35 does not forward
 experimental-feature overrides to the daemon, while the test's `uid-range`
@@ -298,31 +303,36 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
 - System Manager's exact five-path/three-service canary is retained active on
-  `sparkle-01` as of 2026-09-01. Exact generation one, the upstream extra GC
-  root, and the pilot GC root are also retained; no boot link exists.
+  `sparkle-01` as exact generation two. Generation two is selected,
+  upstream-rooted, and directly pilot-rooted. Exact generation one remains
+  registered and directly pilot-rooted; no boot link exists.
   Preserve its exact service/`/etc` allowlists, state/registration disclosure,
   no-boot policy, Nix 2.35.2 private runtime, and closure rejection of Nix
   2.34.8 and real `userborn`. Preserve the exact-version
   `skip-empty-tmpfiles` patch, its manifest hash/policy, and the unmanaged-rule
   regression sentinel; never allow an empty managed set to trigger global
   factory tmpfiles processing. Preserve the explicit pilot GC root: low-level
-  activation is otherwise unrooted, so the exact closure and deactivation
-  program must remain retained. While active and registered, do not rerun the
-  inactive-state preflight/activation or first-registration helpers, remove
-  either root, alter the registered generation, reboot, add boot linkage,
-  broaden ownership, or update the candidate underneath the host.
+  activation is otherwise unrooted, so both exact closures and deactivation
+  programs must remain retained. While active and registered, do not rerun the
+  inactive-state preflight/activation, first-registration, pre-switch snapshot,
+  or live-switch helpers; remove a generation or root; select generation one;
+  reboot; add boot linkage; broaden ownership; or update either candidate
+  underneath the host.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. Preserve the two failed-closed live-attempt records and never
   reuse their commit/time-bound snapshots. The third guarded attempt registered
   and retained exact generation one without changing live activation, services,
-  or boot linkage. Preserve its full-state record as current authority. A build
-  or container test never implies host registration or activation.
-- The generation-two live pilot is repository-complete but unrun. Preserve its
+  or boot linkage. Preserve its full-state record as historical registration
+  authority. A build or container test never implies host registration or
+  activation.
+- The generation-two live pilot completed from snapshot
+  `20260902T083437Z`; its host record is current authority. Preserve its
   exact helper hashes, whole-record systemd parser regression, 30-minute private
   snapshot gate, protected `FragmentPath`/`MainPID`/active-enter continuity,
   ten-minute rollback-before-switch ordering, exact `KEEP GENERATION TWO`
   confirmation, repeated postflight, and no-boot/no-broader-ownership boundary.
-  Snapshot creation and live switching are separate authority boundaries.
+  The spent snapshot grants no authority for a rerun, rollback, cleanup, or
+  reboot.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before

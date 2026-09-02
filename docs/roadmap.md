@@ -67,8 +67,10 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Design and policy-pin the live generation-two pilot with its own private
       snapshot, protected-process continuity, timed rollback, repeated
       postflight, local-console confirmation, and no-boot boundary
-- [ ] Separately authorize and run that exact live pilot only from a fresh
-      snapshot; keep both pilot roots and verify rollback/success independently
+- [x] Separately authorize and run that exact live pilot from fresh snapshot
+      `20260902T083437Z`; retain generation two after repeated postflight and
+      local-console confirmation, preserve both pilot roots, and independently
+      verify exact `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`
 - [ ] Define an idempotent bootstrap and uninstall/rollback path
 - [ ] Decide how the other Sparks receive first-boot configuration
 

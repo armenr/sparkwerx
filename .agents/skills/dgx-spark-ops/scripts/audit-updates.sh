@@ -461,8 +461,20 @@ audit_root_integration() {
   live_registration_state="$(
     jq -r '.registration.guardedFirstGeneration.liveRegistration.stateClass // empty' <<<"$manifest"
   )"
+  live_switch_host="$(
+    jq -r '.registration.guardedGenerationSwitch.liveSwitch.host // empty' <<<"$manifest"
+  )"
+  live_switch_state="$(
+    jq -r '.registration.guardedGenerationSwitch.liveSwitch.stateClass // empty' <<<"$manifest"
+  )"
+  generation_one_output="$(
+    jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationOne // empty' <<<"$manifest"
+  )"
+  generation_two_output="$(
+    jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationTwo // empty' <<<"$manifest"
+  )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};live-state=${live_switch_state:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -478,15 +490,27 @@ audit_root_integration() {
     (.registration.isolatedLifecycleTest.hostRegistrationPerformed == false) and
     (.registration.isolatedLifecycleTest.hostActivationPerformed == false) and
     (.registration.isolatedLifecycleTest.hostPostflight == "clean") and
-    (.registration.guardedFirstGeneration.status == "live-first-generation-registered-retained") and
+    (.registration.guardedFirstGeneration.status == "completed-first-generation-registration-retained") and
     (.registration.guardedFirstGeneration.liveRegistrationPerformed == true) and
     (.registration.guardedFirstGeneration.liveRegistration.host == "sparkle-01") and
     (.registration.guardedFirstGeneration.liveRegistration.stateClass == "ACTIVE_REGISTERED_RETAINED") and
     (.registration.guardedFirstGeneration.liveRegistration.evidence == "root/system-manager/validation/2026-09-01-first-registration-host-attempt-3.md") and
     (.registration.guardedFirstGeneration.liveRegistration.localConsoleConfirmed == true) and
     (.registration.guardedFirstGeneration.liveRegistration.rollbackDisarmed == true) and
-    (.registration.guardedGenerationSwitch.status == "disposable-test-passed-live-switch-not-authorized") and
-    (.registration.guardedGenerationSwitch.liveSwitchPerformed == false) and
+    (.registration.guardedGenerationSwitch.status == "live-generation-two-registered-retained") and
+    (.registration.guardedGenerationSwitch.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED") and
+    (.registration.guardedGenerationSwitch.hostGenerationTwoRetentionPerformed == true) and
+    (.registration.guardedGenerationSwitch.liveSwitchPerformed == true) and
+    (.registration.guardedGenerationSwitch.livePilot.status == "generation-two-retained-after-console-confirmation") and
+    (.registration.guardedGenerationSwitch.livePilot.hostGenerationTwoRetentionPerformed == true) and
+    (.registration.guardedGenerationSwitch.livePilot.liveSwitchPerformed == true) and
+    (.registration.guardedGenerationSwitch.liveSwitch.host == "sparkle-01") and
+    (.registration.guardedGenerationSwitch.liveSwitch.stateClass == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED") and
+    (.registration.guardedGenerationSwitch.liveSwitch.evidence == "root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md") and
+    (.registration.guardedGenerationSwitch.liveSwitch.localConsoleConfirmed == true) and
+    (.registration.guardedGenerationSwitch.liveSwitch.rollbackDisarmed == true) and
+    (.registration.guardedGenerationSwitch.liveSwitch.rollbackServiceRan == false) and
+    (.registration.guardedGenerationSwitch.liveSwitch.bootLinkCreated == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.result == "passed") and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.matchesCurrent == true) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.evidence == "root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md") and
@@ -528,12 +552,19 @@ audit_root_integration() {
 
   root_output="$(jq -r '.manager.rootOutputPath // empty' <<<"$manifest")"
   registration_mode=unregistered
-  if [[ "$host_name" == "$live_registration_host" &&
+  other_root_output=
+  if [[ "$host_name" == "$live_switch_host" &&
+        "$live_switch_state" == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED" ]]; then
+    root_output="$generation_two_output"
+    other_root_output="$generation_one_output"
+    registration_mode=registered-second
+  elif [[ "$host_name" == "$live_registration_host" &&
         "$live_registration_state" == "ACTIVE_REGISTERED_RETAINED" ]]; then
     registration_mode=registered-first
   fi
   live_state="$(
-    "$repo_dir/scripts/audit-root-canary-state.sh" "$root_output" "$registration_mode" 2>/dev/null ||
+    "$repo_dir/scripts/audit-root-canary-state.sh" \
+      "$root_output" "$registration_mode" "$other_root_output" 2>/dev/null ||
       true
   )"
 
@@ -548,6 +579,14 @@ audit_root_integration() {
   elif [[ "$policy_ok" != "true" ]]; then
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
+  elif [[ "$host_name" == "$live_switch_host" &&
+          "$live_state" == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED" ]]; then
+    status="CURRENT"
+    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation two, registered generation one, both direct pilot roots, and the upstream generation-two root without a boot link."
+  elif [[ "$host_name" == "$live_switch_host" ]]; then
+    status="HOLD"
+    detail="${live_state#DRIFT|}"
+    detail="${detail:-The declared pilot host does not match its retained generation-two state.}"
   elif [[ "$host_name" == "$live_registration_host" &&
           "$live_state" == "ACTIVE_REGISTERED_RETAINED" ]]; then
     status="CURRENT"
@@ -573,7 +612,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-02-generation-switch-transaction-container-test.md" \
+    "repo:root/system-manager/validation/2026-09-02-generation-switch-host-attempt-1.md" \
     "$detail"
 }
 

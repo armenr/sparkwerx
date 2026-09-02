@@ -12,9 +12,12 @@ receive the exact human retention confirmation. On 2026-09-01, attempt 3 passed
 the full guarded flow and was retained after independent local-console
 confirmation. The exact five-path/three-service canary is currently active.
 Later that day, the guarded first-generation registration attempt passed and
-was retained after its own independent local-console confirmation. The exact
-candidate is now profile generation one and the direct upstream extra GC root.
-No boot link exists and no broader root role is active.
+was retained after its own independent local-console confirmation. On
+2026-09-02, the separately guarded generation switch retained, registered,
+selected, and activated exact generation two after repeated postflight and
+local-console confirmation. Generation one remains registered and directly
+retained; both pilot roots remain. No boot link exists and no broader root role
+is active.
 
 ## Reviewed candidate
 
@@ -31,9 +34,9 @@ No boot link exists and no broader root role is active.
 | Activation/deactivation container test | **PASS** for the exact recorded derivation |
 | Registration lifecycle container test | **PASS** for the exact recorded derivation; test made no host change |
 | Guarded first-registration transaction test | **PASS** for exact failure-injection derivation |
-| Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation; no host generation-two retention or live switch |
-| Host registration | Attempt 3 retained and independently postflight-verified; generation one exact |
-| Host activation | Exact canary remains active and unchanged; registered, not boot-linked |
+| Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
+| Host registration | Exact generations one and two retained; generation two selected and upstream-rooted |
+| Host activation | Exact generation-two canary active after guarded live switch; not boot-linked |
 
 The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
 System Manager is a candidate for small reviewed root integration above DGX OS;
@@ -289,7 +292,7 @@ Do not run the registration helper again while this state is retained. A
 rollback, second generation, generation switch, reboot/boot milestone, or real
 managed service requires a separate plan and authorization.
 
-## Guarded generation switch: transaction passed, live pilot designed
+## Guarded generation switch: generation two retained live
 
 This repository milestone defines a marker-only generation two plus
 `scripts/root-generation-switch-transaction.sh`. Generation two inherits the
@@ -333,12 +336,20 @@ exact `KEEP GENERATION TWO` after local-console verification. The complete
 state machine and failure boundary are in the
 [live plan](validation/2026-09-02-generation-switch-live-plan.md).
 
-This design has not been run. Generation two remains absent from the host
-registration and retention surfaces. Do not create
-`dgx-setup-root-canary-generation-two-pilot`, run the live wrapper/transaction
-on the host, or infer snapshot-bound authority from repository validation.
-Rollback deliberately keeps both pilot roots; cleanup requires a later exact
-review.
+Armen created fresh private snapshot `20260902T083437Z`, verified the local
+console, and explicitly authorized that exact snapshot. The wrapper switched at
+`2026-09-02T08:38:17Z`. Independent read-only postflight found
+`ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`: generation two is selected,
+upstream-rooted, directly retained, and live; generation one remains registered
+and directly retained. Both pilot roots remain, rollback was disarmed before
+its service ran, all protected services and Tailscale SSH remained healthy, and
+no boot edge or broader ownership appeared. See the
+[retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md).
+
+Do not rerun the spent snapshot or live wrapper, remove either generation or
+pilot root, select generation one, deactivate generation two, add boot
+linkage, or reboot without a separate exact plan and authorization. Rollback
+and cleanup deliberately remain later milestones.
 
 ## Defaults we rejected
 
