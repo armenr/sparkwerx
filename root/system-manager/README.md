@@ -522,8 +522,14 @@ is in the
 The next mutation is a hash-pinned no-reboot restoration helper that requires
 this exact generation-two state, a clean commit, a new private snapshot,
 independent console access, a transient ten-minute rollback, repeated health
-checks, and exact `RESTORE GENERATION THREE` / `KEEP RESTORED GENERATION THREE`
-confirmations. Any later recovery arming and reboot remain separate gates.
+checks, and one pre-mutation Enter after the local-console check. It requires no
+exact phrase and automatically retains generation three only after two complete
+postflights. If the terminal disappears after activation, the same command can
+resume only the exact in-flight timer/snapshot transaction. The first attempt
+reached healthy generation three but the old phrase was mistyped, after which
+the exact timer safely restored generation two. See the
+[first restoration attempt](validation/2026-09-03-restoration-host-attempt-1.md).
+Any later recovery arming and reboot remain separate gates.
 
 ## Defaults we rejected
 

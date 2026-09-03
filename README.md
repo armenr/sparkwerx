@@ -157,6 +157,12 @@ source breadcrumbs, workload packaging decisions, update procedure, and lessons
 from the pilot. Codex discovers it automatically while working anywhere in this
 repository.
 
+Armen's overlay also declares maximally permissive Codex approval/permission
+defaults for every desktop mode. Its tested reconciler changes only those keys
+in `~/.codex/config.toml`; it leaves auth, plugins, MCP servers, project trust,
+desktop preferences, and history mutable. This is independent of the still-open
+decision about which Nix role should own the Codex CLI binary.
+
 For a safe first pass:
 
 ```text
@@ -183,12 +189,14 @@ profile, Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 System Manager is currently exact registered/live no-boot generation two after
-the first real reboot's verified automatic rollback. All three direct pilot
+the first real reboot's verified automatic rollback and the first restoration
+attempt's safe timed rollback. All three direct pilot
 roots remain rollback/restoration anchors, the recovery surface is clean, and
 no timer is armed. Do not rerun spent activation, registration,
 generation-switch, boot-persistence, or first-reboot helpers; remove a profile
 generation/root; or reboot without the current plan. The next reviewed mutation
-is the hash-pinned no-reboot generation-three restoration; later recovery
-arming and reboot remain distinct gates, and the helpers expose no reboot
-action.
+is the retry-safe, hash-pinned no-reboot generation-three restoration: one
+pre-mutation Enter, two automatic postflights, automatic retention, and exact
+in-flight resume. Later recovery arming and reboot remain distinct gates, and
+the helpers expose no reboot action.
 GNOME remains the recovery desktop throughout every graphical pilot.

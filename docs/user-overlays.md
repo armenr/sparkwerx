@@ -40,6 +40,35 @@ The graphical overlay is inactive in `headless` mode. Its selection persists in
 Git so returning to a graphical mode restores the intended package graph, but
 headless activation must not launch or autostart these applications.
 
+## Codex permission defaults
+
+Armen explicitly selected maximally permissive Codex defaults in every desktop
+mode, including headless. The overlay reconciles only these non-secret settings
+in `~/.codex/config.toml` during Home Manager activation:
+
+```toml
+approval_policy = "never"
+default_permissions = ":danger-full-access"
+approvals_reviewer = "auto_review"
+
+[notice]
+hide_full_access_warning = true
+
+[apps._default]
+approvals_reviewer = "auto_review"
+default_tools_approval_mode = "approve"
+destructive_enabled = true
+open_world_enabled = true
+```
+
+This is intentionally high trust: Codex can read and modify the whole machine,
+use the network, and run commands without pausing for user approval. The narrow
+reconciler preserves all unrelated mutable Codex/ChatGPT configuration,
+including authentication, model selection, plugins, MCP servers, project trust,
+desktop preferences, and history. It refuses a symlinked or foreign-owned
+config rather than replacing it. Codex CLI package ownership remains a separate
+open decision; preference ownership does not install or update the binary.
+
 ## Separate decisions that must stay separate
 
 - The LM Studio desktop application does not imply the headless `llmster`
@@ -49,6 +78,7 @@ headless activation must not launch or autostart these applications.
 - Chromium does not imply Google Chrome.
 - Ghostty is shared graphical infrastructure, not a personal application.
 - ChatGPT desktop does not imply Codex CLI ownership.
+- Codex permission-default ownership does not imply Codex CLI package ownership.
 - Isaac Sim/Lab and Omniverse are a host workload role, not part of this
   overlay.
 

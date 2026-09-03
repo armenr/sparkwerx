@@ -316,7 +316,12 @@ is directly retained, and the boot/recovery edges are absent. No timer is
 armed. Require manifest boot status
 `first-reboot-rollback-verified-restoration-ready`, the same current state,
 live-attempt status `automatic-rollback-verified-cleaned`, and restoration
-status `repository-ready-not-run` until restoration succeeds.
+status `attempt-one-rolled-back-retry-ready` until restoration succeeds. The
+first restoration attempt used snapshot `20260903T042141Z`, reached healthy
+generation three, then safely timed back to generation two after a typo in the
+old retention phrase. Read
+`../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md`;
+that snapshot is spent evidence, not retry authority.
 
 After a clean boot, `nix-daemon.service` may legitimately be inactive/dead
 while the unchanged `nix-daemon.socket` is active/listening. Accept that exact
@@ -330,10 +335,14 @@ helpers exposes a reboot action. Postboot actions invoke the exact root-owned
 snapshot copy. The next mutation is `./scripts/dgx-recovery restore`, which
 requires the exact current rollback state, creates a new private snapshot,
 arms a transient ten-minute generation-two rollback, performs no reboot,
-preserves all three direct roots, and requires exact `RESTORE GENERATION THREE`
-then `KEEP RESTORED GENERATION THREE` after local-console checks. Never invoke
-the bare transaction, reuse a spent snapshot, remove a root, or infer later
-arming/reboot authority from restoration.
+and preserves all three direct roots. After the operator checks the local
+console, one Enter authorizes mutation; there is no exact phrase and no second
+human confirmation. Two complete automatic postflights retain generation
+three and disarm rollback. If the terminal disappears after activation, the
+same command recognizes only the exact active restoration timer and its fresh,
+checksum-valid snapshot, repeats postflight, and completes retention. Never
+invoke the bare transaction, reuse a spent snapshot, remove a root, or infer
+later arming/reboot authority from restoration.
 
 The current disposable rerun initially refused a legitimate pending systemd
 unit-graph reload caused by the completed factory Thunderbird Snap revision
@@ -423,13 +432,15 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   a reviewed root-equivalent host change.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
-- System Manager's exact six-path/three-service canary is retained active on
-  `sparkle-01` as exact generation three. Generation three is selected,
-  upstream-rooted, directly pilot-rooted, and linked into `default.target` by
-  the one reviewed edge. Exact generations one and two remain registered and
-  directly pilot-rooted; all three roots are recovery anchors.
+- System Manager's exact five-path/three-service canary is retained active on
+  `sparkle-01` as exact generation two after the verified first-reboot rollback
+  and the first restoration attempt's verified timed rollback. Generation two
+  is selected, upstream-rooted, and directly pilot-rooted. Exact generations
+  one and two remain registered; generation three remains directly
+  pilot-rooted but has no numbered profile link or boot edge. All three direct
+  roots are recovery anchors.
   Preserve its exact service/`/etc` allowlists, state/registration disclosure,
-  single-boot-edge policy, Nix 2.35.2 private runtime, and closure rejection of
+  currently absent boot-edge policy, Nix 2.35.2 private runtime, and closure rejection of
   Nix 2.34.8 and real `userborn`. Preserve the exact-version
   `skip-empty-tmpfiles` patch, its manifest hash/policy, and the unmanaged-rule
   regression sentinel; never allow an empty managed set to trigger global
@@ -437,9 +448,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   activation is otherwise unrooted, so all exact closures and deactivation
   programs must remain retained. While active and registered, do not rerun the
   inactive-state preflight/activation, first-registration, pre-switch snapshot,
-  live-switch, or boot-persistence helpers; remove a generation or root; select
-  another generation; reboot; remove/change boot linkage; broaden ownership; or
-  update any candidate underneath the host.
+  live-switch, or boot-persistence helpers; remove a generation or root;
+  reboot; manually add/remove boot linkage; broaden ownership; or update any
+  candidate underneath the host. The only current generation-change path is
+  the reviewed retry-safe `./scripts/dgx-recovery restore`.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. Preserve the two failed-closed live-attempt records and never
   reuse their commit/time-bound snapshots. The third guarded attempt registered

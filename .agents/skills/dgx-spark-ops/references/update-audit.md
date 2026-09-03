@@ -231,8 +231,10 @@ be `first-reboot-rollback-verified-restoration-ready`, with current state
 be `live-recovery-operational-host-not-armed`, its 13-subtest current
 derivation must match, live-attempt status must be
 `automatic-rollback-verified-cleaned`, and restoration status must be
-`repository-ready-not-run`. Recovery paths are forbidden drift in a normal
-audit. A cleanly idle `nix-daemon.service` is healthy postboot only when the
+`attempt-one-rolled-back-retry-ready`, with its spent first-attempt evidence
+and verified exact-generation-two return recorded. Recovery paths are
+forbidden drift in a normal audit. A cleanly idle `nix-daemon.service` is
+healthy postboot only when the
 exact `nix-daemon.socket` is active/listening and reload-clean. The
 auditor's `verified-by-caller` mode is reserved for the hash-pinned recovery
 transaction after its own exact surface verification.

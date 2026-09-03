@@ -4,7 +4,9 @@ set -euo pipefail
 # Restore the exact generation-three boot-linked state after a verified
 # persistent-recovery rollback. This performs no reboot and never removes any
 # of the three direct pilot roots. A transient timer restores generation two
-# unless the operator confirms repeated postflight.
+# unless verified postflight completes and this helper disarms it. If the
+# terminal disappears after activation, rerunning the helper resumes the exact
+# in-flight transaction instead of requiring a second typed confirmation.
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 self_source=$repo_dir/scripts/root-recovery-restore-generation-three.sh
@@ -30,8 +32,8 @@ recovery_timer_path=/etc/systemd/system/dgx-root-reboot-recovery.timer
 recovery_wants_path=/etc/systemd/system/timers.target.wants/dgx-root-reboot-recovery.timer
 rollback_unit=dgx-root-recovery-restore-rollback
 snapshot_root=$repo_dir/inventory/sparkle-01/raw/system-manager-recovery-restore
-restore_phrase='RESTORE GENERATION THREE'
-keep_phrase='KEEP RESTORED GENERATION THREE'
+transaction=$transaction_source
+property_parser=$property_parser_source
 timer_armed=false
 mutation_started=false
 
@@ -102,8 +104,8 @@ require_commands() {
 
   for command_name in \
     awk bash cmp date find git grep hostname install jq loginctl nvidia-smi \
-    readlink sed sha256sum sort stat systemctl systemd-run tailscale timeout \
-    tr uname; do
+    readlink sed sha256sum sleep sort stat systemctl systemd-run tailscale \
+    timeout tr uname; do
     command -v "$command_name" >/dev/null 2>&1 ||
       die "required command is unavailable: $command_name"
   done
@@ -303,6 +305,125 @@ assert_generation_three() {
     die 'generation-three pilot root changed'
 }
 
+classify_generation_state() {
+  local observed
+
+  observed="$(
+    "$repo_dir/scripts/audit-root-canary-state.sh" \
+      "$generation_two" registered-second-triple-retained \
+      "$generation_one" "$generation_three" 2>/dev/null || true
+  )"
+  if [[ "$observed" == ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED ]]; then
+    printf '%s\n' "$observed"
+    return 0
+  fi
+
+  observed="$(
+    "$repo_dir/scripts/audit-root-canary-state.sh" \
+      "$generation_three" registered-third-boot \
+      "$generation_one" "$generation_two" 2>/dev/null || true
+  )"
+  if [[ "$observed" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]]; then
+    printf '%s\n' "$observed"
+    return 0
+  fi
+
+  printf 'DRIFT\n'
+}
+
+load_resume_snapshot() {
+  local candidate context_timestamp snapshot_epoch now_epoch age
+
+  snapshot=
+  while IFS= read -r candidate; do
+    snapshot=$candidate
+  done < <(find "$snapshot_root" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)
+  [[ -n "$snapshot" ]] || die 'generation three is live, but no restoration snapshot exists'
+  [[ "$(stat -c '%u:%a' "$snapshot")" == 0:700 ]] ||
+    die 'latest restoration snapshot is not root-owned mode 0700'
+  grep -Fx 'Snapshot creation completed.' "$snapshot/SNAPSHOT_COMPLETE" >/dev/null 2>&1 ||
+    die 'latest restoration snapshot is incomplete'
+  (
+    cd "$snapshot"
+    sha256sum -c SHA256SUMS >/dev/null
+  ) || die 'latest restoration snapshot failed checksum validation'
+  grep -Fx 'schema=1' "$snapshot/context.txt" >/dev/null ||
+    die 'latest restoration snapshot has an unexpected schema'
+  grep -Fx 'purpose=restore-generation-three-after-verified-recovery-rollback' \
+    "$snapshot/context.txt" >/dev/null || die 'latest restoration snapshot has the wrong purpose'
+  for expected in \
+    'host=sparkle-01' \
+    "repo_commit=$repo_commit" \
+    "restore_program_sha256=$self_sha" \
+    "transaction_sha256=$transaction_sha256" \
+    "generation_one=$generation_one" \
+    "generation_two=$generation_two" \
+    "generation_three=$generation_three" \
+    'prestate=ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED'; do
+    grep -Fx -- "$expected" "$snapshot/context.txt" >/dev/null ||
+      die "latest restoration snapshot context mismatch: $expected"
+  done
+  context_timestamp="$(awk -F= '$1 == "timestamp_utc" { sub(/^[^=]*=/, ""); print; exit }' "$snapshot/context.txt")"
+  [[ -n "$context_timestamp" ]] || die 'latest restoration snapshot lacks a timestamp'
+  snapshot_epoch="$(date -u -d "$context_timestamp" +%s)" ||
+    die 'latest restoration snapshot timestamp is invalid'
+  now_epoch="$(date -u +%s)"
+  age=$((now_epoch - snapshot_epoch))
+  ((age >= 0 && age <= 1800)) ||
+    die "latest restoration snapshot is outside the 30-minute resume window (age=${age}s)"
+
+  transaction=$snapshot/root-boot-persistence-transaction.sh
+  property_parser=$snapshot/systemd-snapshot-property.sh
+  [[ -x "$transaction" && -x "$property_parser" ]] ||
+    die 'latest restoration snapshot lacks its executable reviewed helpers'
+  stamp=${snapshot##*/}
+  pass snapshot "$snapshot is complete, checksum-valid, current, and bound to this in-flight restoration"
+}
+
+assert_resume_timer() {
+  local exec_start expected_arg
+
+  [[ "$(systemctl show "$rollback_unit.timer" -p ActiveState --value 2>/dev/null || true)" == active &&
+    "$(systemctl show "$rollback_unit.timer" -p SubState --value 2>/dev/null || true)" == waiting ]] ||
+    die 'generation three is live without the exact active/waiting restoration rollback timer'
+  exec_start="$(systemctl show "$rollback_unit.service" -p ExecStart --value --no-pager 2>/dev/null || true)"
+  for expected_arg in \
+    "$transaction" rollback-boot \
+    "$generation_one" "$generation_two" "$generation_three"; do
+    grep -F -- "$expected_arg" <<<"$exec_start" >/dev/null ||
+      die "restoration rollback service lacks exact argument: $expected_arg"
+  done
+  pass resume 'found the exact in-flight restoration and its generation-two rollback timer'
+}
+
+stop_restoration_timer() {
+  local timer_state service_state current_state attempt
+
+  systemctl stop "$rollback_unit.timer" >/dev/null 2>&1 || true
+  for ((attempt = 0; attempt < 30; attempt++)); do
+    service_state="$(systemctl show "$rollback_unit.service" -p ActiveState --value 2>/dev/null || true)"
+    [[ "$service_state" != active && "$service_state" != activating ]] && break
+    sleep 1
+  done
+  timer_state="$(systemctl show "$rollback_unit.timer" -p ActiveState --value 2>/dev/null || true)"
+  service_state="$(systemctl show "$rollback_unit.service" -p ActiveState --value 2>/dev/null || true)"
+  current_state="$(classify_generation_state)"
+
+  if [[ "$current_state" == ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED ]]; then
+    timer_armed=false
+    mutation_started=false
+    die 'rollback completed before retention; exact generation two is safe, so rerun restore'
+  fi
+  [[ -z "$timer_state" || "$timer_state" == inactive ]] ||
+    die "restoration rollback timer remains $timer_state"
+  [[ -z "$service_state" || "$service_state" == inactive || "$service_state" == dead ]] ||
+    die "restoration rollback service remains $service_state"
+  [[ "$current_state" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]] ||
+    die "unexpected state after stopping restoration rollback: $current_state"
+  timer_armed=false
+  pass rollback 'verified postflight passed and the transient generation-two rollback is disarmed'
+}
+
 if [[ "$EUID" -ne 0 ]]; then
   die 'run through ./scripts/dgx-recovery restore, not directly as an unprivileged user'
 fi
@@ -340,8 +461,13 @@ jq -e --arg self_sha "$self_sha" '
     "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" and
   .bootPersistence.rebootRecovery.liveAttempt.recoverySurface == "absent" and
   .bootPersistence.rebootRecovery.restoration.status ==
-    "repository-ready-not-run" and
+    "attempt-one-rolled-back-retry-ready" and
   .bootPersistence.rebootRecovery.restoration.program.sha256 == $self_sha and
+  .bootPersistence.rebootRecovery.restoration.consoleAcknowledgement ==
+    "press-enter-after-local-console-check" and
+  .bootPersistence.rebootRecovery.restoration.exactPhraseRequired == false and
+  .bootPersistence.rebootRecovery.restoration.automaticRetentionAfterPostflight == true and
+  .bootPersistence.rebootRecovery.restoration.resumableWhileRollbackTimerActive == true and
   .bootPersistence.rebootRecovery.restoration.performsReboot == false
 ' >/dev/null <<<"$manifest_json" ||
   die 'root-manager manifest does not match the verified rollback/restoration gate'
@@ -357,13 +483,42 @@ done
 [[ "$($nix_store_bin --query --hash "$boot_test_output")" == "$boot_test_hash" ]] ||
   die 'boot-persistence test output hash differs from passed evidence'
 
-assert_generation_two
-assert_recovery_absent
+current_state="$(classify_generation_state)"
 for unit in "${guarded_transient_units[@]}"; do
+  if [[ "$current_state" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED &&
+    ("$unit" == "$rollback_unit.timer" || "$unit" == "$rollback_unit.service") ]]; then
+    continue
+  fi
   load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
   [[ -z "$load_state" || "$load_state" == not-found ]] ||
     die "transient rollback unit remains loaded: $unit ($load_state)"
 done
+
+if [[ "$current_state" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]]; then
+  assert_recovery_absent
+  load_resume_snapshot
+  assert_resume_timer
+  timer_armed=true
+  mutation_started=true
+  assert_generation_three
+  assert_protected_units "$snapshot/services.before.txt"
+  assert_health
+  sha256sum -c "$snapshot/protected-files.before.sha256" >/dev/null ||
+    die 'a protected file changed during the in-flight restoration'
+  assert_recovery_absent
+  stop_restoration_timer
+  assert_generation_three
+  pass restoration 'resumed exact in-flight restoration and retained generation three after verified postflight'
+  printf '%s\n' \
+    "SNAPSHOT_STAMP=$stamp" \
+    'NO REBOOT: restoration performed no reboot and recovery remains separately gated.'
+  exit 0
+fi
+
+[[ "$current_state" == ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED ]] ||
+  die "expected exact generation two or resumable generation three; observed $current_state"
+assert_generation_two
+assert_recovery_absent
 assert_nix_runtime_ready
 assert_health
 seat_can_graphical="$(loginctl show-seat seat0 -p CanGraphical --value 2>/dev/null || true)"
@@ -417,11 +572,11 @@ sha256sum -c "$snapshot/protected-files.before.sha256" >/dev/null ||
 
 printf '\n%s\n' \
   'Restoration preflight passed. Verify the physical keyboard/display/local terminal.' \
-  "Type exactly $restore_phrase to arm a ten-minute rollback and restore generation three." \
+  'Press Enter once to arm a ten-minute rollback and restore generation three.' \
+  'No exact phrase is required; Ctrl-C or timeout makes no changes.' \
   'This command will not reboot the host.'
 printf '> '
-read -r -t 300 reply || die 'restoration confirmation timed out before mutation'
-[[ "$reply" == "$restore_phrase" ]] || die 'restoration confirmation did not match; no mutation performed'
+IFS= read -r -t 300 _ || die 'restoration acknowledgement timed out before mutation'
 
 systemd-run \
   --unit="$rollback_unit" \
@@ -431,9 +586,7 @@ systemd-run \
   "$generation_one" "$generation_two" "$generation_three" >/dev/null ||
   die 'could not establish exact generation-two rollback timer'
 timer_armed=true
-[[ "$(systemctl show "$rollback_unit.timer" -p ActiveState --value 2>/dev/null || true)" == active &&
-  "$(systemctl show "$rollback_unit.timer" -p SubState --value 2>/dev/null || true)" == waiting ]] ||
-  die 'restoration rollback timer is not active/waiting'
+assert_resume_timer
 pass rollback 'ten-minute exact generation-two rollback is active before mutation'
 
 mutation_started=true
@@ -443,25 +596,15 @@ assert_protected_units "$snapshot/services.before.txt"
 assert_health
 sha256sum -c "$snapshot/protected-files.before.sha256" >/dev/null ||
   die 'restoration changed a protected file'
-
-printf '\n%s\n' \
-  'Generation three is restored and automatic postflight passed.' \
-  "Type exactly $keep_phrase after checking the local console to retain it." \
-  'This still does not authorize or perform a reboot.'
-printf '> '
-read -r -t 300 reply || die 'retention confirmation timed out; rollback remains armed'
-[[ "$reply" == "$keep_phrase" ]] || die 'retention confirmation did not match; rollback remains armed'
-
 assert_generation_three
 assert_protected_units "$snapshot/services.before.txt"
 assert_health
-systemctl stop "$rollback_unit.timer"
-timer_state="$(systemctl show "$rollback_unit.timer" -p ActiveState --value 2>/dev/null || true)"
-[[ -z "$timer_state" || "$timer_state" == inactive ]] ||
-  die 'restoration rollback timer did not stop'
-timer_armed=false
+sha256sum -c "$snapshot/protected-files.before.sha256" >/dev/null ||
+  die 'a protected file changed during repeated restoration postflight'
+assert_recovery_absent
+stop_restoration_timer
 assert_generation_three
-pass restoration 'exact generation three is restored, retained, live, and boot-linked after repeated postflight'
+pass restoration 'exact generation three is automatically retained, live, and boot-linked after repeated postflight'
 printf '%s\n' \
   "SNAPSHOT_STAMP=$stamp" \
   'NO REBOOT: restoration performed no reboot and recovery remains separately gated.'

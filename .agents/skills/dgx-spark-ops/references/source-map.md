@@ -65,6 +65,7 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Hyprland releases | https://github.com/hyprwm/Hyprland/releases |
 | Hyprland v0.56.2 Glaze packaging fix | https://github.com/hyprwm/Hyprland/commit/91f29f23bb691462f8aa6171b964069aebc37910 |
 | Codex CLI releases | https://github.com/openai/codex/releases |
+| Official Codex configuration reference | https://learn.chatgpt.com/docs/config-file/config-reference |
 | System Manager matching stable branch | https://github.com/numtide/system-manager/tree/release-26.05 |
 | Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
 | Exact current System Manager container-test evidence | [root/system-manager/validation/2026-08-24-container-test.md](../../../../root/system-manager/validation/2026-08-24-container-test.md) |
@@ -84,7 +85,8 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Persistent first-reboot recovery transaction plan | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md) |
 | Exact persistent first-reboot recovery lifecycle result | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md) |
 | Executed persistent first-reboot live lifecycle plan | [root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md) |
-| Current verified automatic-rollback host authority | [root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md) |
+| Verified first-reboot automatic-rollback authority | [root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md) |
+| Current generation-two restoration-retry authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |
 | Thunderbird Snap unit-graph reload disposition | [root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md](../../../../root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md) |

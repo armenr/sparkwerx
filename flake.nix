@@ -216,7 +216,9 @@
       rootRebootRecoveryOperatorProgram = ./scripts/dgx-recovery;
       reviewedRootRebootRecoveryOperatorSha256 = "a7da45053e625f1653f6bc0d4830073ddc272cd03b80bce9db53badee37dd885";
       rootRecoveryRestoreGenerationThreeProgram = ./scripts/root-recovery-restore-generation-three.sh;
-      reviewedRootRecoveryRestoreGenerationThreeSha256 = "f5e47bf215b2b7118ce099953437d4c84d174027b68ce4d1906cb297efeeb32a";
+      reviewedRootRecoveryRestoreGenerationThreeSha256 = "ebf64626d6cf316d789de20f48edb2ac75fa3b2bed8b3c5bbdcf37fa1288af58";
+      codexRelaxedDefaultsReconcilerProgram = ./scripts/reconcile-codex-relaxed-defaults.sh;
+      codexRelaxedDefaultsTestProgram = ./scripts/test-reconcile-codex-relaxed-defaults.sh;
       rootRebootRecoveryGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-reboot-recovery-pilot";
       mkRootRebootRecoveryBundle =
         {
@@ -534,6 +536,14 @@
           # Declarative side-effect flag: this output is inert. It is not a
           # live-host observation of the apt-owned daemon.
           activated = false;
+        };
+
+        policies.armenCodexRelaxedDefaults = {
+          enabled = sparkleHome.config.dgx.userOverlays.armen.codex.relaxedPermissions.active;
+          scope = "Armen only; every desktop mode";
+          settings = sparkleHome.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy;
+          preservesUnrelatedMutableConfig = true;
+          ownsCodexPackage = false;
         };
 
         evaluatedProfiles = {
@@ -1014,18 +1024,29 @@
                 evidence = "root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md";
               };
               restoration = {
-                status = "repository-ready-not-run";
+                status = "attempt-one-rolled-back-retry-ready";
                 requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
                 program = {
                   repositoryPath = "scripts/root-recovery-restore-generation-three.sh";
                   sha256 = builtins.hashFile "sha256" rootRecoveryRestoreGenerationThreeProgram;
                 };
-                confirmationPhrase = "RESTORE GENERATION THREE";
-                retentionPhrase = "KEEP RESTORED GENERATION THREE";
+                consoleAcknowledgement = "press-enter-after-local-console-check";
+                exactPhraseRequired = false;
+                automaticRetentionAfterPostflight = true;
+                resumableWhileRollbackTimerActive = true;
                 rollbackDelayMinutes = 10;
                 preservesAllThreePilotRoots = true;
                 performsReboot = false;
                 hostRestorationPerformed = false;
+                priorAttempt = {
+                  snapshotStamp = "20260903T042141Z";
+                  generationThreeActivated = true;
+                  automaticPostflightPassed = true;
+                  retentionConfirmationMatched = false;
+                  automaticRollbackCompleted = true;
+                  currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
+                  evidence = "root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md";
+                };
               };
               hostRecoveryArmed = false;
               hostRebootPerformed = true;
@@ -1163,6 +1184,25 @@
         assert !baseProfile.config.programs.man.man-db.enable;
         assert !baseProfile.config.manual.manpages.enable;
         assert !baseProfile.config.dgx.userOverlays.armen.graphical.active;
+        assert baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.active;
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.approval_policy
+          == "never";
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.default_permissions
+          == ":danger-full-access";
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.approvals_reviewer
+          == "auto_review";
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.notice.hide_full_access_warning;
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.apps._default.default_tools_approval_mode
+          == "approve";
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.apps._default.destructive_enabled;
+        assert
+          baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.apps._default.open_world_enabled;
         assert graphicalProfile.config.xdg.enable;
         assert graphicalProfile.config.xdg.mime.enable;
         assert !graphicalProfile.config.xdg.mimeApps.enable;
@@ -1534,10 +1574,33 @@
           == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
         assert rootManagerManifest.bootPersistence.rebootRecovery.liveAttempt.recoverySurface == "absent";
         assert
-          rootManagerManifest.bootPersistence.rebootRecovery.restoration.status == "repository-ready-not-run";
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.status
+          == "attempt-one-rolled-back-retry-ready";
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.restoration.program.sha256
           == reviewedRootRecoveryRestoreGenerationThreeSha256;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.consoleAcknowledgement
+          == "press-enter-after-local-console-check";
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.exactPhraseRequired;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.automaticRetentionAfterPostflight;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.resumableWhileRollbackTimerActive;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.snapshotStamp
+          == "20260903T042141Z";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.generationThreeActivated;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.automaticPostflightPassed;
+        assert
+          !rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.retentionConfirmationMatched;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.automaticRollbackCompleted;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.priorAttempt.currentHostState
+          == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
         assert rootManagerManifest.bootPersistence.rebootRecovery.restoration.preservesAllThreePilotRoots;
         assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.performsReboot;
         assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed;
@@ -2001,6 +2064,16 @@
         "$test_root/scripts/test-systemd-snapshot-property.sh" >"$out"
       '';
 
+      codexRelaxedDefaultsRegressionCheck = pkgs.runCommand "dgx-codex-relaxed-defaults-test" { } ''
+        test_root="$TMPDIR/dgx-codex-relaxed-defaults-test"
+        mkdir -p "$test_root/scripts"
+        cp ${codexRelaxedDefaultsReconcilerProgram} "$test_root/scripts/reconcile-codex-relaxed-defaults.sh"
+        cp ${codexRelaxedDefaultsTestProgram} "$test_root/scripts/test-reconcile-codex-relaxed-defaults.sh"
+        chmod +x "$test_root/scripts/"*.sh
+        patchShebangs "$test_root/scripts"
+        "$test_root/scripts/test-reconcile-codex-relaxed-defaults.sh" >"$out"
+      '';
+
       homeConfigurations = {
         "n0b0dy@sparkle-01" = sparkleHome;
       };
@@ -2023,6 +2096,7 @@
       };
 
       checks.${system} = {
+        codex-relaxed-defaults = codexRelaxedDefaultsRegressionCheck;
         devbox-package = devboxPackage;
         devbox-policy = devboxPolicyCheck;
         home-sparkle-01 = sparkleHome.activationPackage;

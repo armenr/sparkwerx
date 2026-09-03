@@ -111,9 +111,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
 - System Manager 1.1.0 is the selected root-manager candidate; its exact
-  six-path/three-service generation-three canary is retained active and linked
-  into `default.target`. Generations one, two, and three are registered and
-  directly pilot-rooted; generation three is selected and upstream-rooted. Its
+  five-path/three-service generation-two canary is retained active after the
+  first real reboot rollback and first restoration attempt's safe timed
+  rollback. Generations one and two are registered, generation two is selected
+  and upstream-rooted, and all three candidates are directly pilot-rooted.
+  Generation three's numbered link and `default.target` edge are absent. Its
   109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
   registration surfaces documented in `root/system-manager/README.md`;

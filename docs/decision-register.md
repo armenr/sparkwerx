@@ -442,6 +442,24 @@ and other mutable data remain outside the Nix store even when Nix owns their
 packages, units, and declarative settings. This decision defines the target;
 the unified bootstrap/plan/apply implementation remains OPEN.
 
+### D-016: Armen's Codex sessions default to unrestricted access
+
+**Status:** ACCEPTED
+
+Every Codex session for Armen defaults to `approval_policy = "never"` and the
+built-in `:danger-full-access` permission profile. Eligible approval review and
+app-tool defaults use automatic review/approval, and destructive/open-world app
+tools are enabled by default. Armen explicitly accepts that these settings let
+Codex access the full machine and network and execute without approval pauses.
+
+This belongs to Armen's non-graphical personal overlay, so it applies in
+headless, GNOME, Hyprland, and KDE modes without entering the exact fleet base
+or affecting another user. Home Manager invokes a narrow, idempotent reconciler
+that owns only these approval/permission keys and preserves the rest of mutable
+`~/.codex/config.toml`. It refuses symlinks and foreign-owned files. The live
+pilot config already has the exact settings and passes strict Codex parsing.
+Whether Nix should own the separately installed Codex CLI package remains OPEN.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -458,10 +476,10 @@ the unified bootstrap/plan/apply implementation remains OPEN.
 - The first real host reboot and automatic recovery rollback are proven.
   Generation two is now selected/upstream-rooted/live with no boot edge;
   generation three is directly retained, and all three pilot roots remain.
-  Exact recovery cleanup passed and no timer is armed. Guarded no-reboot
-  restoration of generation three is next. Any later recovery arming, reboot,
-  generation/pilot-root retirement, or first real managed service remains a
-  separate decision.
+  Exact recovery cleanup and the first restoration attempt's timed rollback
+  passed; no timer is armed. Retry-safe no-reboot restoration of generation
+  three is next. Any later recovery arming, reboot, generation/pilot-root
+  retirement, or first real managed service remains a separate decision.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -471,7 +489,8 @@ the unified bootstrap/plan/apply implementation remains OPEN.
 - Choose reproducible package/update paths for ChatGPT and both browser
   extensions.
 - Decide whether the already-installed Codex CLI moves into Armen's overlay or
-  another role.
+  another role; its permission defaults are already owned independently by
+  Armen's overlay.
 - Decide whether headless `llmster` is wanted as an independent serving
   workload; selecting the LM Studio desktop app did not select the daemon.
 - Approve the persistent workload/model storage root and backup policy.

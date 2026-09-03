@@ -61,7 +61,8 @@ cleanly idle nix-daemon.service only behind exact active/listening
 nix-daemon.socket. Require recovery status
 live-recovery-operational-host-not-armed, live-attempt status
 automatic-rollback-verified-cleaned, restoration status
-repository-ready-not-run, and matching 13-subtest evidence. Do not create a
+attempt-one-rolled-back-retry-ready, its spent-attempt evidence, and matching
+13-subtest evidence. Do not create a
 snapshot, invoke a bare transaction, rerun a spent wrapper, restore, arm,
 reboot, or remove a generation/root.
 ```

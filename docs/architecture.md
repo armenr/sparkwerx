@@ -43,7 +43,8 @@ The eventual host declaration composes the exact base with explicit choices:
 - exactly one `dgx.desktop.mode`;
 - optional shared graphical software;
 - named user overlays such as `armen`;
-- optional developer-tool roles, including the still-to-be-placed Codex CLI;
+- optional developer-tool roles, including the still-to-be-placed Codex CLI
+  package, independently of Armen's declared all-modes Codex permission policy;
   and
 - independently selected workload roles.
 

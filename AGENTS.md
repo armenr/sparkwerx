@@ -24,6 +24,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Keep Armen's graphical apps in the named `armen` overlay. Do not add VS Code,
   NIM, or NVIDIA AI Enterprise; Chromium and Zed are the selected browser and
   editor.
+- Keep Armen's Codex defaults maximally permissive in every desktop mode:
+  `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
+  automatic review/approval, and destructive/open-world app tools enabled.
+  Reconcile only those keys; preserve mutable auth, plugins, MCP servers,
+  project trust, desktop preferences, and history. This preference policy does
+  not decide Codex CLI package ownership.
 - Keep Hyprland opt-in and do not activate Home Manager or change GDM unless the
   user explicitly approves that exact activation.
 - Never expose secrets or place mutable model/application data in the Nix store.
@@ -49,12 +55,14 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   remained registered and both pilot roots were recovery anchors. The
   historical generation-two classifier was
   `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. The later separately authorized
-  boot-persistence pilot retained exact generation three, the one declarative
-  boot edge, all three numbered generations, and all three direct roots. Current
-  classifier authority is
-  `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. Read the
-  generation-switch records, boot-persistence transaction/live plans, and
-  `2026-09-02-boot-persistence-host-attempt-1.md` before touching this state.
+  boot-persistence pilot retained exact generation three and its boot edge, but
+  the first real reboot recovery and the first restoration attempt both safely
+  timed back to exact generation two. Current classifier authority is
+  `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`: generations one/two are
+  registered, generation two is selected/upstream-rooted/live, generation three
+  remains directly rooted, and boot/recovery edges are absent. Read the
+  generation-switch, boot-persistence, reboot-recovery, and
+  `2026-09-03-restoration-host-attempt-1.md` records before touching this state.
   Do not rerun the one-time activation, registration, snapshot, switch, or
   boot-persistence helpers; reboot; change boot linkage; select or remove a
   generation; remove any current root; or broaden ownership without a separate
@@ -76,11 +84,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Low-level System Manager activation does not register or GC-root its output.
   The live pilot therefore still requires the documented
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The guarded
-  registration, switch, and boot-persistence activation now retain all three
-  numbered generation links, select generation three, and point
-  `/nix/var/nix/gcroots/system-manager-current` to generation three. Preserve
-  those links plus all three direct pilot roots and the exact boot edge while
-  this state is retained; never infer permission to rerun upstream
+  registration, switch, and boot-persistence work retained three direct pilot
+  roots. The current rollback state has numbered generations one/two, selects
+  generation two, and points `/nix/var/nix/gcroots/system-manager-current` to
+  generation two; generation three's numbered link and boot edge are absent.
+  Preserve that exact surface plus all three direct pilot roots; never infer
+  permission to rerun upstream
   `register-profile`, remove registration, select a different generation, or
   retire any pilot root.
 - Preserve the helper's root-only `--store local` path: Nix 2.35 strips

@@ -400,7 +400,7 @@ audit_root_integration() {
   local live_registration_host live_registration_state registration_mode
   local live_switch_host live_switch_state live_boot_host live_boot_state
   local declared_current_state recovery_live_host recovery_live_state
-  local restoration_status generation_one_output generation_two_output
+  local restoration_status root_evidence generation_one_output generation_two_output
   local generation_three_output other_root_output middle_root_output
   local policy_ok live_state root_output status detail
   local -a nix_args
@@ -504,6 +504,13 @@ audit_root_integration() {
   restoration_status="$(
     jq -r '.bootPersistence.rebootRecovery.restoration.status // empty' <<<"$manifest"
   )"
+  root_evidence="$(
+    jq -r '
+      .bootPersistence.rebootRecovery.restoration.evidence //
+      .bootPersistence.rebootRecovery.restoration.priorAttempt.evidence //
+      .bootPersistence.rebootRecovery.liveAttempt.evidence // empty
+    ' <<<"$manifest"
+  )"
   generation_one_output="$(
     jq -r '.registration.guardedGenerationSwitch.exactCandidates.generationOne // empty' <<<"$manifest"
   )"
@@ -562,13 +569,13 @@ audit_root_integration() {
       (
         (.bootPersistence.status == "first-reboot-rollback-verified-restoration-ready") and
         (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
-        (.bootPersistence.rebootRecovery.restoration.status == "repository-ready-not-run") and
+        (.bootPersistence.rebootRecovery.restoration.status == "attempt-one-rolled-back-retry-ready") and
         (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == false)
       ) or
       (
         (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
         (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
-        (.bootPersistence.rebootRecovery.restoration.status == "generation-three-restored-after-console-confirmation") and
+        (.bootPersistence.rebootRecovery.restoration.status == "generation-three-restored-after-verified-postflight") and
         (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == true)
       )
     ) and
@@ -655,6 +662,16 @@ audit_root_integration() {
     (.bootPersistence.rebootRecovery.liveAttempt.generationsOneTwoThreeDirectlyRetained == true) and
     (.bootPersistence.rebootRecovery.liveAttempt.nixDaemonIdleSocketLessonRecorded == true) and
     (.bootPersistence.rebootRecovery.restoration.requiredHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
+    (.bootPersistence.rebootRecovery.restoration.consoleAcknowledgement == "press-enter-after-local-console-check") and
+    (.bootPersistence.rebootRecovery.restoration.exactPhraseRequired == false) and
+    (.bootPersistence.rebootRecovery.restoration.automaticRetentionAfterPostflight == true) and
+    (.bootPersistence.rebootRecovery.restoration.resumableWhileRollbackTimerActive == true) and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.snapshotStamp == "20260903T042141Z") and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.generationThreeActivated == true) and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.automaticPostflightPassed == true) and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.retentionConfirmationMatched == false) and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.automaticRollbackCompleted == true) and
+    (.bootPersistence.rebootRecovery.restoration.priorAttempt.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
     (.bootPersistence.rebootRecovery.restoration.preservesAllThreePilotRoots == true) and
     (.bootPersistence.rebootRecovery.restoration.performsReboot == false) and
     (.bootPersistence.rebootRecovery.hostRecoveryArmed == false) and
@@ -740,7 +757,7 @@ audit_root_integration() {
           "$recovery_live_state" == "$declared_current_state" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" ]]; then
     status="CURRENT"
-    detail="The first guarded host reboot exercised the real persistent deadline: confirmation missed it by two seconds, automatic rollback restored exact registered/live no-boot generation two, cleanup removed the recovery surface, and all three direct pilot roots remain. The active Nix daemon may be running or cleanly idle behind nix-daemon.socket after boot. The repository-pinned, no-reboot restoration helper is ready; no recovery timer is armed."
+    detail="The first guarded host reboot exercised the real persistent deadline, and restoration attempt one later exercised its own timed rollback after the old retention phrase was mistyped. Both returned exact registered/live no-boot generation two; cleanup is complete, all three direct pilot roots remain, and no timer is armed. The active Nix daemon may be running or cleanly idle behind nix-daemon.socket after boot. The corrected no-reboot restoration helper is retry-ready with one Enter and automatic verified retention."
   elif [[ "$host_name" == "$live_boot_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     status="CURRENT"
@@ -782,7 +799,7 @@ audit_root_integration() {
 
   emit "ROOT_INTEGRATION" "repository" "System Manager candidate policy" \
     "$current" "$candidate" "$status" \
-    "repo:root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md" \
+    "repo:${root_evidence:-root/system-manager/README.md}" \
     "$detail"
 }
 

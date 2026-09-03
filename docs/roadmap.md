@@ -91,8 +91,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Separately authorize recovery arming and the first real pilot reboot; let
       the missed deadline automatically restore exact generation two, then
       verify rollback and clean the recovery surface
-- [ ] Use the hash-pinned, timed, local-console-confirmed no-reboot restoration
-      path to return generation three to selected/live/boot-linked state
+- [ ] Retry the hash-pinned, timed, no-reboot restoration path to return
+      generation three to selected/live/boot-linked state. Attempt one reached
+      healthy generation three, then safely timed back to generation two after
+      the old retention phrase was mistyped; the corrected helper uses one
+      pre-mutation Enter and automatic repeated-postflight retention
 - [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
       complete uninstall/rollback path
 - [ ] Build a single read-only host `plan` and guarded host `apply` entry point
@@ -140,6 +143,8 @@ approval, graphical validation, activation approval, and rollback.
 - [ ] Wire and validate the pinned current Zed candidate
 - [ ] Wire and validate the pinned current LM Studio candidate and exact unfree exception
 - [ ] ChatGPT desktop package/provenance migration
+- [x] Declare and regression-test Armen's all-modes permissive Codex defaults
+      without taking ownership of mutable auth/plugin/MCP/desktop config
 - [ ] Decide where the existing Codex CLI belongs
 - [ ] Verify the entire graphical overlay becomes inactive in headless mode
 
