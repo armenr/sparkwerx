@@ -45,6 +45,12 @@ in
   config = {
     dgx.desktop.isGraphical = isGraphical;
 
+    # Home Manager otherwise emits its generic graphical tray target even when
+    # no user services are configured. Keep the entire Home Manager user-unit
+    # surface out of the headless profile. Headless daemons belong in explicit
+    # root/workload roles; graphical modes may use the user manager normally.
+    systemd.user.enable = isGraphical;
+
     # XDG base-directory and shared MIME-database ownership are graphical.
     # Default applications, user directories, and portals remain independent.
     xdg.enable = isGraphical;

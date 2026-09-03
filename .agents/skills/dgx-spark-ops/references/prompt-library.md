@@ -192,6 +192,13 @@ and update invalidation. Preserve the current generation-three root state.
 ```
 
 ```text
+$dgx-spark-ops Audit the first minimal headless Home activation. Use only
+scripts/dgx-home, preserve the exact four-package profile and zero user-systemd
+unit boundary, verify the private snapshot and automatic rollback, and do not
+change any root service, desktop mode, or Tailscale ownership.
+```
+
+```text
 $dgx-spark-ops Plan the selected Isaac role from the current official Spark
 playbook. Include Isaac Sim, Isaac Lab, and selected Omniverse robotics tooling;
 itemize each additional Omniverse app or Kit component instead of assuming the

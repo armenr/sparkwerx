@@ -128,6 +128,8 @@ the same reviewed change.
 | Chromium Ubuntu AppArmor/userns guidance | https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md |
 | Locked Nixpkgs Chromium SUID module | https://github.com/NixOS/nixpkgs/blob/9387b3fcc0c23c86661636da63faabad4235a0a6/nixos/modules/security/chromium-suid-sandbox.nix |
 | Current Chromium package evidence | [docs/2026-09-03-chromium-package.md](../../../../docs/2026-09-03-chromium-package.md) |
+| First headless Home activation preflight | [docs/2026-09-03-home-headless-preflight.md](../../../../docs/2026-09-03-home-headless-preflight.md) |
+| Guarded Home operator | [scripts/dgx-home](../../../../scripts/dgx-home) |
 | Isaac Sim/Lab on Spark | https://build.nvidia.com/spark/isaac |
 
 The repository lock is packaging evidence, not proof that a desktop package is

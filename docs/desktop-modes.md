@@ -76,8 +76,9 @@ false in `headless`, and true in graphical profiles. It leaves
 `xdg.mimeApps.enable`, `xdg.userDirs.enable`, and `xdg.portal.enable` false
 until a specific role owns them. This is why headless evaluates to only the
 three selected base tools plus Home Manager's intrinsic session-variable
-package, while graphical profiles explicitly show the additional MIME
-machinery in the manifest.
+package. Home Manager's user-systemd layer is disabled in this profile, so even
+its otherwise generic `tray.target` is absent. Graphical profiles explicitly
+show the additional MIME and user-systemd machinery in the manifest.
 
 Hyprland's Home Manager module normally enables its portal implicitly. This
 repository sets its `portalPackage` to `null`; the independent

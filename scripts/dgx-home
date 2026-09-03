@@ -1,0 +1,776 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# One-command, user-scoped Home Manager lifecycle for the first minimal
+# headless activation. The command itself is the intent signal: there is no
+# brittle confirmation phrase. A ten-minute user timer restores the exact
+# pre-Home state if the terminal disappears, and successful postflight disarms
+# it automatically.
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -d "$script_dir/../.git" ]]; then
+  repo_dir="$(cd -- "$script_dir/.." && pwd)"
+else
+  repo_dir=""
+fi
+
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+nix_env=/nix/var/nix/profiles/default/bin/nix-env
+nix_store=/nix/var/nix/profiles/default/bin/nix-store
+nix_args=(--extra-experimental-features "nix-command flakes")
+
+declare -A context=()
+
+usage() {
+  printf '%s\n' \
+    "Usage: $(basename "$0") status" \
+    "       $(basename "$0") preflight" \
+    "       $(basename "$0") activate-headless" \
+    "       $(basename "$0") rollback SNAPSHOT_STAMP" >&2
+}
+
+die() {
+  printf 'FAIL|%s\n' "$1" >&2
+  exit 1
+}
+
+pass() {
+  printf 'PASS|%s|%s\n' "$1" "$2"
+}
+
+info() {
+  printf 'INFO|%s|%s\n' "$1" "$2"
+}
+
+warn() {
+  printf 'WARN|%s\n' "$1" >&2
+}
+
+path_is_absent() {
+  [[ ! -e "$1" && ! -L "$1" ]]
+}
+
+path_kind() {
+  local path=$1
+  if [[ -L "$path" ]]; then
+    printf 'symlink\n'
+  elif [[ -f "$path" ]]; then
+    printf 'file\n'
+  elif path_is_absent "$path"; then
+    printf 'absent\n'
+  else
+    printf 'unsupported\n'
+  fi
+}
+
+require_unprivileged() {
+  [[ "$EUID" -ne 0 ]] || die 'run this user-profile command without sudo'
+  [[ "$(id -u)" -eq 1000 ]] || die 'this pilot currently requires uid 1000'
+  [[ -x "$nix_bin" && -x "$nix_env" && -x "$nix_store" ]] ||
+    die 'the verified machine-wide Nix 2.35.2 command set is unavailable'
+}
+
+require_repository() {
+  [[ -n "$repo_dir" ]] || die 'this action must run from the repository copy of dgx-home'
+  [[ "$(git -C "$repo_dir" rev-parse --show-toplevel)" == "$repo_dir" ]] ||
+    die 'repository root could not be verified'
+}
+
+require_clean_repository() {
+  [[ -z "$(git -C "$repo_dir" status --porcelain=v1)" ]] ||
+    die 'repository must be clean so activation binds one committed design'
+}
+
+host_name() {
+  hostname -s
+}
+
+user_name() {
+  id -un
+}
+
+home_directory() {
+  local passwd_home
+  if [[ "${DGX_HOME_TEST_MODE:-}" == 1 ]]; then
+    [[ "${DGX_HOME_TEST_HOME:-}" == /tmp/dgx-home-test.*/* ]] ||
+      die 'test home must be below an exact /tmp/dgx-home-test.* directory'
+    [[ -d "$DGX_HOME_TEST_HOME" && ! -L "$DGX_HOME_TEST_HOME" ]] ||
+      die 'test home must be an existing real directory'
+    printf '%s\n' "$DGX_HOME_TEST_HOME"
+    return
+  fi
+  passwd_home="$(getent passwd "$(user_name)" | cut -d: -f6)"
+  [[ -n "$passwd_home" ]] || die 'could not resolve the current account home'
+  [[ "$HOME" == "$passwd_home" ]] ||
+    die "HOME is $HOME, expected $passwd_home"
+  printf '%s\n' "$passwd_home"
+}
+
+activation_attr() {
+  printf '.#homeConfigurations."%s@%s".activationPackage\n' \
+    "$(user_name)" "$(host_name)"
+}
+
+activation_candidate() {
+  "$nix_bin" "${nix_args[@]}" eval --raw "$(activation_attr)"
+}
+
+profile_manifest_json() {
+  "$nix_bin" "${nix_args[@]}" eval --json \
+    '.#lib.dgxProfileManifests.aarch64-linux'
+}
+
+assert_profile_policy() {
+  profile_manifest_json | jq -e '
+    ([.roles.fleetBase[].pname] | sort) == ["devbox", "lazydocker", "ncdu"] and
+    ([.roles.armenAllModes[].pname] | sort) == ["codex-cli"] and
+    ([.evaluatedProfiles.headless[].pname] | sort) ==
+      ["codex-cli", "devbox", "lazydocker", "ncdu"] and
+    ([.evaluatedProfiles.headless[].pname] |
+      map(select(. == "chromium" or . == "ghostty" or . == "hyprland" or
+                 . == "lmstudio" or . == "zed-editor"))) == [] and
+    (.approvedUnfreePackageNames | sort) == ["lmstudio"]
+  ' >/dev/null || die 'headless package manifest differs from the reviewed exact set'
+
+  local systemd_enabled xdg_enabled portal_enabled hm_cli_enabled
+  systemd_enabled="$($nix_bin "${nix_args[@]}" eval --json \
+    "$(activation_attr | sed 's/\.activationPackage$/.config.systemd.user.enable/')")"
+  xdg_enabled="$($nix_bin "${nix_args[@]}" eval --json \
+    "$(activation_attr | sed 's/\.activationPackage$/.config.xdg.enable/')")"
+  portal_enabled="$($nix_bin "${nix_args[@]}" eval --json \
+    "$(activation_attr | sed 's/\.activationPackage$/.config.xdg.portal.enable/')")"
+  hm_cli_enabled="$($nix_bin "${nix_args[@]}" eval --json \
+    "$(activation_attr | sed 's/\.activationPackage$/.config.programs.home-manager.enable/')")"
+  [[ "$systemd_enabled" == false && "$xdg_enabled" == false &&
+    "$portal_enabled" == false && "$hm_cli_enabled" == false ]] ||
+    die 'headless profile unexpectedly enables user systemd, XDG, a portal, or the Home Manager CLI'
+}
+
+assert_root_lane_unchanged() {
+  [[ "$(host_name)" == sparkle-01 ]] || return 0
+
+  local attr expected observed
+  while IFS=$'\t' read -r attr expected; do
+    observed="$($nix_bin "${nix_args[@]}" eval --raw "$attr")"
+    [[ "$observed" == "$expected" ]] ||
+      die "frozen root lane changed at $attr"
+  done <<'EOF'
+.#root-system-canary	/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
+.#root-system-canary-generation-two	/nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager
+.#root-system-canary-generation-three-boot	/nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager
+.#root-reboot-recovery	/nix/store/wpikhcgj77ws90j4ivdp3498mlmffyax-dgx-root-reboot-recovery
+EOF
+}
+
+assert_sparkle_root_state() {
+  [[ "$(host_name)" == sparkle-01 ]] || return 0
+
+  local observed
+  observed="$("$repo_dir/scripts/audit-root-canary-state.sh" \
+    /nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager \
+    registered-third-boot \
+    /nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager \
+    /nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager \
+    activation 2>/dev/null || true)"
+  [[ "$observed" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]] ||
+    die "root lane is ${observed:-UNKNOWN}, not the retained generation-three state"
+}
+
+protected_units=(
+  tailscaled.service
+  gdm.service
+  docker.service
+  dgx-dashboard.service
+  dgx-dashboard-admin.service
+  nvidia-persistenced.service
+)
+
+capture_protected_units() {
+  local unit load active fragment pid started
+  for unit in "${protected_units[@]}"; do
+    load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    pid="$(systemctl show "$unit" -p MainPID --value 2>/dev/null || true)"
+    started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value 2>/dev/null || true)"
+    [[ "$load" == loaded && "$active" == active ]] ||
+      die "$unit is not loaded and active"
+    [[ -n "$fragment" && "$pid" =~ ^[1-9][0-9]*$ && "$started" =~ ^[1-9][0-9]*$ ]] ||
+      die "$unit lacks an exact running-process identity"
+    printf '%s\t%s\t%s\t%s\n' "$unit" "$fragment" "$pid" "$started"
+  done
+}
+
+assert_host_health() {
+  local state failed tailscale_json
+  state="$(systemctl is-system-running 2>/dev/null || true)"
+  [[ "$state" == running ]] || die "systemd state is ${state:-UNKNOWN}"
+  failed="$(systemctl --failed --no-legend --plain 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
+  [[ -z "$failed" ]] || die 'systemd reports failed units'
+  capture_protected_units >/dev/null
+
+  if [[ "$(host_name)" == sparkle-01 ]]; then
+    tailscale_json="$(tailscale status --json 2>/dev/null)" ||
+      die 'Tailscale status is unavailable'
+    jq -e '
+      .BackendState == "Running" and
+      .Self.Online == true and
+      .CurrentTailnet.MagicDNSSuffix != null
+    ' <<<"$tailscale_json" >/dev/null || die 'Tailscale is not running and online'
+  fi
+}
+
+assert_first_activation_surface() {
+  local home candidate home_files user_profiles hm_state launcher config
+  local -a leaves expected
+  home="$(home_directory)"
+  candidate=$1
+  home_files="$(readlink -e "$candidate/home-files")"
+  user_profiles=$home/.local/state/nix/profiles
+  hm_state=$home/.local/state/home-manager
+  launcher=$home/.local/bin/codex
+  config=$home/.codex/config.toml
+
+  [[ -x "$candidate/activate" && -d "$home_files" ]] ||
+    die 'activation candidate is incomplete'
+  mapfile -t leaves < <(find "$home_files" \( -type f -o -type l \) -printf '%P\n' | sort)
+  expected=(.cache/.keep .local/bin/codex .local/state/.keep)
+  [[ "${leaves[*]}" == "${expected[*]}" ]] ||
+    die "managed home files differ from the exact three-file boundary: ${leaves[*]}"
+  ! rg -q '^_iNote .*reloadSystemd' "$candidate/activate" ||
+    die 'headless activation unexpectedly contains Home Manager systemd reload'
+
+  path_is_absent "$user_profiles/home-manager" ||
+    die 'a Home Manager profile already exists; use a future generation-update workflow'
+  path_is_absent "$user_profiles/home-manager-1-link" ||
+    die 'a Home Manager generation already exists'
+  path_is_absent "$hm_state/gcroots/current-home" ||
+    die 'a Home Manager current-generation GC root already exists'
+
+  [[ -d "$user_profiles" ]] || die 'Nix user profile directory is absent'
+  [[ -L "$home/.nix-profile" ]] || die 'the home Nix profile is not the expected installer symlink'
+  [[ "$(readlink -- "$home/.nix-profile")" == "$user_profiles/profile" ]] ||
+    die 'the home Nix profile points outside the expected XDG profile directory'
+  path_is_absent "$user_profiles/profile" ||
+    die 'the first-activation pilot requires an empty user Nix profile'
+  path_is_absent "$user_profiles/profile-1-link" ||
+    die 'the first-activation pilot found prior user profile history'
+
+  path_is_absent "$home/.cache/.keep" || die 'the home cache marker collides with Home Manager'
+  path_is_absent "$home/.local/state/.keep" || die 'the home state marker collides with Home Manager'
+  path_is_absent "$home/.config/environment.d/10-home-manager.conf" ||
+    die 'headless-forbidden Home Manager environment.d file already exists'
+  path_is_absent "$home/.config/systemd/user/tray.target" ||
+    die 'headless-forbidden Home Manager tray.target already exists'
+
+  case "$(path_kind "$launcher")" in
+    absent | symlink | file) ;;
+    *) die 'the existing Codex launcher has an unsupported file type' ;;
+  esac
+  [[ ! -e "$home/.local/bin" || ( -d "$home/.local/bin" && -O "$home/.local/bin" ) ]] ||
+    die 'the home local-bin path is not an owned directory'
+
+  case "$(path_kind "$config")" in
+    absent) ;;
+    file)
+      [[ -O "$config" ]] || die 'Codex config is not owned by the current user'
+      ;;
+    *) die 'Codex config must be absent or an owned regular file' ;;
+  esac
+  [[ ! -e "$home/.codex" || ( -d "$home/.codex" && -O "$home/.codex" && ! -L "$home/.codex" ) ]] ||
+    die 'the Codex state path is not an owned, real directory'
+}
+
+run_preflight() {
+  require_unprivileged
+  require_repository
+  require_clean_repository
+
+  local candidate dry_run
+  candidate="$(activation_candidate)"
+  info candidate "$candidate"
+  "$nix_bin" "${nix_args[@]}" build --no-link \
+    '.#checks.aarch64-linux.home-sparkle-01' \
+    '.#checks.aarch64-linux.profile-policy' \
+    '.#checks.aarch64-linux.codex-cli-policy' \
+    '.#checks.aarch64-linux.devbox-policy'
+  assert_profile_policy
+  assert_root_lane_unchanged
+  assert_sparkle_root_state
+  assert_host_health
+  assert_first_activation_surface "$candidate"
+
+  dry_run="$(DRY_RUN=1 VERBOSE=1 "$candidate/activate" 2>&1)" || {
+    printf '%s\n' "$dry_run" >&2
+    die 'Home Manager dry run failed'
+  }
+  grep -F 'Skipping collision check for ' <<<"$dry_run" | grep -F '/.local/bin/codex' >/dev/null ||
+    die 'dry run did not recognize the intentional Codex launcher takeover'
+  grep -F "Would reconcile Armen's non-secret Codex permission defaults" <<<"$dry_run" >/dev/null ||
+    die 'dry run did not keep Codex reconciliation non-mutating'
+  ! grep -F 'Activating reloadSystemd' <<<"$dry_run" >/dev/null ||
+    die 'dry run contains a user-systemd activation phase'
+
+  pass preflight 'exact first headless Home profile is built, collision-clean, and non-mutating in dry-run'
+}
+
+record_path_backup() {
+  local path=$1 label=$2 destination=$3 kind
+  kind="$(path_kind "$path")"
+  printf '%s\t%s\n' "${label}_kind" "$kind" >>"$destination/context.tsv"
+  case "$kind" in
+    symlink)
+      printf '%s\t%s\n' "${label}_link" "$(readlink -- "$path")" >>"$destination/context.tsv"
+      ;;
+    file)
+      cp -p -- "$path" "$destination/backup/$label"
+      printf '%s\t%s\n' "${label}_mode" "$(stat -c %a -- "$path")" >>"$destination/context.tsv"
+      ;;
+    absent) ;;
+    *) die "cannot snapshot unsupported path: $path" ;;
+  esac
+}
+
+create_snapshot() {
+  local candidate=$1 home host user stamp destination home_path home_files unit
+  home="$(home_directory)"
+  host="$(host_name)"
+  user="$(user_name)"
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  destination=$repo_dir/inventory/$host/raw/home-manager-headless/$stamp
+  home_path="$(readlink -e "$candidate/home-path")"
+  home_files="$(readlink -e "$candidate/home-files")"
+  unit="dgx-home-headless-rollback-${stamp,,}"
+
+  umask 077
+  mkdir -p -- "$destination/backup"
+  chmod 0700 -- "$destination"
+  : >"$destination/context.tsv"
+  printf '%s\t%s\n' \
+    format 1 \
+    snapshot "$destination" \
+    stamp "$stamp" \
+    host "$host" \
+    user "$user" \
+    home "$home" \
+    repo "$repo_dir" \
+    repo_commit "$(git -C "$repo_dir" rev-parse HEAD)" \
+    candidate "$candidate" \
+    home_path "$home_path" \
+    home_files "$home_files" \
+    timer_unit "$unit" \
+    user_groups "$(id -G)" \
+    >"$destination/context.tsv"
+
+  record_path_backup "$home/.local/bin/codex" launcher "$destination"
+  record_path_backup "$home/.codex/config.toml" codex_config "$destination"
+  capture_protected_units >"$destination/protected-units.before.tsv"
+
+  if [[ -f "$home/.codex/config.toml" ]]; then
+    cp -p -- "$home/.codex/config.toml" "$destination/codex-config.expected"
+  else
+    install -m 0600 /dev/null "$destination/codex-config.expected"
+  fi
+  "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
+    --apply "$destination/codex-config.expected" >/dev/null
+  printf '%s\t%s\n' expected_codex_config_sha256 \
+    "$(sha256sum "$destination/codex-config.expected" | awk '{print $1}')" \
+    >>"$destination/context.tsv"
+
+  cp -p -- "$repo_dir/scripts/dgx-home" "$destination/dgx-home"
+  chmod 0700 -- "$destination/dgx-home"
+  printf 'Snapshot creation completed.\n' >"$destination/SNAPSHOT_COMPLETE"
+  (
+    cd "$destination"
+    find . -type f ! -name SHA256SUMS ! -name RETAINED ! -name ROLLED_BACK \
+      -print0 | sort -z | xargs -0 sha256sum
+  ) >"$destination/SHA256SUMS"
+
+  printf '%s\n' "$destination"
+}
+
+load_snapshot() {
+  local snapshot=$1 key value mode owner
+  [[ "$snapshot" == /* && -d "$snapshot" && ! -L "$snapshot" ]] ||
+    die 'snapshot must be an existing absolute real directory'
+  mode="$(stat -c %a -- "$snapshot")"
+  owner="$(stat -c %U -- "$snapshot")"
+  [[ "$mode" == 700 && "$owner" == "$(user_name)" ]] ||
+    die 'snapshot must be mode 0700 and owned by the current user'
+  [[ "$(cat "$snapshot/SNAPSHOT_COMPLETE")" == 'Snapshot creation completed.' ]] ||
+    die 'snapshot completion marker is absent'
+  (
+    cd "$snapshot"
+    sha256sum -c SHA256SUMS >/dev/null
+  ) || die 'snapshot checksum verification failed'
+
+  context=()
+  while IFS=$'\t' read -r key value; do
+    [[ -n "$key" && -z "${context[$key]+set}" ]] ||
+      die 'snapshot context has an empty or duplicate key'
+    context[$key]=$value
+  done <"$snapshot/context.tsv"
+
+  [[ "${context[format]-}" == 1 ]] || die 'snapshot format is unsupported'
+  [[ "${context[snapshot]-}" == "$snapshot" ]] || die 'snapshot path differs from its context'
+  [[ "${context[host]-}" == "$(host_name)" ]] || die 'snapshot host differs from this host'
+  [[ "${context[user]-}" == "$(user_name)" ]] || die 'snapshot user differs from this user'
+  [[ "${context[home]-}" == "$(home_directory)" ]] || die 'snapshot home differs from this account'
+  [[ "${context[candidate]-}" == /nix/store/*-home-manager-generation ]] ||
+    die 'snapshot candidate is not a Home Manager generation'
+  [[ "${context[home_path]-}" == /nix/store/*-home-manager-path ]] ||
+    die 'snapshot home path is invalid'
+  [[ "${context[home_files]-}" == /nix/store/*-home-manager-files ]] ||
+    die 'snapshot home-files path is invalid'
+}
+
+assert_profile_contains_only_home_path() {
+  local profile=$1 expected_path=$2 listing
+  listing="$($nix_env --profile "$profile" -q --out-path 2>/dev/null | awk '{$1=$1; print}' || true)"
+  [[ "$listing" == "home-manager-path $expected_path" ]] ||
+    die "user profile is not the exact Home Manager path: ${listing:-EMPTY}"
+}
+
+assert_managed_link() {
+  local path=$1 expected_path=$2
+  [[ -L "$path" && "$(readlink -- "$path")" == "$expected_path" ]] ||
+    die "$path is not the exact Home Manager link"
+}
+
+run_postflight() {
+  local snapshot=$1 home candidate home_path home_files profiles current_units
+  local current_config_sha
+  load_snapshot "$snapshot"
+  home=${context[home]}
+  candidate=${context[candidate]}
+  home_path=${context[home_path]}
+  home_files=${context[home_files]}
+  profiles=$home/.local/state/nix/profiles
+
+  [[ -L "$profiles/home-manager" && "$(readlink -- "$profiles/home-manager")" == home-manager-1-link ]] ||
+    die 'Home Manager selected profile is not generation one'
+  [[ -L "$profiles/home-manager-1-link" && "$(readlink -e "$profiles/home-manager-1-link")" == "$candidate" ]] ||
+    die 'Home Manager generation one does not point to the exact candidate'
+  [[ -L "$home/.local/state/home-manager/gcroots/current-home" &&
+    "$(readlink -e "$home/.local/state/home-manager/gcroots/current-home")" == "$candidate" ]] ||
+    die 'Home Manager current-generation root is not exact'
+
+  [[ -L "$profiles/profile" && "$(readlink -- "$profiles/profile")" == profile-1-link ]] ||
+    die 'user Nix profile is not exact generation one'
+  [[ -L "$profiles/profile-1-link" ]] || die 'user Nix profile generation one is absent'
+  assert_profile_contains_only_home_path "$profiles/profile" "$home_path"
+
+  assert_managed_link "$home/.local/bin/codex" "$home_files/.local/bin/codex"
+  assert_managed_link "$home/.cache/.keep" "$home_files/.cache/.keep"
+  assert_managed_link "$home/.local/state/.keep" "$home_files/.local/state/.keep"
+  path_is_absent "$home/.config/environment.d/10-home-manager.conf" ||
+    die 'headless activation created an environment.d file'
+  path_is_absent "$home/.config/systemd/user/tray.target" ||
+    die 'headless activation created tray.target'
+
+  current_config_sha="$(sha256sum "$home/.codex/config.toml" | awk '{print $1}')"
+  [[ "$current_config_sha" == "${context[expected_codex_config_sha256]}" ]] ||
+    die 'Codex config does not match the snapshot-derived permission policy'
+  "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
+    --check "$home/.codex/config.toml" >/dev/null || die 'Codex permission policy check failed'
+
+  [[ "$("$home/.local/bin/codex" --version 2>/dev/null)" == 'codex-cli 0.153.0' ]] ||
+    die 'Nix-managed Codex 0.153.0 is not visible at the owned launcher'
+  "$home/.nix-profile/bin/ncdu" --version | grep -Fx 'ncdu 2.9.2' >/dev/null ||
+    die 'ncdu 2.9.2 smoke test failed'
+  "$home/.nix-profile/bin/lazydocker" --version | grep -F 'Version: 0.25.2' >/dev/null ||
+    die 'lazydocker 0.25.2 smoke test failed'
+  [[ "$("$home/.nix-profile/bin/devbox" version)" == 0.18.0 ]] ||
+    die 'Devbox 0.18.0 smoke test failed'
+  for forbidden in chromium ghostty home-manager lmstudio zed; do
+    path_is_absent "$home/.nix-profile/bin/$forbidden" ||
+      die "forbidden headless launcher entered the profile: $forbidden"
+  done
+  [[ "$(id -G)" == "${context[user_groups]}" ]] ||
+    die 'account group membership changed during Home activation'
+
+  current_units="$(capture_protected_units)"
+  [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
+    die 'a protected factory/access service restarted during Home activation'
+  assert_host_health
+  assert_sparkle_root_state
+  pass postflight 'exact four-package headless generation one is active; root, services, and graphical boundary are unchanged'
+}
+
+timer_is_active() {
+  systemctl --user is-active --quiet "$1.timer"
+}
+
+disarm_timer() {
+  local unit=$1
+  systemctl --user stop "$unit.timer" >/dev/null 2>&1 || true
+  ! timer_is_active "$unit" || die "rollback timer $unit.timer could not be stopped"
+}
+
+arm_timer() {
+  local snapshot=$1 unit=${context[timer_unit]}
+  ! timer_is_active "$unit" || die "rollback timer $unit.timer is already active"
+  systemd-run --user --quiet --collect \
+    --unit="$unit" \
+    --on-active=10m \
+    --timer-property=AccuracySec=1s \
+    /bin/bash "$snapshot/dgx-home" rollback-snapshot "$snapshot"
+  timer_is_active "$unit" || die 'automatic Home rollback timer did not arm'
+  pass rollback "$unit.timer is active for ten minutes"
+}
+
+pre_path_matches() {
+  local path=$1 label=$2 snapshot=$3 kind
+  local actual_sha backup_sha
+  kind=${context[${label}_kind]}
+  case "$kind" in
+    absent)
+      path_is_absent "$path"
+      ;;
+    symlink)
+      [[ -L "$path" && "$(readlink -- "$path")" == "${context[${label}_link]}" ]]
+      ;;
+    file)
+      [[ -f "$path" && ! -L "$path" ]] || return 1
+      actual_sha="$(sha256sum "$path" | awk '{print $1}')"
+      backup_sha="$(sha256sum "$snapshot/backup/$label" | awk '{print $1}')"
+      [[ "$actual_sha" == "$backup_sha" ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+restore_pre_path() {
+  local path=$1 label=$2 snapshot=$3 kind
+  kind=${context[${label}_kind]}
+  path_is_absent "$path" || die "refusing to overwrite non-empty rollback target $path"
+  case "$kind" in
+    absent) ;;
+    symlink)
+      ln -s -- "${context[${label}_link]}" "$path"
+      ;;
+    file)
+      cp -p -- "$snapshot/backup/$label" "$path"
+      ;;
+    *) die "unsupported rollback kind for $label" ;;
+  esac
+}
+
+validate_rollback_surface() {
+  local home candidate home_path home_files profiles path expected
+  home=${context[home]}
+  candidate=${context[candidate]}
+  home_path=${context[home_path]}
+  home_files=${context[home_files]}
+  profiles=$home/.local/state/nix/profiles
+
+  for pair in \
+    "$home/.cache/.keep|$home_files/.cache/.keep" \
+    "$home/.local/state/.keep|$home_files/.local/state/.keep"; do
+    path=${pair%%|*}
+    expected=${pair#*|}
+    if ! path_is_absent "$path"; then
+      [[ -L "$path" && "$(readlink -- "$path")" == "$expected" ]] ||
+        die "rollback refuses drifted managed path $path"
+    fi
+  done
+
+  path=$home/.local/bin/codex
+  if ! pre_path_matches "$path" launcher "${context[snapshot]}"; then
+    [[ -L "$path" && "$(readlink -- "$path")" == "$home_files/.local/bin/codex" ]] ||
+      die 'rollback refuses a Codex launcher changed after activation'
+  fi
+
+  if ! path_is_absent "$profiles/home-manager"; then
+    [[ -L "$profiles/home-manager" && "$(readlink -- "$profiles/home-manager")" == home-manager-1-link ]] ||
+      die 'rollback refuses a changed Home Manager selected profile'
+  fi
+  if ! path_is_absent "$profiles/home-manager-1-link"; then
+    [[ -L "$profiles/home-manager-1-link" &&
+      "$(readlink -e "$profiles/home-manager-1-link")" == "$candidate" ]] ||
+      die 'rollback refuses a changed Home Manager generation one'
+  fi
+  if ! path_is_absent "$home/.local/state/home-manager/gcroots/current-home"; then
+    [[ -L "$home/.local/state/home-manager/gcroots/current-home" &&
+      "$(readlink -e "$home/.local/state/home-manager/gcroots/current-home")" == "$candidate" ]] ||
+      die 'rollback refuses a changed Home Manager GC root'
+  fi
+  if ! path_is_absent "$profiles/profile"; then
+    [[ -L "$profiles/profile" && "$(readlink -- "$profiles/profile")" == profile-1-link ]] ||
+      die 'rollback refuses a changed user Nix profile'
+    [[ -L "$profiles/profile-1-link" ]] || die 'user profile generation one is missing'
+    assert_profile_contains_only_home_path "$profiles/profile" "$home_path"
+  elif ! path_is_absent "$profiles/profile-1-link"; then
+    [[ -L "$profiles/profile-1-link" ]] ||
+      die 'rollback refuses a non-symlinked user profile generation one'
+    assert_profile_contains_only_home_path "$profiles/profile-1-link" "$home_path"
+  fi
+}
+
+unlink_if_present() {
+  local path=$1
+  path_is_absent "$path" || unlink -- "$path"
+}
+
+rollback_snapshot() {
+  local snapshot=$1 home home_files profiles unit config current_config_sha expected_sha
+  local config_drift=false
+  require_unprivileged
+  load_snapshot "$snapshot"
+  home=${context[home]}
+  home_files=${context[home_files]}
+  profiles=$home/.local/state/nix/profiles
+  unit=${context[timer_unit]}
+  config=$home/.codex/config.toml
+  expected_sha=${context[expected_codex_config_sha256]}
+  validate_rollback_surface
+
+  disarm_timer "$unit"
+  for path in "$home/.cache/.keep" "$home/.local/state/.keep"; do
+    if [[ -L "$path" ]]; then
+      unlink -- "$path"
+    fi
+  done
+  if ! pre_path_matches "$home/.local/bin/codex" launcher "$snapshot"; then
+    unlink_if_present "$home/.local/bin/codex"
+    restore_pre_path "$home/.local/bin/codex" launcher "$snapshot"
+  fi
+
+  if [[ -f "$config" && ! -L "$config" ]]; then
+    current_config_sha="$(sha256sum "$config" | awk '{print $1}')"
+  else
+    current_config_sha=NON_FILE
+  fi
+  if ! pre_path_matches "$config" codex_config "$snapshot"; then
+    if [[ "$current_config_sha" == "$expected_sha" ]]; then
+      unlink_if_present "$config"
+      restore_pre_path "$config" codex_config "$snapshot"
+    else
+      config_drift=true
+      warn 'Codex config changed after activation; preserving the newer file instead of overwriting it'
+    fi
+  fi
+
+  unlink_if_present "$profiles/profile"
+  unlink_if_present "$profiles/profile-1-link"
+  unlink_if_present "$profiles/home-manager"
+  unlink_if_present "$profiles/home-manager-1-link"
+  unlink_if_present "$home/.local/state/home-manager/gcroots/new-home"
+  unlink_if_present "$home/.local/state/home-manager/gcroots/current-home"
+  rmdir -- "$home/.local/state/home-manager/gcroots" 2>/dev/null || true
+  rmdir -- "$home/.local/state/home-manager" 2>/dev/null || true
+
+  path_is_absent "$profiles/profile" || die 'user Nix profile rollback is incomplete'
+  path_is_absent "$profiles/home-manager" || die 'Home Manager profile rollback is incomplete'
+  path_is_absent "$home/.cache/.keep" || die 'managed cache marker rollback is incomplete'
+  path_is_absent "$home/.local/state/.keep" || die 'managed state marker rollback is incomplete'
+  pre_path_matches "$home/.local/bin/codex" launcher "$snapshot" ||
+    die 'Codex launcher rollback is incomplete'
+  if [[ "$config_drift" == false ]]; then
+    pre_path_matches "$config" codex_config "$snapshot" ||
+      die 'Codex config rollback is incomplete'
+  fi
+  assert_host_health
+  printf 'Rollback completed.\n' >"$snapshot/ROLLED_BACK"
+  pass rollback 'exact pre-Home profile and launcher state restored; snapshot retained'
+}
+
+activate_headless() {
+  run_preflight
+
+  local candidate snapshot unit activation_status postflight_status
+  candidate="$(activation_candidate)"
+  snapshot="$(create_snapshot "$candidate")"
+  load_snapshot "$snapshot"
+  unit=${context[timer_unit]}
+  info snapshot "$snapshot"
+  info scope 'user profile only; no sudo, root role, service restart, desktop switch, or Tailscale migration'
+  arm_timer "$snapshot"
+
+  set +e
+  "$candidate/activate"
+  activation_status=$?
+  set -e
+  if [[ "$activation_status" -ne 0 ]]; then
+    warn "Home Manager activation failed with status $activation_status; rolling back now"
+    rollback_snapshot "$snapshot"
+    exit "$activation_status"
+  fi
+
+  set +e
+  run_postflight "$snapshot"
+  postflight_status=$?
+  set -e
+  if [[ "$postflight_status" -ne 0 ]]; then
+    warn 'Home Manager postflight failed; rolling back now'
+    rollback_snapshot "$snapshot"
+    exit "$postflight_status"
+  fi
+
+  disarm_timer "$unit"
+  run_postflight "$snapshot"
+  printf 'Activation retained.\n' >"$snapshot/RETAINED"
+  pass activation 'headless Home Manager generation one retained; automatic rollback disarmed'
+  printf 'SNAPSHOT_STAMP=%s\n' "${context[stamp]}"
+  printf 'ROLLBACK=%s rollback %s\n' "$repo_dir/scripts/dgx-home" "${context[stamp]}"
+}
+
+show_status() {
+  require_unprivileged
+  require_repository
+  local home candidate profiles
+  home="$(home_directory)"
+  candidate="$(activation_candidate)"
+  profiles=$home/.local/state/nix/profiles
+  info candidate "$candidate"
+  if [[ -L "$profiles/home-manager" ]]; then
+    info home_manager_profile "$(readlink -e "$profiles/home-manager")"
+  else
+    info home_manager_profile absent
+  fi
+  if [[ -x "$home/.local/bin/codex" ]]; then
+    info codex "$("$home/.local/bin/codex" --version 2>/dev/null || true)"
+  else
+    info codex absent
+  fi
+  for command in ncdu lazydocker devbox; do
+    if [[ -x "$home/.nix-profile/bin/$command" ]]; then
+      info "$command" "$home/.nix-profile/bin/$command"
+    else
+      info "$command" absent
+    fi
+  done
+  assert_host_health
+  pass status 'host health passed; no state changed'
+}
+
+action=${1:-}
+case "$action" in
+  status)
+    [[ "$#" -eq 1 ]] || { usage; exit 2; }
+    show_status
+    ;;
+  preflight)
+    [[ "$#" -eq 1 ]] || { usage; exit 2; }
+    run_preflight
+    ;;
+  activate-headless)
+    [[ "$#" -eq 1 ]] || { usage; exit 2; }
+    activate_headless
+    ;;
+  rollback)
+    [[ "$#" -eq 2 ]] || { usage; exit 2; }
+    [[ "$2" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || die 'snapshot stamp must be YYYYMMDDTHHMMSSZ'
+    require_unprivileged
+    require_repository
+    rollback_snapshot "$repo_dir/inventory/$(host_name)/raw/home-manager-headless/$2"
+    ;;
+  rollback-snapshot)
+    [[ "$#" -eq 2 ]] || { usage; exit 2; }
+    rollback_snapshot "$2"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

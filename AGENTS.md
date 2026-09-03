@@ -36,6 +36,11 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   factory loader. Its vendor Electron launcher falls back to `--no-sandbox`
   because Ubuntu AppArmor blocks Bubblewrap's user namespace; never weaken the
   host policy or activate the package without resolving that explicit gate.
+- The first headless Home activation must go through `scripts/dgx-home`; read
+  `docs/2026-09-03-home-headless-preflight.md` first. Do not invoke the raw
+  activation package or `home-manager switch`. Headless deliberately disables
+  Home Manager's user-systemd layer, and a successful transaction must preserve
+  that zero-unit boundary while automatically disarming its rollback timer.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
   `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
   automatic review/approval, and destructive/open-world app tools enabled.

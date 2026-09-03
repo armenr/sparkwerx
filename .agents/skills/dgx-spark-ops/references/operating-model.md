@@ -97,8 +97,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - repository-only Phase 1 pins stable Nixpkgs separately from the narrow apps
   input and uses current Devbox 0.18.0 through an exact source/vendor adapter,
   without invoking its installer;
-- the evaluated headless role is exactly `ncdu`, `lazydocker`, and `devbox`,
-  with XDG/MIME/portal, manpage, Home Manager CLI, and graphical roles off;
+- the evaluated headless fleet base is exactly `ncdu`, `lazydocker`, and
+  `devbox`, with Armen's Codex overlay composed above it. XDG/MIME/portal,
+  Home Manager user-systemd, manpage, Home Manager CLI, and graphical roles
+  are off;
 - the flake's `lib.dgxProfileManifests.aarch64-linux` output and
   `./scripts/check.sh` are the canonical no-build profile audit;
 - Ghostty is current but its cache closure is roughly 1.1 GiB, so its build
@@ -204,7 +206,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
-- no Home Manager profile or GDM Hyprland session has been activated;
+- no Home Manager profile or GDM Hyprland session has been activated. The
+  exact first headless Home candidate, clean collision report, non-mutating dry
+  run, and disposable rollback test passed; use only `scripts/dgx-home` for
+  that first live user-profile transaction;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
 - the pilot user is not currently a member of the Docker group;
 - Tailscale `1.102.3` was manually installed from Tailscale's official apt

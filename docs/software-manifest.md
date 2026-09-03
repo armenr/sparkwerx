@@ -149,7 +149,7 @@ controller is active yet.
 
 | Profile | Effective direct Home Manager additions | Build validation | Realized closure |
 | --- | --- | --- | --- |
-| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, Armen's Codex CLI 0.153.0, intrinsic `hm-session-vars.sh` | Build passed with `--no-link` | Realized generation closure: 850.5 MiB |
+| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, Armen's Codex CLI 0.153.0, intrinsic `hm-session-vars.sh`; no Home Manager user-systemd units | Build, non-mutating dry run, collision review, and disposable rollback passed; live activation open | 52-path / 696.8 MiB activation closure; installed home path is 643.2 MiB. See the [exact preflight](2026-09-03-home-headless-preflight.md) |
 | `gnome` | Headless graph, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | Build passed with `--no-link` | Realized generation closure: 1.7 GiB |
 | `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | Build passed with `--no-link` | Realized generation closure: 2.3 GiB |
 | `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | Build passed with `--no-link` | Realized generation closure: 3.5 GiB |

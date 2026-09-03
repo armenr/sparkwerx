@@ -115,12 +115,18 @@ the measured software manifest; evaluation did not authorize realization.
 
 ## Phase 4: minimal Home Manager activation
 
-- [ ] Inspect the three-package base activation and collision report
-- [ ] Confirm `lazydocker` adds no Docker permission and Devbox does not alter
+- [x] Inspect the three-package base plus Armen/Codex activation and collision
+      report; suppress Home Manager's generic user-systemd artifacts in headless
+- [x] Confirm `lazydocker` adds no Docker permission and Devbox does not alter
       Nix ownership
 - [ ] Back up or adopt any files Home Manager would own
 - [ ] Activate only the corrected exact base
 - [ ] Confirm rollback to the previous Home Manager generation
+
+The private snapshot, automatic rollback, exact postflight, and disposable
+first-generation rollback test are implemented in `scripts/dgx-home`. The last
+three boxes remain open until the live transaction creates its snapshot,
+retains generation one, and proves the real rollback path.
 
 ## Phase 5: desktop-mode pilot
 

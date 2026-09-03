@@ -567,3 +567,12 @@ and GDM/desktop state were not changed. The separately approved root Nix
 runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
 Tailscale-continuity checks. The software manifest remains the
 application/service/desktop install and activation gate.
+
+The first headless activation now uses `scripts/dgx-home`: a clean-commit,
+private-snapshot transaction with a ten-minute automatic user rollback and no
+typed confirmation phrase. Headless disables Home Manager's user-systemd layer,
+removing its generic `tray.target`, environment file, and reload phase. The
+exact 52-path candidate, collision audit, dry run, and disposable rollback pass
+are recorded in
+[the 2026-09-03 preflight](2026-09-03-home-headless-preflight.md). Live
+activation remains a distinct action.

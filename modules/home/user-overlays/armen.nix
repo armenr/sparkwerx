@@ -131,8 +131,12 @@ in
 
     (lib.mkIf (cfg.enable && cfg.codex.relaxedPermissions.enable) {
       home.activation.dgxArmenCodexRelaxedDefaults = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        ${codexRelaxedDefaultsReconciler}/bin/dgx-reconcile-codex-relaxed-defaults \
-          --apply ${lib.escapeShellArg "${config.home.homeDirectory}/.codex/config.toml"}
+        if [[ -v DRY_RUN ]]; then
+          echo "Would reconcile Armen's non-secret Codex permission defaults"
+        else
+          ${codexRelaxedDefaultsReconciler}/bin/dgx-reconcile-codex-relaxed-defaults \
+            --apply ${lib.escapeShellArg "${config.home.homeDirectory}/.codex/config.toml"}
+        fi
       '';
     })
   ];

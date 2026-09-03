@@ -136,6 +136,8 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#zed-editor \
   --no-link
 
+./scripts/test-dgx-home-rollback.sh
+
 printf '%s\n' \
   "Root-canary activation/rollback test remains a separate reviewed gate:" \
   "  sudo ./scripts/test-root-canary.sh"

@@ -1261,6 +1261,7 @@
         assert !baseProfile.config.xdg.mimeApps.enable;
         assert !baseProfile.config.xdg.userDirs.enable;
         assert !baseProfile.config.xdg.portal.enable;
+        assert !baseProfile.config.systemd.user.enable;
         assert !baseProfile.config.programs.home-manager.enable;
         assert !baseProfile.config.programs.man.enable;
         assert !baseProfile.config.programs.man.man-db.enable;
@@ -1289,6 +1290,7 @@
           baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.apps._default.open_world_enabled;
         assert graphicalProfile.config.xdg.enable;
         assert graphicalProfile.config.xdg.mime.enable;
+        assert graphicalProfile.config.systemd.user.enable;
         assert !graphicalProfile.config.xdg.mimeApps.enable;
         assert !graphicalProfile.config.xdg.userDirs.enable;
         assert !graphicalProfile.config.xdg.portal.enable;

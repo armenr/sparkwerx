@@ -304,6 +304,8 @@ owned by Armen's all-modes Nix overlay; until Home Manager activation, report
 the visible older standalone launcher as migration input rather than treating
 the package build as a completed ownership transfer. Never remove the retained
 standalone tree during a read-only audit.
+The first activation must use `scripts/dgx-home`; direct activation bypasses
+its private snapshot, automatic rollback, collision check, and exact postflight.
 Tailscale is not in this category; it has its own optional fleet-access
 migration and update policy above.
 

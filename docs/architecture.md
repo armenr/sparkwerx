@@ -204,9 +204,11 @@ transactions, live pilots, disposable recovery lifecycle, real reboot
 rollback, and restoration all passed. Hash-pinned helpers deliberately contain
 no reboot action.
 Desktop-mode root control, Tailscale ownership migration, personal app
-packages, workload roles, and all Home/desktop/workload activation remain
-deliberately unimplemented. The separately gated pilot Nix runtime update to
+packages, workload roles, and all live Home/desktop/workload activation remain
+deliberately inactive. The first minimal Home transaction is implemented and
+disposable-rollback-tested as `scripts/dgx-home`; its headless candidate emits
+no Home Manager user units. The separately gated pilot Nix runtime update to
 2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not
-authorize `home-manager switch`, a systemd service link/restart, or another
-root-runtime change. Host mode switching and service changes require their own
-later approval.
+authorize a raw `home-manager switch`, a systemd service link/restart, or
+another root-runtime change. Host mode switching and service changes require
+their own later approval.

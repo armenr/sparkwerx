@@ -15,7 +15,8 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 - The exported pilot Home profile is staged as user-layer `headless`: its exact
   fleet base is `ncdu`, `lazydocker`, and current Devbox, with Armen's current
   Codex CLI layered above it plus Home Manager's intrinsic session-variable
-  file. Factory GNOME/GDM remains running and untouched.
+  file. It emits no Home Manager user-systemd unit, including the otherwise
+  generic `tray.target`. Factory GNOME/GDM remains running and untouched.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
@@ -141,6 +142,22 @@ nix --extra-experimental-features "nix-command flakes" \
 The human-reviewed size and package findings are in the
 [software manifest](docs/software-manifest.md).
 
+## Minimal Home profile
+
+The first headless Home activation has one short, guarded interface:
+
+```bash
+./scripts/dgx-home status
+./scripts/dgx-home preflight
+./scripts/dgx-home activate-headless
+```
+
+The activation command snapshots the exact prior user state, arms a ten-minute
+automatic rollback, applies only the four-package headless profile, verifies
+it, and disarms rollback automatically. It has no confirmation phrase, sudo,
+reboot, root role, desktop switch, or Tailscale change. See the
+[first-activation preflight](docs/2026-09-03-home-headless-preflight.md).
+
 ## Dependency updates
 
 ```bash
@@ -212,7 +229,8 @@ The guarded Nix 2.35.2 runtime rollout is complete. Devbox, Tailscale, and the
 three selected graphical application candidates have passed explicitly scoped
 no-link builds; that does not authorize a Home profile, Chromium sandbox role,
 Tailscale service migration, or desktop activation. Do not run
-`home-manager switch`, install Hyprland into a system profile, replace the apt
+`home-manager switch`; use only the guarded `scripts/dgx-home` transaction for
+the first profile. Do not install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 System Manager is currently exact registered/live/boot-linked generation three
 after the first real reboot's verified automatic rollback, the first
