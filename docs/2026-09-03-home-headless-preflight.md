@@ -64,7 +64,8 @@ does not invoke Devbox's bootstrap installer during activation.
 
 `activate-headless` requires an exact clean commit, rebuilds the scoped checks,
 repeats the collision/root/health preflight, and creates a private user-owned
-snapshot under `inventory/<host>/raw/home-manager-headless/`. The command name
+snapshot under `inventory/<host>/private/home-manager-headless/`. Root-owned
+System Manager evidence remains isolated under `raw/`. The command name
 is the intent signal; there is no confirmation phrase to mistype. Before
 activation it arms a ten-minute user-systemd rollback. If activation or
 postflight fails, rollback runs immediately; if the terminal disappears, the
@@ -87,3 +88,10 @@ No Home profile was activated while producing this record. Running
 transition. It performs no sudo action and no reboot. On success, the current
 shell can immediately resolve the new launcher paths; new login sessions also
 inherit the ordinary Nix profile path already installed by the Nix runtime.
+
+The first live invocation failed before snapshot creation or mutation because
+the proposed destination was below the deliberately root-owned `raw/` evidence
+tree. The user transaction now uses the separate ignored `private/` tree, and
+snapshot creation runs outside command substitution so its first error stops
+the workflow immediately. No Home profile or timer existed after that failed
+invocation.

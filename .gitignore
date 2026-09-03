@@ -4,3 +4,4 @@
 result
 result-*
 inventory/**/raw/
+inventory/**/private/

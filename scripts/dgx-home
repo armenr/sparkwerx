@@ -20,6 +20,7 @@ nix_store=/nix/var/nix/profiles/default/bin/nix-store
 nix_args=(--extra-experimental-features "nix-command flakes")
 
 declare -A context=()
+created_snapshot=""
 
 usage() {
   printf '%s\n' \
@@ -337,7 +338,7 @@ create_snapshot() {
   host="$(host_name)"
   user="$(user_name)"
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  destination=$repo_dir/inventory/$host/raw/home-manager-headless/$stamp
+  destination=$repo_dir/inventory/$host/private/home-manager-headless/$stamp
   home_path="$(readlink -e "$candidate/home-path")"
   home_files="$(readlink -e "$candidate/home-files")"
   unit="dgx-home-headless-rollback-${stamp,,}"
@@ -386,7 +387,7 @@ create_snapshot() {
       -print0 | sort -z | xargs -0 sha256sum
   ) >"$destination/SHA256SUMS"
 
-  printf '%s\n' "$destination"
+  created_snapshot=$destination
 }
 
 load_snapshot() {
@@ -680,7 +681,8 @@ activate_headless() {
 
   local candidate snapshot unit activation_status postflight_status
   candidate="$(activation_candidate)"
-  snapshot="$(create_snapshot "$candidate")"
+  create_snapshot "$candidate"
+  snapshot=$created_snapshot
   load_snapshot "$snapshot"
   unit=${context[timer_unit]}
   info snapshot "$snapshot"
@@ -763,7 +765,7 @@ case "$action" in
     [[ "$2" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || die 'snapshot stamp must be YYYYMMDDTHHMMSSZ'
     require_unprivileged
     require_repository
-    rollback_snapshot "$repo_dir/inventory/$(host_name)/raw/home-manager-headless/$2"
+    rollback_snapshot "$repo_dir/inventory/$(host_name)/private/home-manager-headless/$2"
     ;;
   rollback-snapshot)
     [[ "$#" -eq 2 ]] || { usage; exit 2; }

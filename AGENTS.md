@@ -41,6 +41,8 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   activation package or `home-manager switch`. Headless deliberately disables
   Home Manager's user-systemd layer, and a successful transaction must preserve
   that zero-unit boundary while automatically disarming its rollback timer.
+  User snapshots belong under `inventory/<host>/private/`; `raw/` is the
+  root-owned System Manager evidence tree and must not be repurposed.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
   `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
   automatic review/approval, and destructive/open-world app tools enabled.
