@@ -87,6 +87,7 @@ fi
 # System Manager and nixpkgs-root are a frozen, separately reviewed lane. A
 # user/package refresh must leave their complete evidence fingerprint exact.
 root_before="$(root_fingerprint)"
+./scripts/update-nix-installer.sh --apply
 "${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
 root_after="$(root_fingerprint)"
 if [[ "$root_after" != "$root_before" ]]; then
@@ -139,6 +140,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
 
 ./scripts/test-dgx-home-rollback.sh
 ./scripts/test-dgx-home-update-rollback.sh
+./scripts/test-dgx-setup-plan.sh
 
 printf '%s\n' \
   "Root-canary activation/rollback test remains a separate reviewed gate:" \

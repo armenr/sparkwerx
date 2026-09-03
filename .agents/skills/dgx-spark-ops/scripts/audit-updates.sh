@@ -137,6 +137,140 @@ github_latest_release_tag() {
     jq -r '.tag_name // empty' 2>/dev/null || true
 }
 
+audit_nix_bootstrap_installer() {
+  local source_file="bootstrap/nix/source.json"
+  local project asset pin_version pin_tag pin_url pin_size pin_sha256
+  local installed_version="NOT_FOUND" installed_size="NOT_FOUND"
+  local installed_sha256="NOT_FOUND" local_detail
+  local release_json candidate_tag candidate_version candidate_url
+  local candidate_size candidate_digest candidate_sha256 candidate status detail
+  local expected_url
+
+  if [[ ! -r "$source_file" ]] || ! command -v jq >/dev/null 2>&1; then
+    emit "NIX_BOOTSTRAP" "repository" "Nix bootstrap installer pin" \
+      "absent" "UNKNOWN" "NOT_PINNED" "repo:$source_file" \
+      "The checksum-pinned fresh-host installer declaration is unavailable."
+    return
+  fi
+
+  project="$(jq -r '.installer.project // empty' "$source_file")"
+  asset="$(jq -r '.installer.asset // empty' "$source_file")"
+  pin_version="$(jq -r '.installer.version // empty' "$source_file")"
+  pin_tag="$(jq -r '.installer.releaseTag // empty' "$source_file")"
+  pin_url="$(jq -r '.installer.url // empty' "$source_file")"
+  pin_size="$(jq -r '.installer.size // empty' "$source_file")"
+  pin_sha256="$(jq -r '.installer.sha256 // empty' "$source_file")"
+
+  if [[ -x /nix/nix-installer ]]; then
+    installed_version="$(/nix/nix-installer --version 2>/dev/null | awk '{print $NF}')"
+    installed_size="$(stat -c %s /nix/nix-installer 2>/dev/null || true)"
+    installed_sha256="$(sha256sum /nix/nix-installer 2>/dev/null | awk '{print $1}')"
+  fi
+
+  if [[ "$installed_version" == "$pin_version" &&
+        "$installed_size" == "$pin_size" &&
+        "$installed_sha256" == "$pin_sha256" ]]; then
+    local_detail="The installed provisioning artifact matches the repository pin byte-for-byte."
+  elif [[ "$installed_version" == "NOT_FOUND" ]]; then
+    local_detail="No installed provisioning artifact was found; a fresh host would use this pin."
+  else
+    local_detail="The installed provisioning artifact differs from the repository pin; hold adoption or repair."
+  fi
+
+  expected_url="https://github.com/NixOS/nix-installer/releases/download/$pin_tag/nix-installer-aarch64-linux"
+  if [[ "$project" != "NixOS/nix-installer" ||
+        "$asset" != "nix-installer-aarch64-linux" ||
+        ! "$pin_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ||
+        "$pin_tag" != "$pin_version" ||
+        "$pin_url" != "$expected_url" ||
+        ! "$pin_size" =~ ^[1-9][0-9]*$ ||
+        ! "$pin_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    emit "NIX_BOOTSTRAP" "repository" "Nix bootstrap installer pin" \
+      "${pin_version:-INVALID}" "INVALID" "HOLD" "repo:$source_file" \
+      "The official project, ARM64 asset, URL, size, or SHA-256 pin is invalid. $local_detail"
+    return
+  fi
+
+  if [[ "$offline" -eq 1 ]]; then
+    emit "NIX_BOOTSTRAP" "repository" "Nix bootstrap installer pin" \
+      "$pin_version;sha256=$pin_sha256" "REMOTE_SUPPRESSED" "UNKNOWN" \
+      "https://github.com/NixOS/nix-installer/releases" \
+      "Offline audit; the latest official release was not queried. $local_detail"
+    return
+  fi
+
+  release_json="$(
+    timeout 30s curl --fail --silent --show-error --location \
+      --header 'Accept: application/vnd.github+json' \
+      --header 'X-GitHub-Api-Version: 2022-11-28' \
+      'https://api.github.com/repos/NixOS/nix-installer/releases/latest' \
+      2>/dev/null || true
+  )"
+  candidate_tag="$(jq -r '.tag_name // empty' <<<"$release_json" 2>/dev/null || true)"
+  candidate_version=${candidate_tag#v}
+  candidate_url="$(
+    jq -r --arg asset "$asset" \
+      '.assets[]? | select(.name == $asset) | .browser_download_url // empty' \
+      <<<"$release_json" 2>/dev/null | head -n 1
+  )"
+  candidate_size="$(
+    jq -r --arg asset "$asset" \
+      '.assets[]? | select(.name == $asset) | .size // empty' \
+      <<<"$release_json" 2>/dev/null | head -n 1
+  )"
+  candidate_digest="$(
+    jq -r --arg asset "$asset" \
+      '.assets[]? | select(.name == $asset) | .digest // empty' \
+      <<<"$release_json" 2>/dev/null | head -n 1
+  )"
+  candidate_sha256=${candidate_digest#sha256:}
+  expected_url="https://github.com/NixOS/nix-installer/releases/download/$candidate_tag/$asset"
+
+  if [[ ! "$candidate_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ||
+        "$candidate_tag" != "$candidate_version" ||
+        "$candidate_url" != "$expected_url" ||
+        ! "$candidate_size" =~ ^[1-9][0-9]*$ ||
+        ! "$candidate_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    emit "NIX_BOOTSTRAP" "repository" "Nix bootstrap installer pin" \
+      "$pin_version;sha256=$pin_sha256" "UNKNOWN" "UNKNOWN" \
+      "https://github.com/NixOS/nix-installer/releases" \
+      "Unable to validate the latest official ARM64 release metadata. $local_detail"
+    return
+  fi
+
+  candidate="$candidate_version;sha256=$candidate_sha256"
+  status="$(version_status "$pin_version" "$candidate_version")"
+  case "$status" in
+    CURRENT)
+      if [[ "$candidate_url" != "$pin_url" ||
+            "$candidate_size" != "$pin_size" ||
+            "$candidate_sha256" != "$pin_sha256" ]]; then
+        status=HOLD
+        detail="Upstream metadata changed without a version change; do not rewrite or execute the pin."
+      elif [[ "$installed_version" != "NOT_FOUND" &&
+              ( "$installed_version" != "$pin_version" ||
+                "$installed_size" != "$pin_size" ||
+                "$installed_sha256" != "$pin_sha256" ) ]]; then
+        status=HOLD
+        detail="The repository matches upstream, but the installed provisioning artifact does not match it."
+      else
+        detail="The repository pin matches the latest official ARM64 asset metadata."
+      fi
+      ;;
+    UPDATE_AVAILABLE)
+      detail="A newer official installer exists; use scripts/update-nix-installer.sh, then review the fresh-host plan."
+      ;;
+    AHEAD)
+      status=HOLD
+      detail="The repository pin is ahead of the official latest release; investigate provenance and do not downgrade."
+      ;;
+  esac
+  emit "NIX_BOOTSTRAP" "repository" "Nix bootstrap installer pin" \
+    "$pin_version;sha256=$pin_sha256" "$candidate" "$status" \
+    "https://github.com/NixOS/nix-installer/releases" \
+    "$detail $local_detail"
+}
+
 root_input_node() {
   local input_name="$1"
   jq -r --arg input "$input_name" '
@@ -1184,6 +1318,8 @@ emit "FLEET_ACCESS" "mutable daemon/control-plane state" \
   "backend=${tailscale_backend:-UNKNOWN};online=${tailscale_self_online:-UNKNOWN};WantRunning=${tailscale_want_running:-UNKNOWN};RunSSH=${tailscale_run_ssh:-UNKNOWN}" \
   "documented desired state" "INFO" "local:sanitized-tailscale-cli" \
   "Only approved booleans/state labels are emitted; node, address, identity, and tailnet data were discarded."
+
+audit_nix_bootstrap_installer
 
 if [[ -x /nix/nix-installer ]]; then
   installer_version="$(/nix/nix-installer --version 2>/dev/null || true)"

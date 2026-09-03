@@ -70,8 +70,11 @@ design was accepted.
 Read the [architecture](../../../docs/architecture.md),
 [roadmap](../../../docs/roadmap.md),
 [decision register](../../../docs/decision-register.md), and
-[software manifest](../../../docs/software-manifest.md). Produce one
-declarative host/user role selection, the checksum-pinned Nix bootstrap or
+[software manifest](../../../docs/software-manifest.md). Treat
+[`fleet/hosts.json`](../../../fleet/hosts.json) and
+[`bootstrap/nix/source.json`](../../../bootstrap/nix/source.json) as the
+declarative inputs, and run `./scripts/dgx-setup plan [HOSTNAME]` before
+inventing an alternate workflow. Produce the checksum-pinned Nix bootstrap or
 adoption boundary, exact plan/SBOM output, guarded apply sequence, recovery
 path, and postflight. Treat Tailscale as an explicit optional per-host role and
 keep its mutable identity outside the Nix store. Include the current pinned

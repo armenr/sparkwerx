@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "hosts": {
+    "sparkle-01": {
+      "system": "aarch64-linux",
+      "pilotRing": "pilot",
+      "users": {
+        "armen": {
+          "unixName": "n0b0dy",
+          "homeDirectory": "/home/n0b0dy",
+          "overlaySelected": true,
+          "graphicalAppsSelected": true,
+          "codexSelected": true,
+          "codexRelaxedPermissions": true
+        }
+      },
+      "fleetBase": {
+        "enable": true
+      },
+      "access": {
+        "tailscale": {
+          "selected": true,
+          "sshDesired": true,
+          "ownership": "migration-pending-apt"
+        }
+      },
+      "desktop": {
+        "mode": "headless",
+        "hyprlandPortal": false,
+        "hostController": "not-implemented"
+      },
+      "workloads": {
+        "isaacOmniverse": {
+          "selected": true,
+          "enabled": false
+        },
+        "lmstudioDaemon": {
+          "selected": false,
+          "enabled": false
+        }
+      }
+    }
+  }
+}

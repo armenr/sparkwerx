@@ -52,6 +52,11 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Topic | Primary source |
 | --- | --- |
 | Official community installer and Nix upgrade command | https://github.com/NixOS/nix-installer#upgrading-nix |
+| Official installer releases and ARM64 assets | https://github.com/NixOS/nix-installer/releases |
+| Repository bootstrap source/planner pin | [bootstrap/nix/source.json](../../../../bootstrap/nix/source.json) |
+| Declarative fleet host selections | [fleet/hosts.json](../../../../fleet/hosts.json) |
+| Read-only fleet planner | [scripts/dgx-setup](../../../../scripts/dgx-setup) |
+| Fleet-plan implementation evidence | [docs/2026-09-03-fleet-plan.md](../../../../docs/2026-09-03-fleet-plan.md) |
 | `nix upgrade-nix` behavior | https://nix.dev/manual/nix/latest/command-ref/new-cli/nix3-upgrade-nix.html |
 | Nix 2.35.1 `upgrade-nix` implementation | https://github.com/NixOS/nix/blob/2.35.1/src/nix/upgrade-nix.cc |
 | Linux multi-user upgrade/restart procedure | https://nix.dev/manual/nix/latest/installation/upgrading.html |

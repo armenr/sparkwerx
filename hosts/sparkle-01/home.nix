@@ -1,4 +1,8 @@
-{ ... }:
+{
+  hostSpec,
+  userName,
+  ...
+}:
 {
   imports = [
     ../../modules/home/base.nix
@@ -9,18 +13,32 @@
   ];
 
   dgx = {
-    # This is the conservative user-profile staging mode, not a host mutation.
-    # Factory GNOME/GDM remains running until a root controller is separately
-    # designed, reviewed, and explicitly activated.
-    desktop.mode = "headless";
+    # This composes the declared user profile; it is not the still-separate
+    # host desktop controller. Factory GNOME/GDM remains running until that
+    # root role is designed, reviewed, and explicitly activated.
+    desktop = {
+      mode = hostSpec.desktop.mode;
+      hyprland.portal.enable = hostSpec.desktop.hyprlandPortal;
+    };
 
     # Explicit logical mapping: armen -> n0b0dy@sparkle-01. The selected apps
     # remain absent until their one-at-a-time packaging gates are completed.
     userOverlays.armen = {
-      enable = true;
-      graphical.enable = true;
-      codex.enable = true;
-      codex.relaxedPermissions.enable = true;
+      enable = hostSpec.users.armen.overlaySelected;
+      graphical.enable = hostSpec.users.armen.graphicalAppsSelected;
+      codex.enable = hostSpec.users.armen.codexSelected;
+      codex.relaxedPermissions.enable = hostSpec.users.armen.codexRelaxedPermissions;
     };
   };
+
+  assertions = [
+    {
+      assertion = hostSpec.users.armen.unixName == userName;
+      message = "The armen fleet mapping must match this Home Manager user.";
+    }
+    {
+      assertion = hostSpec.fleetBase.enable;
+      message = "Every managed fleet user must select the exact fleet base.";
+    }
+  ];
 }

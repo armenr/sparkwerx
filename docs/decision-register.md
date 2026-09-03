@@ -463,8 +463,17 @@ Nix is the bootstrap exception: a pristine machine needs a small,
 checksum-pinned, idempotent install-or-adopt step before Nix can manage the
 remaining layers. Tailscale identity, browser/account state, secrets, models,
 and other mutable data remain outside the Nix store even when Nix owns their
-packages, units, and declarative settings. This decision defines the target;
-the unified bootstrap/plan/apply implementation remains OPEN.
+packages, units, and declarative settings.
+
+Implemented on 2026-09-03: `fleet/hosts.json` is the schema-validated selection
+surface; `bootstrap/nix/source.json` pins the official ARM64 installer and
+planner inputs; and `scripts/dgx-setup plan` renders the local declaration,
+bootstrap adoption/install classification, exact Home candidate/live state,
+and remaining role gates without applying them. Its host test proves unknown
+hosts fail, the serial is never emitted, Home/profile links remain exact, and
+protected service processes/fragments do not change. Nix evaluation may fetch
+missing locked flake sources. The executable install/adopt transaction,
+complete uninstall/rollback path, and unified guarded `apply` remain OPEN.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 

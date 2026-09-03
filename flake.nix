@@ -51,6 +51,9 @@
       system = "aarch64-linux";
       lib = nixpkgs.lib;
       rootLib = nixpkgs-root.lib;
+      fleetSpec = builtins.fromJSON (builtins.readFile ./fleet/hosts.json);
+      fleetHosts = fleetSpec.hosts;
+      nixBootstrapSpec = builtins.fromJSON (builtins.readFile ./bootstrap/nix/source.json);
 
       # This is an evaluation exception, not a package selection. LM Studio is
       # the only currently selected package whose Nix metadata is unfree.
@@ -329,6 +332,7 @@
           hostName,
           userName,
           homeDirectory ? "/home/${userName}",
+          hostSpec ? fleetHosts.${hostName},
           profileModules ? [ ],
         }:
         home-manager.lib.homeManagerConfiguration {
@@ -341,6 +345,7 @@
               codexPackage
               devboxPackage
               hostName
+              hostSpec
               userName
               hyprlandPackage
               hyprlandPortalPackage
@@ -360,9 +365,14 @@
           ++ profileModules;
         };
 
+      sparkleHost = fleetHosts.sparkle-01;
+      sparkleArmen = sparkleHost.users.armen;
+
       pilot = {
         hostName = "sparkle-01";
-        userName = "n0b0dy";
+        userName = sparkleArmen.unixName;
+        homeDirectory = sparkleArmen.homeDirectory;
+        hostSpec = sparkleHost;
       };
 
       sparkleHome = mkHome pilot;
@@ -1265,6 +1275,37 @@
       zedRelease = zedPackage.passthru.release;
 
       profilePolicyCheck =
+        assert fleetSpec.schemaVersion == 1;
+        assert sparkleHost.system == system;
+        assert sparkleHost.pilotRing == "pilot";
+        assert sparkleArmen.unixName == "n0b0dy";
+        assert sparkleArmen.homeDirectory == "/home/n0b0dy";
+        assert sparkleHost.fleetBase.enable;
+        assert builtins.elem sparkleHost.desktop.mode [
+          "headless"
+          "gnome"
+          "hyprland"
+          "kde"
+        ];
+        assert sparkleHost.access.tailscale.selected;
+        assert sparkleHost.access.tailscale.sshDesired;
+        assert sparkleHost.access.tailscale.ownership == "migration-pending-apt";
+        assert sparkleHost.workloads.isaacOmniverse.selected;
+        assert !sparkleHost.workloads.isaacOmniverse.enabled;
+        assert !sparkleHost.workloads.lmstudioDaemon.selected;
+        assert !sparkleHost.workloads.lmstudioDaemon.enabled;
+        assert nixBootstrapSpec.schemaVersion == 1;
+        assert nixBootstrapSpec.installer.project == "NixOS/nix-installer";
+        assert nixBootstrapSpec.installer.releaseTag == nixBootstrapSpec.installer.version;
+        assert nixBootstrapSpec.installer.asset == "nix-installer-aarch64-linux";
+        assert
+          nixBootstrapSpec.installer.url
+          == "https://github.com/NixOS/nix-installer/releases/download/${nixBootstrapSpec.installer.releaseTag}/${nixBootstrapSpec.installer.asset}";
+        assert nixBootstrapSpec.installer.size > 0;
+        assert builtins.match "[0-9a-f]{64}" nixBootstrapSpec.installer.sha256 != null;
+        assert nixBootstrapSpec.installer.embeddedNixVersion == nixBootstrapSpec.installer.version;
+        assert nixBootstrapSpec.desiredRuntime.version == "2.35.2";
+        assert nixBootstrapSpec.linuxPlanner.enableFlakes;
         assert basePackageNames == expectedBasePackageNames;
         assert graphicalBasePackageNames == expectedBasePackageNames;
         assert headlessSharedGraphicalPackageNames == [ ];
@@ -2319,9 +2360,17 @@
         "$test_root/scripts/test-reconcile-codex-relaxed-defaults.sh" >"$out"
       '';
 
-      homeConfigurations = {
-        "n0b0dy@sparkle-01" = sparkleHome;
-      };
+      homeConfigurations = lib.mapAttrs' (
+        hostName: hostSpec:
+        let
+          userSpec = hostSpec.users.armen;
+        in
+        lib.nameValuePair "${userSpec.unixName}@${hostName}" (mkHome {
+          inherit hostName hostSpec;
+          userName = userSpec.unixName;
+          homeDirectory = userSpec.homeDirectory;
+        })
+      ) fleetHosts;
     in
     {
       inherit homeConfigurations;
@@ -2382,6 +2431,9 @@
 
       lib.dgxProfileManifests.${system} = profileManifests;
       lib.dgxRootManagerManifest.${system} = rootManagerManifest;
+      lib.dgxFleetManifest.${system} = fleetSpec // {
+        nixBootstrap = nixBootstrapSpec;
+      };
 
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = [

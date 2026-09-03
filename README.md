@@ -51,6 +51,13 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
   remains at its expected provisioning version, 2.35.1. The default
   `upgrade-nix` fallback still targets stale 2.34.8 and remains blocked.
+- `fleet/hosts.json` is now the machine-readable selection surface for the
+  pilot: exact base, Armen mapping/overlay, headless user composition, optional
+  Tailscale, and selected-but-inactive workloads. `scripts/dgx-setup plan`
+  validates it, verifies the exact installed bootstrap artifact, evaluates the
+  selected Home candidate when Nix is available, and reports every remaining
+  apply gate without changing profiles or services. The executable fresh-host
+  install/adopt and unified guarded apply paths remain open.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -80,7 +87,7 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 | Switchable headless/GNOME/Hyprland/KDE mode plus shared Ghostty terminal in graphical modes | Nix plus Home Manager and reviewed root integration |
 | Armen-only graphical applications and browser extensions | Named `armen` Home Manager overlay |
 | AI/robotics services and their mutable data | Independent workload roles plus external persistent storage |
-| Per-machine differences | `hosts/<hostname>/` |
+| Per-machine selections | `fleet/hosts.json`, composed by `hosts/<hostname>/` |
 | Secrets | External secret store; never committed here |
 
 Start with the [decision register](docs/decision-register.md), then review the
@@ -99,8 +106,9 @@ testing, registering, or activating System Manager.
 
 ```text
 .agents/skills/             Repository-local Codex operational skills
-bootstrap/                 Reviewed host-level integration and activation hold
+bootstrap/                 Plain-JSON Nix bootstrap pin, plan, and apply hold
 docs/                      Architecture and rollout decisions
+fleet/                     Declarative per-host role and user selections
 hosts/                     Per-host Home and inert root-manager configuration
 inventory/                 Sanitized, non-secret baseline records
 modules/home/              Reusable user-level modules
@@ -117,6 +125,18 @@ flake.lock                 Exact stable/apps/Home/desktop/root-manager pins
 
 The installed Nix currently enables `nix-command` but not `flakes`, so commands
 pass the feature explicitly instead of changing `/etc/nix/nix.conf`.
+
+The fresh-host front door currently implements its read-only half:
+
+```bash
+./scripts/dgx-setup plan
+```
+
+It reads the plain-JSON host and bootstrap declarations before requiring Nix.
+On a host with Nix, evaluation may fetch missing locked flake sources, but it
+does not build/install packages, mutate a profile, change a service, enroll
+Tailscale, switch the desktop, or reboot. `PLAN_STATUS=PARTIAL_READY` means the
+declared Home layer is usable while separately guarded root roles remain open.
 
 ```bash
 ./scripts/check.sh
@@ -176,7 +196,9 @@ the prior generation, and disarms automatically after two postflights. See the
 ```
 
 This is a mutating, build-authorized workflow, not the default audit command. It
-preflights the exact Devbox and Hyprland release pins; advances stable Nixpkgs,
+verifies/advances the official checksum-pinned ARM64 `nix-installer` bootstrap
+artifact without executing it; preflights the exact Devbox and Hyprland release
+pins; advances stable Nixpkgs,
 the independently scoped apps input, and Home Manager; advances Tailscale only
 through its verified stable ARM64 artifact/checksum workflow; advances Codex
 only through OpenAI's stable ARM64 bundle/checksum workflow; advances Zed and
@@ -190,7 +212,8 @@ reviewed frozen lane. The updater fingerprints that complete lane before and
 after the user/package refresh and stops if anything moved. It never activates
 a profile, service, or desktop session, but it does rewrite pins, fetch inputs,
 and realize packages, so run it only after those actions are explicitly
-approved.
+approved. The standalone bootstrap-pin check is
+`./scripts/update-nix-installer.sh --check`.
 
 The latest completed run is recorded in the
 [2026-09-03 dependency-refresh evidence](docs/2026-09-03-dependency-refresh.md).

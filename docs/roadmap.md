@@ -99,10 +99,14 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Freeze the live System Manager package set in a dedicated exact
       `nixpkgs-root` lane and prove every candidate, recovery bundle, policy,
       parser, and disposable-test derivation remains identity-stable
-- [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
-      complete uninstall/rollback path
-- [ ] Build a single read-only host `plan` and guarded host `apply` entry point
-      that composes the exact base, optional roles, user overlays, and workloads
+- [x] Define and audit the checksum-pinned official ARM64 Nix installer source,
+      Linux planner inputs, exact-installed adoption classification, and
+      read-only fresh-host bootstrap plan
+- [ ] Implement the idempotent Nix install/adoption transaction and complete
+      uninstall/rollback path
+- [x] Build the single read-only host `plan` entry point that composes the exact
+      base, optional roles, user overlays, and workloads
+- [ ] Build the unified guarded host `apply` entry point
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration
@@ -170,8 +174,10 @@ approval, graphical validation, activation approval, and rollback.
       without taking ownership of mutable auth/plugin/MCP/desktop config
 - [x] Put the exact current Codex CLI package and launcher in Armen's all-modes
       overlay, with repository-owned update checks and standalone rollback input
-- [ ] Activate and verify the Codex launcher/profile migration on the pilot
-- [ ] Verify the entire graphical overlay becomes inactive in headless mode
+- [x] Activate and verify the Codex launcher/profile migration on the pilot;
+      retain the old standalone tree only as rollback input
+- [x] Verify the entire graphical overlay is absent from the active headless
+      Home generation
 
 ## Phase 7: selected DGX workloads
 
@@ -186,7 +192,7 @@ approval, graphical validation, activation approval, and rollback.
 
 ## Phase 8: fleet rollout
 
-- [ ] Define one declarative per-host selection surface for the exact base,
+- [x] Define one declarative per-host selection surface for the exact base,
       optional Tailscale/access role, desktop mode, named user overlays,
       developer tools, and workload roles
 - [ ] Make the supported new-host path: factory update, clone, declare roles,

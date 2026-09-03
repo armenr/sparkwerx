@@ -120,6 +120,14 @@ and rollback. Do not install, activate, or reboot anything.
 ```
 
 ```text
+$dgx-spark-ops Plan the declared host with ./scripts/dgx-setup plan. Validate
+fleet/hosts.json and bootstrap/nix/source.json, report exact bootstrap
+install/adoption classification, selected roles, current Home candidate/live
+state, and every remaining apply gate. Do not infer apply permission from a
+successful plan.
+```
+
+```text
 $dgx-spark-ops Plan the apt-to-Nix Tailscale migration on sparkle-01. Preserve
 the existing node identity and Tailscale SSH preference, keep the service in
 multi-user.target, explain the anti-downgrade package pin, include the SBOM

@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Read-only fleet plan. This intentionally works before Nix is installed: the
+# host/role declaration and bootstrap pin are plain JSON. When the exact Nix
+# runtime is already available, the plan supplements them with evaluated Home
+# output and live drift information. Nix evaluation can fetch missing locked
+# flake sources into the store; the command never installs a package, changes a
+# profile, activates configuration, restarts a service, enrolls a node, or
+# reboots the host.
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+fleet_file=$repo_dir/fleet/hosts.json
+bootstrap_file=$repo_dir/bootstrap/nix/source.json
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+nix_args=(--extra-experimental-features "nix-command flakes")
+
+usage() {
+  printf 'Usage: %s plan [HOSTNAME]\n' "$(basename "$0")" >&2
+}
+
+die() {
+  printf 'FAIL|%s\n' "$1" >&2
+  exit 1
+}
+
+emit() {
+  printf '%s|%s|%s\n' "$1" "$2" "$3"
+}
+
+json_value() {
+  local file=$1 expression=$2
+  python3 - "$file" "$expression" <<'PY'
+import json
+import sys
+
+path, expression = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    value = json.load(handle)
+for component in expression.split("."):
+    if component:
+        value = value[component]
+if isinstance(value, bool):
+    print(str(value).lower())
+elif isinstance(value, (str, int)):
+    print(value)
+else:
+    raise SystemExit(f"{expression} is not a scalar")
+PY
+}
+
+validate_inputs() {
+  python3 - "$fleet_file" "$bootstrap_file" "$1" <<'PY'
+import json
+import re
+import sys
+
+fleet_path, bootstrap_path, host_name = sys.argv[1:]
+with open(fleet_path, encoding="utf-8") as handle:
+    fleet = json.load(handle)
+with open(bootstrap_path, encoding="utf-8") as handle:
+    bootstrap = json.load(handle)
+
+if fleet.get("schemaVersion") != 1:
+    raise SystemExit("fleet schemaVersion must be 1")
+if host_name not in fleet.get("hosts", {}):
+    raise SystemExit(f"host is not declared in fleet/hosts.json: {host_name}")
+host = fleet["hosts"][host_name]
+required_host = {"system", "pilotRing", "users", "fleetBase", "access", "desktop", "workloads"}
+if set(host) != required_host:
+    raise SystemExit("host declaration has missing or unknown top-level fields")
+if host["system"] != "aarch64-linux":
+    raise SystemExit("DGX Spark host system must be aarch64-linux")
+if host["desktop"]["mode"] not in {"headless", "gnome", "hyprland", "kde"}:
+    raise SystemExit("desktop mode is invalid")
+if host["desktop"]["mode"] != "hyprland" and host["desktop"]["hyprlandPortal"]:
+    raise SystemExit("Hyprland portal cannot be selected outside Hyprland mode")
+if not host["fleetBase"]["enable"]:
+    raise SystemExit("managed hosts must enable the exact fleet base")
+if set(host["users"]) != {"armen"}:
+    raise SystemExit("the current fleet schema requires one explicit armen mapping")
+user = host["users"]["armen"]
+if not re.fullmatch(r"[a-z_][a-z0-9_-]*", user["unixName"]):
+    raise SystemExit("managed Unix user name is invalid")
+if user["homeDirectory"] != f"/home/{user['unixName']}":
+    raise SystemExit("managed homeDirectory must match the Unix user")
+if host["access"]["tailscale"]["ownership"] not in {
+    "disabled", "migration-pending-apt", "nix-managed"
+}:
+    raise SystemExit("Tailscale ownership state is invalid")
+if bootstrap.get("schemaVersion") != 1:
+    raise SystemExit("Nix bootstrap schemaVersion must be 1")
+installer = bootstrap["installer"]
+if installer["asset"] != "nix-installer-aarch64-linux":
+    raise SystemExit("Nix bootstrap asset is not ARM64 Linux")
+if not re.fullmatch(r"[0-9a-f]{64}", installer["sha256"]):
+    raise SystemExit("Nix installer SHA-256 is invalid")
+if not bootstrap["linuxPlanner"]["enableFlakes"]:
+    raise SystemExit("the repository bootstrap requires flakes")
+PY
+}
+
+os_value() {
+  local key=$1 file=$2 value
+  value="$(sed -n "s/^${key}=//p" "$file" 2>/dev/null | head -n 1)"
+  value=${value#\"}
+  value=${value%\"}
+  printf '%s\n' "$value"
+}
+
+plan_host() {
+  local target_host=$1 actual_host actual_user actual_arch declared_user declared_home
+  local declared_system desktop_mode portal tailscale_selected tailscale_ssh tailscale_owner
+  local isaac_selected isaac_enabled llmster_selected llmster_enabled
+  local installer_version installer_sha installer_size installer_url desired_nix
+  local repo_state dgx_name dgx_version ubuntu_version observed_version observed_sha observed_size
+  local runtime_version features candidate live_candidate closure status
+  local tailscale_version
+
+  validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
+  actual_host="$(hostname -s)"
+  actual_user="$(id -un)"
+  actual_arch="$(uname -m)"
+  declared_user="$(json_value "$fleet_file" "hosts.$target_host.users.armen.unixName")"
+  declared_home="$(json_value "$fleet_file" "hosts.$target_host.users.armen.homeDirectory")"
+  declared_system="$(json_value "$fleet_file" "hosts.$target_host.system")"
+  desktop_mode="$(json_value "$fleet_file" "hosts.$target_host.desktop.mode")"
+  portal="$(json_value "$fleet_file" "hosts.$target_host.desktop.hyprlandPortal")"
+  tailscale_selected="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.selected")"
+  tailscale_ssh="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.sshDesired")"
+  tailscale_owner="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.ownership")"
+  isaac_selected="$(json_value "$fleet_file" "hosts.$target_host.workloads.isaacOmniverse.selected")"
+  isaac_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.isaacOmniverse.enabled")"
+  llmster_selected="$(json_value "$fleet_file" "hosts.$target_host.workloads.lmstudioDaemon.selected")"
+  llmster_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.lmstudioDaemon.enabled")"
+  installer_version="$(json_value "$bootstrap_file" installer.version)"
+  installer_sha="$(json_value "$bootstrap_file" installer.sha256)"
+  installer_size="$(json_value "$bootstrap_file" installer.size)"
+  installer_url="$(json_value "$bootstrap_file" installer.url)"
+  desired_nix="$(json_value "$bootstrap_file" desiredRuntime.version)"
+
+  printf '# DGX declarative host plan\n'
+  printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  emit INFO target "$target_host"
+  emit INFO repository "$repo_dir@$(git -C "$repo_dir" rev-parse --short=12 HEAD)"
+  repo_state=clean
+  [[ -z "$(git -C "$repo_dir" status --porcelain=v1)" ]] || repo_state=dirty
+  emit INFO repository_state "$repo_state"
+  emit INFO declared_system "$declared_system"
+  emit INFO declared_user "armen->$declared_user@$target_host;$declared_home"
+  emit INFO fleet_base 'enabled;ncdu,lazydocker,devbox'
+  emit INFO desktop "mode=$desktop_mode;hyprland_portal=$portal;host_controller=$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")"
+  emit INFO armen_overlay "selected=$(json_value "$fleet_file" "hosts.$target_host.users.armen.overlaySelected");codex=$(json_value "$fleet_file" "hosts.$target_host.users.armen.codexSelected");graphical_apps=$(json_value "$fleet_file" "hosts.$target_host.users.armen.graphicalAppsSelected")"
+  emit INFO tailscale "selected=$tailscale_selected;ssh_desired=$tailscale_ssh;ownership=$tailscale_owner"
+  emit INFO isaac_omniverse "selected=$isaac_selected;enabled=$isaac_enabled"
+  emit INFO lmstudio_daemon "selected=$llmster_selected;enabled=$llmster_enabled"
+
+  if [[ "$target_host" != "$actual_host" ]]; then
+    emit INFO observation_scope "declared host only; local machine is $actual_host"
+    emit HOLD apply 'run the plan on the declared host before any apply'
+    printf 'PLAN_STATUS=DECLARATION_ONLY\n'
+    return
+  fi
+
+  [[ "$actual_arch" == aarch64 ]] || die "host architecture is $actual_arch, expected aarch64"
+  [[ "$actual_user" == "$declared_user" ]] ||
+    die "current user is $actual_user, expected $declared_user"
+  [[ "$HOME" == "$declared_home" ]] || die "HOME is $HOME, expected $declared_home"
+  ubuntu_version="$(os_value PRETTY_NAME /etc/os-release)"
+  dgx_name="$(os_value DGX_PRETTY_NAME /etc/dgx-release)"
+  dgx_version="$(os_value DGX_OTA_VERSION /etc/dgx-release)"
+  emit PASS substrate "${dgx_name:-UNKNOWN};DGX_OS=${dgx_version:-UNKNOWN};${ubuntu_version:-UNKNOWN};serial_not_read"
+
+  if [[ -x /nix/nix-installer ]]; then
+    observed_version="$(/nix/nix-installer --version | awk '{print $2}')"
+    observed_sha="$(sha256sum /nix/nix-installer | awk '{print $1}')"
+    observed_size="$(stat -c %s /nix/nix-installer)"
+    if [[ "$observed_version" == "$installer_version" &&
+      "$observed_sha" == "$installer_sha" && "$observed_size" == "$installer_size" ]]; then
+      emit PASS nix_bootstrap "adopt exact official installer $installer_version;sha256=$observed_sha"
+    else
+      emit HOLD nix_bootstrap "installed installer differs from pin $installer_version/$installer_sha/$installer_size"
+    fi
+  elif [[ -e /nix || -e /etc/nix ]]; then
+    emit HOLD nix_bootstrap 'partial or foreign Nix surface exists; do not overwrite it'
+  else
+    emit ACTION nix_bootstrap "download=$installer_url;sha256=$installer_sha;plan=linux/systemd/32-build-users/flakes;no action performed"
+  fi
+
+  if [[ -x "$nix_bin" ]]; then
+    runtime_version="$($nix_bin --version | awk '{print $3}')"
+    if [[ "$runtime_version" == "$desired_nix" ]]; then
+      emit PASS nix_runtime "$runtime_version"
+    else
+      emit HOLD nix_runtime "active=$runtime_version;desired=$desired_nix;use root/nix runbook"
+    fi
+    features="$($nix_bin config show experimental-features 2>/dev/null || true)"
+    if [[ " $features " == *' flakes '* && " $features " == *' nix-command '* ]]; then
+      emit PASS nix_features 'nix-command and flakes are persistent'
+    else
+      emit HOLD nix_features "persistent=${features:-NONE};commands currently add exact temporary features"
+    fi
+
+    candidate="$(cd "$repo_dir" && "$nix_bin" "${nix_args[@]}" eval --raw --no-write-lock-file \
+      ".#homeConfigurations.\"$declared_user@$target_host\".activationPackage")"
+    live_candidate="$(readlink -e "$declared_home/.local/state/nix/profiles/home-manager" 2>/dev/null || true)"
+    closure=not-realized
+    if [[ -e "$candidate" ]]; then
+      closure="$($nix_bin path-info -Sh "$candidate" | awk '{$1=""; sub(/^ /, ""); print}')"
+    fi
+    status=READY
+    [[ "$candidate" != "$live_candidate" ]] || status=CURRENT
+    emit "$status" home "candidate=$candidate;live=${live_candidate:-ABSENT};closure=$closure"
+  else
+    emit HOLD home 'Nix bootstrap and exact 2.35.2 runtime must complete first'
+  fi
+
+  if [[ "$tailscale_selected" == true ]]; then
+    if command -v tailscale >/dev/null 2>&1; then
+      tailscale_version="$(tailscale version --json 2>/dev/null | python3 -c \
+        'import json,sys; value=json.load(sys.stdin); print(value.get("long") or value.get("short") or value.get("majorMinorPatch") or "UNKNOWN")')"
+      emit HOLD tailscale_apply "selected but $tailscale_owner;installed=$tailscale_version;migration remains separately gated"
+    else
+      emit HOLD tailscale_apply 'selected but Nix-managed migration/enrollment is not yet apply-ready'
+    fi
+  fi
+  if [[ "$desktop_mode" != headless || "$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")" != not-implemented ]]; then
+    emit HOLD desktop_apply 'root desktop controller is not yet apply-ready'
+  else
+    emit INFO desktop_apply 'user composition is headless; factory GNOME remains the unchanged host mode'
+  fi
+  [[ "$isaac_enabled" == false ]] || emit HOLD workload_apply 'Isaac/Omniverse workload is not yet apply-ready'
+
+  emit PASS plan 'no package build/install, profile, service, enrollment, desktop, or reboot action occurred; evaluation may fetch missing locked flake sources'
+  printf 'PLAN_STATUS=PARTIAL_READY\n'
+}
+
+[[ "${1:-}" == plan ]] || {
+  usage
+  exit 2
+}
+[[ "$#" -le 2 ]] || {
+  usage
+  exit 2
+}
+plan_host "${2:-$(hostname -s)}"

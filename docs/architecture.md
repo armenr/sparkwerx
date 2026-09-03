@@ -37,7 +37,8 @@ review one complete plan/SBOM, apply it through one guarded entry point, and
 carry on. Adding another Spark should not require replaying this pilot's manual
 discovery or hand-installing optional software.
 
-The eventual host declaration composes the exact base with explicit choices:
+The machine-readable `fleet/hosts.json` declaration now composes the exact base
+with explicit choices:
 
 - optional host/access roles such as Nix-managed Tailscale;
 - exactly one `dgx.desktop.mode`;
@@ -47,19 +48,25 @@ The eventual host declaration composes the exact base with explicit choices:
   Armen's all-modes overlay alongside its declared permission policy; and
 - independently selected workload roles.
 
-The front door must separate a read-only `plan` from a mutating `apply`, show
-the exact package/service/file/state delta, refuse unsupported host or substrate
-drift, retain the previous generation, and run role-specific health and
-rollback checks. Secrets, browser/account state, Tailscale node identity,
-models, and other mutable data remain external inputs rather than Nix-store
-contents.
+The `scripts/dgx-setup plan` front door implements the non-applying half. It
+validates the declaration using only factory Python, classifies the pinned Nix
+bootstrap, and—when Nix exists—evaluates the exact Home candidate and live
+drift. Nix evaluation may fetch absent locked sources, but the plan does not
+build/install packages, mutate profiles, change services, enroll Tailscale,
+switch desktops, or reboot. The future `apply` half must show the exact
+package/service/file/state delta, refuse unsupported host or substrate drift,
+retain the previous generation, and run role-specific health and rollback
+checks. Secrets, browser/account state, Tailscale node identity, models, and
+other mutable data remain external inputs rather than Nix-store contents.
 
-Nix itself is the unavoidable bootstrap exception on a pristine host. A small,
-checksum-pinned, idempotent bootstrap must install or adopt the reviewed Nix
-runtime before the repository can manage everything above it. Once adopted,
-Nix version/update/rollback ownership belongs to this repository. This unified
-fresh-host workflow is the target architecture; its bootstrap and apply
-orchestrator are not implemented yet.
+Nix itself is the unavoidable bootstrap exception on a pristine host. Its
+official ARM64 installer release, URL, size, hash, planner inputs, and desired
+runtime are now plain-JSON repository inputs with a verified updater and plan.
+A small, idempotent executable transaction must still install or adopt that
+reviewed Nix runtime before the repository can manage everything above it.
+Once adopted, Nix version/update/rollback ownership belongs to this repository.
+The install/adopt transaction and guarded apply orchestrator are not yet
+implemented.
 
 ## Managed by Nix
 
@@ -88,7 +95,8 @@ be retired when stock catches up.
 - Ubuntu/DGX OS, kernel, and NVIDIA driver
 - CUDA and NVIDIA container runtime supplied by DGX OS
 - DGX Dashboard and its update mechanism
-- The initial Nix daemon installation
+- Nix's own initial installation transaction; the repository pins and plans it,
+  but an absent Nix cannot perform it
 - Mutable Tailscale node identity and external tailnet policy, although their
   lifecycle and desired-state boundaries are documented here
 - The minimal GDM/systemd/PAM integration required by a non-NixOS compositor
@@ -210,7 +218,9 @@ and real rollback, then retained exact generation one; its headless profile
 emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already
 matches the live generation. The separately gated pilot Nix runtime update to
-2.35.2 is complete. Tailscale's package/unit no-link build and the active
+2.35.2 is complete. The declarative fleet selection and read-only plan are also
+implemented and host-tested; executable Nix bootstrap/adoption and the unified
+guarded apply remain open. Tailscale's package/unit no-link build and the active
 Home generation do not authorize a raw `home-manager switch`, a systemd service
 link/restart, or another root-runtime change. Host mode switching and service
 changes require their own later approval.

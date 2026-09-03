@@ -56,6 +56,19 @@ current because package indexes may be stale.
 The installer provenance is the official NixOS `nix-installer`; Devbox was only
 the trigger. The runtime lives in root's default Nix profile.
 
+Audit the fresh-host provisioning pin separately from the running Nix runtime:
+
+```bash
+./scripts/update-nix-installer.sh --check
+./scripts/dgx-setup plan
+```
+
+The first command verifies the latest official GitHub release, exact ARM64
+asset digest/size, downloaded bytes, and reported installer version. The second
+classifies the local installer for adoption without executing it. An installer
+release update is not a running-runtime update; never replace
+`/nix/nix-installer` merely because the repository pin advances.
+
 Always inspect:
 
 ```bash

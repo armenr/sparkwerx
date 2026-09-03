@@ -7,6 +7,12 @@ maintenance, flake dependency updates, NVIDIA playbooks, CUDA/GPU workloads,
 containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 
 - Treat an unqualified audit or check as read-only.
+- Treat `fleet/hosts.json` and `bootstrap/nix/source.json` as the authoritative
+  fresh-host selections. Start with `./scripts/dgx-setup plan [HOSTNAME]` and
+  never infer install/apply authority from `PLAN_STATUS`; executable bootstrap
+  and unified apply remain unimplemented. Use
+  `scripts/update-nix-installer.sh` for installer release checks, and keep the
+  provisioning artifact separate from the running Nix runtime.
 - Read `docs/decision-register.md` before changing packages, profiles, desktop
   modes, user overlays, or workloads; ACCEPTED/SELECTED is not activation
   authorization.
