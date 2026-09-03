@@ -19,8 +19,10 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   Ghostty is graphical-only, and the portal has its own independent gate.
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
   evidence has its own immutable root Nixpkgs lane, while a separate
-  lockfile-pinned apps input supplies fast-moving packages. Because both
-  current Nixpkgs branches still
+  lockfile-pinned apps input supplies fast-moving packages. The 2026-09-03
+  guarded refresh advanced both user/package lanes to their current branch
+  heads, built every profile without activation, and proved the root lane
+  byte-for-byte unchanged. Because both current Nixpkgs branches still
   trail Devbox, an exact upstream source/vendor-hash adapter supplies current
   Devbox 0.18.0. The apps input also exposes reviewed candidates for Zed,
   LM Studio, and Chromium without adding them to a profile.
@@ -147,6 +149,9 @@ after the user/package refresh and stops if anything moved. It never activates
 a profile, service, or desktop session, but it does rewrite pins, fetch inputs,
 and realize packages, so run it only after those actions are explicitly
 approved.
+
+The latest completed run is recorded in the
+[2026-09-03 dependency-refresh evidence](docs/2026-09-03-dependency-refresh.md).
 
 Hyprland release tags are bumped deliberately rather than automatically because
 each new compositor release must pass the NVIDIA/ARM64 build gate first.

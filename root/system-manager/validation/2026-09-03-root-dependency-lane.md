@@ -47,3 +47,11 @@ The root-manager policy built successfully, the complete flake evaluation
 passed, and the live read-only classifier remained
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. No profile,
 package, service, boot link, recovery unit, or other host state was changed.
+
+The first guarded user/package refresh then advanced ordinary `nixpkgs` from
+`a9e6d84f9c2f...` to `a3116115851d...` and `nixpkgs-apps` from
+`a831408e6378...` to `9387b3fcc0c2...`. The updater compared the complete root
+fingerprint before and after, found exact equality, and subsequently passed the
+full flake check plus all declared user/profile/package `--no-link` builds.
+This was the first live proof that routine user/package maintenance can move
+without invalidating or replacing the retained root generations.

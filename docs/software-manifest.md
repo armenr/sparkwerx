@@ -10,21 +10,22 @@ Nix evaluation, redistribution, or the installation method.
 
 ## Status of this snapshot
 
-Package/version evidence date: **2026-09-01 online audit**
+Package/version evidence date: **2026-09-03 online audit**
 
 Root-canary operational evidence updated: **2026-09-03**
 
 Manual-install provenance inventory updated: **2026-09-02**
 
-The pinned versions below come from the current 2026-08-23 lock and exact
-upstream pins. They were rechecked against current official sources on
-2026-09-01. Stable Nixpkgs is locked at
-`a9e6d84f9c2f...` while `nixos-26.05` is now
-`c5c4a43b0e8056328ec4529f735cabdb8f1942bb`; apps is locked at
-`a831408e6378...` while `nixpkgs-unstable` is now
-`e8be7818e19ada32105a8af937a6a473b38167ca`. Those are available lock
-refreshes, not authorization to update. Devbox 0.18.0 and Tailscale 1.102.3
-plus its inert unit tree were built with `--no-link` and inspected. The
+The independently refreshable user/package pins were updated and rechecked
+against official sources on 2026-09-03. Stable Nixpkgs is locked at current
+`nixos-26.05` head `a3116115851d...`; the apps lane is locked at current
+`nixpkgs-unstable` head `9387b3fcc0c2...`; Home Manager is locked at current
+`release-26.05` head `65258d5c65a2...`. The live root lane intentionally stays
+at its separately proven `nixpkgs-root` revision `a9e6d84f9c2f...`. The
+guarded update proved every root candidate, recovery bundle, policy, and test
+derivation stayed byte-for-byte exact before building all user profiles and
+selected package outputs with `--no-link`. Devbox 0.18.0 and Tailscale 1.102.3
+plus its inert unit tree were built and inspected. The
 patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
 activation. The first disposable-container activation failed closed on upstream
@@ -108,19 +109,19 @@ rebuilt in Phase 1.
 | Fleet base | ncdu | SELECTED | Stable pin `ncdu` 2.9.2 is current, free, and ARM64-available | Build only as part of an explicitly approved base build |
 | Fleet base | lazydocker | SELECTED | Stable pin `lazydocker` 0.25.2 is current, free, and ARM64-available; the module adds only a user package | Do not add Docker group membership, socket ACLs, a service, or autostart |
 | Fleet base | Devbox | SELECTED; BUILD-PASSED; LIVE MANUAL COPY NOT MIGRATED | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. Built ARM64 binary reports 0.18.0; 8-path runtime closure is 65.8 MiB NAR. The currently invoked `/usr/local/bin/devbox` is not dpkg- or Nix-profile-owned | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; replace the manual copy only through the guarded base-profile migration and retain the adapter until stock catches up |
-| Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.5.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
+| Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.6.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
 | Factory desktop | Ubuntu GNOME/GDM | Recovery and future `gnome` host mode | Factory-owned, installed, and still running | Never replace or remove during another desktop pilot |
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
 | Shared graphical role | Ghostty | SELECTED terminal for every graphical mode | Stable pin `ghostty` 1.3.1 is current, free, and ARM64-available; its large GTK/GStreamer closure is quantified below | Decide whether the roughly 1.1 GiB Ghostty closure is acceptable, then validate GTK/GPU behavior; keep out of headless |
-| Armen graphical overlay | Chromium | SELECTED browser; UPDATE AVAILABLE | Apps pin exposes `chromium` 151.0.7922.173 on ARM64/free; official Linux stable is 152.0.7977.64; not wired into the overlay | Refresh only the apps lock after approval, then review the security delta, closure, extension policy, and NVIDIA graphics behavior |
-| Armen graphical overlay | Zed | SELECTED editor; UPDATE AVAILABLE | Apps pin exposes `zed-editor` 1.16.1 on ARM64/free; official stable is 1.17.2; not wired | Refresh only the apps lock after approval, inspect intervening security notes, then test ARM64 Vulkan/Wayland/portal behavior |
-| Armen graphical overlay | LM Studio desktop | SELECTED model manager; UPDATE AVAILABLE | Apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree; the official latest Linux ARM64 redirect is 0.4.23-1; not wired | Refresh only the apps lock after approval, keep the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
+| Armen graphical overlay | Chromium | SELECTED browser; CURRENT CANDIDATE | Current apps pin exposes official-current `chromium` 152.0.7977.75 on ARM64/free; not wired into the overlay | Review its closure, extension policy, and NVIDIA graphics behavior before activation |
+| Armen graphical overlay | Zed | SELECTED editor; UPDATE AVAILABLE | Current apps pin exposes `zed-editor` 1.17.2 on ARM64/free, while official stable is 1.18.0; the official v1.18.0 source flake exposes an ARM64 package; not wired | Pin and build the exact upstream release, then test ARM64 Vulkan/Wayland/portal behavior |
+| Armen graphical overlay | LM Studio desktop | SELECTED model manager; UPDATE AVAILABLE | Current apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree; official Linux ARM64 and current Nixpkgs master expose 0.4.23-1; not wired | Add a narrow exact current-release source, preserve the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt `tailscale` 1.102.3 plus `tailscale-archive-keyring` remain live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. System Manager's reboot rollback is proven but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact optional-role ownership diff and apt package/source/keyring rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
-| Developer tools | Codex CLI + Armen permission policy | BINARY MANUAL; PACKAGE ROLE OPEN; PREFERENCES DECLARED | Standalone `codex-cli` 0.152.0 is invoked from `~/.local/bin/codex` and resolves beneath `~/.codex/packages`; it is not dpkg- or Nix-profile-owned. Armen's overlay now declares and regression-tests a narrow reconciliation of `never` approvals, `:danger-full-access`, automatic review/approval, and destructive/open-world app defaults while preserving unrelated mutable config. The live config passes `codex --strict-config --version` | Decide where the binary belongs and pin/update/test it without expanding the exact fleet base; keep the permission policy Armen-only and do not replace auth/plugin/MCP/desktop state |
+| Developer tools | Codex CLI + Armen permission policy | BINARY MANUAL; UPDATE AVAILABLE; PREFERENCES DECLARED | Standalone `codex-cli` 0.152.0 is invoked from `~/.local/bin/codex` and resolves beneath `~/.codex/packages`; official current is 0.153.0 and it is not dpkg- or Nix-profile-owned. Armen's overlay declares and regression-tests a narrow reconciliation of `never` approvals, `:danger-full-access`, automatic review/approval, and destructive/open-world app defaults while preserving unrelated mutable config. The live config passes `codex --strict-config --version` | Put the binary in Armen's all-modes developer overlay, pin/build current 0.153.0, then migrate the manual copy without replacing auth/plugin/MCP/desktop state |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
 | Root integration | System Manager | SELECTED; ALL SIX DISPOSABLE TESTS PASSED; FIRST REAL REBOOT/AUTOMATIC ROLLBACK VERIFIED; RETRY-SAFE RESTORATION PASSED; GENERATION THREE LIVE/REGISTERED/BOOT-LINKED; ALL THREE GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its private wrapper is verified Nix 2.35.2, and all six exact disposable derivations remain policy-pinned. The 13-subtest recovery design survived the separately authorized first real reboot. Restoration attempt one safely timed back after the old phrase was mistyped; attempt two used one Enter, passed two full postflights, and automatically retained exact generation three. `system-manager -> system-manager-3-link -> w8kn…` and `system-manager-current -> w8kn…`; all three numbered generations and direct pilot roots remain, and the one declarative boot edge is present. Current classifier is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; no recovery or rollback timer is armed, and the helper contains no reboot action | Preserve all three generations and direct roots while broader root ownership is still canary-only. Do not reuse spent snapshots/helpers, remove a generation/root, arm recovery, reboot, or add a real managed service without its current reviewed gate |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
@@ -143,18 +144,17 @@ pilot's exported Home configuration is deliberately staged as user-layer
 GNOME/GDM remains untouched and running because no approved root desktop
 controller is active yet.
 
-| Profile | Effective direct Home Manager additions | Missing-output dry-run on this pilot | Complete closure evidence available without a build |
+| Profile | Effective direct Home Manager additions | Build validation | Realized closure |
 | --- | --- | --- | --- |
-| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, intrinsic `hm-session-vars.sh` | 6 derivations; 2 missing cache paths; 4.6 MiB download / 12.3 MiB unpacked | Three roots: 21 de-duplicated paths / 142.5 MiB NAR; Devbox is already local, others measured from signed cache metadata |
-| `gnome` | Headless base, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | 3 derivations; 224 missing paths; 233.2 MiB download / 692.4 MiB unpacked | Ghostty remains dominant; combined profile is not built |
-| `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | 5 derivations; 239 missing paths; 235.6 MiB download / 700.6 MiB unpacked | Existing custom Hyprland root: 177 local paths / 584 MiB NAR; this is not a combined-profile total |
-| `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | 8 derivations; 271 missing paths; 257.1 MiB download / 839.8 MiB unpacked | Existing custom portal root, including its overridden Hyprland dependency: 349 local paths / 1.7 GiB NAR; this is not a combined-profile total |
+| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, intrinsic `hm-session-vars.sh` | Build passed with `--no-link` | Realized generation closure: 572.3 MiB |
+| `gnome` | Headless base, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | Build passed with `--no-link` | Realized generation closure: 1.4 GiB |
+| `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | Build passed with `--no-link` | Realized generation closure: 2.0 GiB |
+| `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | Build passed with `--no-link` | Realized generation closure: 3.3 GiB |
 
-`nix build --dry-run` reports only outputs missing from the pilot's current
-store, so its totals vary with local store state and are not total closure
-sizes. The cache figures above came from signed `cache.nixos.org` metadata for
-the immutable roots. The local Hyprland figures came from already-realized
-pilot artifacts.
+The closure totals above come from `nix path-info -Sh` on the exact realized
+Home Manager generation outputs after the 2026-09-03 guarded refresh. They are
+store closure sizes, not additional disk-space estimates for another host;
+deduplication and its existing store contents will change incremental cost.
 
 Ghostty is the dominant new graphical cost. Its root alone reports roughly
 369 MiB compressed download and 1.1 GiB NAR closure. The dependency list is
