@@ -26,7 +26,10 @@ Codex was subsequently packaged and build-validated later the same day; see
 ARM64 packages for Zed 1.18.0 and LM Studio 0.4.23-1 were subsequently pinned,
 built, and closure-reviewed as well. Their graphical validation/profile
 activation remains open; see the [Zed](2026-09-03-zed-package.md) and
-[LM Studio](2026-09-03-lmstudio-package.md) records.
+[LM Studio](2026-09-03-lmstudio-package.md) records. The locked current
+Chromium 152.0.7977.75 package was subsequently realized and closure-reviewed;
+its required non-NixOS root sandbox integration remains open. See the
+[Chromium record](2026-09-03-chromium-package.md).
 
 ## Safety and build result
 

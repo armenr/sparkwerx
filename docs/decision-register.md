@@ -133,12 +133,15 @@ They are selected for packaging, inventory, and validation one at a time. They
 are not yet approved for installation or activation. No application is enabled
 for autostart by default.
 
-The current direct Zed 1.18.0 and LM Studio 0.4.23-1 ARM64 packages have passed
-their build and closure-policy gates but remain outside every Home profile.
-Zed still requires factory-GNOME Vulkan/portal validation. LM Studio additionally
-requires an explicit decision on its vendor Electron `--no-sandbox` fallback:
-Ubuntu AppArmor blocks the unprivileged user namespace used by the generic Nix
-AppImage wrapper, and this repository will not weaken that host policy silently.
+The current Chromium 152.0.7977.75, direct Zed 1.18.0, and direct LM Studio
+0.4.23-1 ARM64 packages have passed their build and closure-policy gates but
+remain outside every Home profile. Chromium requires an exact graphical root
+sandbox role because its store helper cannot be setuid and Ubuntu AppArmor
+blocks its user-namespace fallback; `--no-sandbox` and global user-namespace
+relaxation are rejected. Zed still requires factory-GNOME Vulkan/portal
+validation. LM Studio additionally requires an explicit decision on its vendor
+Electron `--no-sandbox` fallback; this repository will not weaken the host
+AppArmor policy silently.
 
 ### D-009: Isaac/Omniverse is a separate DGX workload
 
@@ -511,10 +514,10 @@ input until the first Home Manager activation replaces only that launcher.
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
-- Complete Chromium closure review, then wire and graphically validate the
-  pinned Chromium, Zed, and LM Studio candidates. Zed and LM Studio package/
-  policy builds are complete; their factory-GNOME GPU/portal/runtime gates
-  remain open.
+- Design and prove Chromium's exact root sandbox integration, then wire and
+  graphically validate the pinned Chromium, Zed, and LM Studio candidates. All
+  three package/policy builds are complete; their factory-GNOME GPU/portal/
+  runtime gates remain open.
 - Choose reproducible package/update paths for ChatGPT and both browser
   extensions.
 - Decide whether headless `llmster` is wanted as an independent serving
@@ -551,8 +554,8 @@ The repository-only policy alignment was completed and evaluated on
   the Hyprland portal is independently gated;
 - `armen` maps explicitly to `n0b0dy@sparkle-01`, persists while headless, and
   carries the current Codex package in every mode. Its graphical apps remain
-  absent from all profiles; exact current Zed and LM Studio candidates are
-  separately built and documented; and
+  absent from all profiles; exact current Chromium, Zed, and LM Studio
+  candidates are separately built and documented; and
 - evaluation invariants and dry-run plans cover headless, GNOME, Hyprland, and
   Hyprland-with-portal.
 

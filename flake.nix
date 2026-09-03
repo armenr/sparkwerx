@@ -71,6 +71,8 @@
 
       devboxPackage = appsPkgs.callPackage ./packages/devbox { };
       codexPackage = pkgs.callPackage ./packages/codex-cli { };
+      chromiumPackage = appsPkgs.chromium;
+      chromiumSandboxPackage = chromiumPackage.sandbox;
       lmstudioPackage = appsPkgs.callPackage ./packages/lmstudio { };
       zedPackage = pkgs.callPackage ./packages/zed-editor { };
 
@@ -435,7 +437,7 @@
       expectedArmenAllModesPackageNames = [ "codex-cli" ];
 
       selectedPersonalGraphicalCandidates = [
-        appsPkgs.chromium
+        chromiumPackage
         lmstudioPackage
         zedPackage
       ];
@@ -445,6 +447,12 @@
         "lmstudio"
         "zed-editor"
       ];
+
+      personalGraphicalCandidatesAbsentFrom =
+        profile:
+        lib.intersectLists expectedPersonalGraphicalCandidateNames (
+          packageNames profile.config.home.packages
+        ) == [ ];
 
       expectedGraphicalPackageNames = [
         "devbox"
@@ -522,7 +530,7 @@
             (mkPackageRecord "official OpenAI stable ARM64 release bundle" codexPackage)
           ];
           personalGraphicalCandidates = [
-            (mkPackageRecord "nixpkgs-apps; selected but not installed" appsPkgs.chromium)
+            (mkPackageRecord "nixpkgs-apps; built but not installed" chromiumPackage)
             (mkPackageRecord "official LM Studio stable ARM64 AppImage; built but not installed" lmstudioPackage)
             (mkPackageRecord "official Zed stable ARM64 bundle; built but not installed" zedPackage)
           ];
@@ -566,6 +574,15 @@
           ownsCodexPackage = true;
           package = mkPackageRecord "official OpenAI stable ARM64 release bundle" codexPackage;
           launcher = "~/.local/bin/codex is Home Manager-owned in every desktop mode";
+        };
+
+        policies.chromiumSandbox = {
+          package = mkPackageRecord "nixpkgs-apps; built but not installed" chromiumPackage;
+          sandboxOutputPath = chromiumSandboxPackage.outPath;
+          preferredRuntimePath = "/run/wrappers/bin/__chromium-suid-sandbox";
+          storeHelperIsSetuid = false;
+          hostIntegrationDeclared = false;
+          noSandboxFallbackAccepted = false;
         };
 
         evaluatedProfiles = {
@@ -1234,6 +1251,10 @@
           toString baseProfile.config.home.file.".local/bin/codex".source == "${codexPackage}/bin/codex";
         assert baseProfile.config.home.file.".local/bin/codex".force;
         assert packageNames selectedPersonalGraphicalCandidates == expectedPersonalGraphicalCandidateNames;
+        assert personalGraphicalCandidatesAbsentFrom baseProfile;
+        assert personalGraphicalCandidatesAbsentFrom graphicalProfile;
+        assert personalGraphicalCandidatesAbsentFrom hyprlandProfile;
+        assert personalGraphicalCandidatesAbsentFrom hyprlandPortalProfile;
         assert graphicalPackageNames == expectedGraphicalPackageNames;
         assert !baseProfile.config.xdg.enable;
         assert !baseProfile.config.xdg.mime.enable;
@@ -1294,6 +1315,28 @@
           test -x ${codexPackage}/codex-resources/bwrap
           test "$(${codexPackage}/bin/codex --version)" = \
             "codex-cli ${codexRelease.version}"
+          touch "$out"
+        '';
+
+      chromiumPolicyCheck =
+        assert lib.getName chromiumPackage == "chromium";
+        assert packageIsFree chromiumPackage;
+        pkgs.runCommand "dgx-chromium-policy" { } ''
+          test -x ${chromiumPackage}/bin/chromium
+          ${chromiumPackage}/bin/chromium --version | \
+            grep -E '^Chromium ${chromiumPackage.version}[[:space:]]*$'
+          test -x ${chromiumSandboxPackage}/bin/__chromium-suid-sandbox
+          test "$(stat -c %a ${chromiumSandboxPackage}/bin/__chromium-suid-sandbox)" = 555
+          grep -F '/run/wrappers/bin/__chromium-suid-sandbox' \
+            ${chromiumPackage}/bin/chromium
+          grep -F '${chromiumSandboxPackage}/bin/__chromium-suid-sandbox' \
+            ${chromiumPackage}/bin/chromium
+          test -f ${chromiumPackage}/share/applications/chromium-browser.desktop
+          grep -Fx 'Exec=chromium %U' \
+            ${chromiumPackage}/share/applications/chromium-browser.desktop
+          test ! -e ${chromiumPackage}/etc
+          test ! -e ${chromiumPackage}/lib/systemd
+          test ! -e ${chromiumPackage}/share/autostart
           touch "$out"
         '';
 
@@ -2239,6 +2282,7 @@
       systemConfigs.sparkle-01 = rootCanary;
 
       packages.${system} = {
+        chromium = chromiumPackage;
         codex-cli = codexPackage;
         devbox = devboxPackage;
         hyprland = hyprlandPackage;
@@ -2254,6 +2298,8 @@
       };
 
       checks.${system} = {
+        chromium-package = chromiumPackage;
+        chromium-policy = chromiumPolicyCheck;
         codex-cli-package = codexPackage;
         codex-cli-policy = codexPolicyCheck;
         codex-relaxed-defaults = codexRelaxedDefaultsRegressionCheck;

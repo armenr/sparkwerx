@@ -29,9 +29,10 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   packages; exact official ARM64 adapters now supply current Zed 1.18.0 and LM
   Studio 0.4.23-1. All three remain outside every Home profile.
 - The `armen -> n0b0dy@sparkle-01` mapping exists, but no personal graphical
-  application has been wired or installed. Zed and LM Studio have passed their
-  package/closure gates; their real graphical gates remain open, including LM
-  Studio's explicit vendor Electron sandbox caveat.
+  application has been wired or installed. Chromium, Zed, and LM Studio have
+  passed their package/closure gates; their real graphical gates remain open.
+  Chromium needs an exact root sandbox role, and LM Studio retains an explicit
+  vendor Electron sandbox caveat.
 - Armen's all-modes overlay now contains the current Codex CLI 0.153.0 official
   ARM64 bundle and owns its future launcher plus permissive defaults. The
   package is built but not activated; the visible standalone 0.152.0 launcher
@@ -152,9 +153,9 @@ the independently scoped apps input, and Home Manager; advances Tailscale only
 through its verified stable ARM64 artifact/checksum workflow; advances Codex
 only through OpenAI's stable ARM64 bundle/checksum workflow; advances Zed and
 LM Studio only through their exact official ARM64 artifact workflows;
-formats/evaluates the flake; and builds every ARM64 Home profile plus the Codex,
-Devbox, Zed, LM Studio, Tailscale, Hyprland, root canary/policy, unit, and portal
-outputs with
+formats/evaluates the flake; and builds every ARM64 Home profile plus Chromium,
+Codex, Devbox, Zed, LM Studio, Tailscale, Hyprland, root canary/policy, unit,
+and portal outputs with
 `--no-link`. The
 live System Manager and its exact `nixpkgs-root` foundation are a separately
 reviewed frozen lane. The updater fingerprints that complete lane before and
@@ -207,9 +208,10 @@ narrowly authorized pilot activation prompts.
 
 ## Deliberate hold point
 
-The guarded Nix 2.35.2 runtime rollout is complete. Devbox and Tailscale have
-passed explicitly scoped no-link builds; that does not authorize a Home
-profile, Tailscale service migration, or desktop activation. Do not run
+The guarded Nix 2.35.2 runtime rollout is complete. Devbox, Tailscale, and the
+three selected graphical application candidates have passed explicitly scoped
+no-link builds; that does not authorize a Home profile, Chromium sandbox role,
+Tailscale service migration, or desktop activation. Do not run
 `home-manager switch`, install Hyprland into a system profile, replace the apt
 Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 System Manager is currently exact registered/live/boot-linked generation three

@@ -125,6 +125,9 @@ the same reviewed change.
 | Repository LM Studio pin and updater | [packages/lmstudio/source.json](../../../../packages/lmstudio/source.json), [scripts/update-lmstudio.sh](../../../../scripts/update-lmstudio.sh) |
 | Current LM Studio package evidence | [docs/2026-09-03-lmstudio-package.md](../../../../docs/2026-09-03-lmstudio-package.md) |
 | Chromium release dashboard | https://chromiumdash.appspot.com/releases?platform=Linux |
+| Chromium Ubuntu AppArmor/userns guidance | https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md |
+| Locked Nixpkgs Chromium SUID module | https://github.com/NixOS/nixpkgs/blob/9387b3fcc0c23c86661636da63faabad4235a0a6/nixos/modules/security/chromium-suid-sandbox.nix |
+| Current Chromium package evidence | [docs/2026-09-03-chromium-package.md](../../../../docs/2026-09-03-chromium-package.md) |
 | Isaac Sim/Lab on Spark | https://build.nvidia.com/spark/isaac |
 
 The repository lock is packaging evidence, not proof that a desktop package is

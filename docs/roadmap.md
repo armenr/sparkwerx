@@ -141,7 +141,10 @@ the measured software manifest; evaluation did not authorize realization.
 Each item gets its own manifest record, current pin, closure review, build
 approval, graphical validation, activation approval, and rollback.
 
-- [ ] Wire and validate pinned Chromium plus the 1Password Chromium extension
+- [x] Build, version-smoke-test, and closure-review current Chromium
+      152.0.7977.75 ARM64; prove it fails closed without a usable sandbox
+- [ ] Add and prove Chromium's exact graphical root sandbox role; then wire and
+      validate Chromium plus the separately pinned 1Password extension
 - [ ] Firefox 1Password extension without replacing the existing browser profile
 - [x] Pin, build, smoke-test, and closure-review current Zed 1.18.0 ARM64
 - [ ] Validate Zed under factory GNOME/Vulkan/portals, then wire and activate it

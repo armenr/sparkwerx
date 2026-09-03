@@ -177,10 +177,18 @@ extensions, Zed, and LM Studio desktop. Keep VS Code, Google Chrome, the
 ```
 
 ```text
-$dgx-spark-ops Prepare a pre-build manifest for Zed and LM Studio desktop.
-Compare locked Nixpkgs with current official releases, identify exact source
-pins and only necessary unfree exceptions, estimate closures, and define GNOME,
-Hyprland, and rollback tests. Stop before editing or building.
+$dgx-spark-ops Re-audit the built Chromium, Zed, and LM Studio candidates.
+Compare their exact pins with current official ARM64 releases, verify closures
+and side-effect policy, preserve the exact unfree exception, and report the
+remaining sandbox/GNOME/Vulkan/portal gates. Do not wire or activate them.
+```
+
+```text
+$dgx-spark-ops Design Chromium's graphical root sandbox role without activating
+it. Compare the exact version-matched Nix SUID helper with an exact-path
+AppArmor userns profile, reject --no-sandbox and global userns relaxation, and
+define System Manager ownership, disposable tests, collision checks, rollback,
+and update invalidation. Preserve the current generation-three root state.
 ```
 
 ```text
@@ -265,8 +273,11 @@ authorization; never infer it from a successful activation.
 
 That generation-three activation has completed on `sparkle-01` from spent
 snapshot `20260902T110421Z`. Do not use the activation prompt to rerun it there.
-The persistent-recovery design and current 13-subtest/two-restart proof are now
-complete, but the host remains unarmed and unrebooted.
+The separately authorized first reboot exercised automatic recovery to
+generation two; retry-safe restoration then returned exact generation three
+after two postflights and automatic rollback disarming. Current recovery is
+clean/unarmed, all three generations and direct roots remain, and another
+reboot or recovery action requires a new current plan and authorization.
 
 For a first-reboot recovery snapshot, the prompt must authorize only creation of
 one fresh root-owned snapshot using the reviewed snapshot helper. It must name

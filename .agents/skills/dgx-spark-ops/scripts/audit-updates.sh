@@ -358,7 +358,7 @@ audit_selected_nix_packages() {
     "NIX_PACKAGE" "Armen candidate overlay" "Chromium" \
     "$current" "$candidate" \
     "https://chromiumdash.appspot.com/releases?platform=Linux" \
-    "Refresh only the apps lock, then review security delta, ARM64 closure, extensions, and NVIDIA graphics before wiring it."
+    "Refresh only the apps lock, rebuild the package/policy, and revalidate the exact root sandbox helper, ARM64 closure, extensions, and NVIDIA graphics before wiring it; never use --no-sandbox for browsing."
 
   current="$(package_version personalGraphicalCandidates zed-editor)"
   candidate=""

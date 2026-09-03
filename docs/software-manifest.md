@@ -25,9 +25,10 @@ at its separately proven `nixpkgs-root` revision `a9e6d84f9c2f...`. The
 guarded update proved every root candidate, recovery bundle, policy, and test
 derivation stayed byte-for-byte exact before building all user profiles and
 selected package outputs with `--no-link`. Devbox 0.18.0, Tailscale 1.102.3
-plus its inert unit tree, Codex CLI 0.153.0, Zed 1.18.0, and LM Studio
-0.4.23-1 were built and inspected. Zed and LM Studio remain candidate-only and
-are absent from every Home Manager profile. The
+plus its inert unit tree, Codex CLI 0.153.0, Chromium 152.0.7977.75, Zed
+1.18.0, and LM Studio 0.4.23-1 were built and inspected. All three graphical
+applications remain candidate-only and are absent from every Home Manager
+profile. The
 patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
 activation. The first disposable-container activation failed closed on upstream
@@ -116,7 +117,7 @@ rebuilt in Phase 1.
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
 | Shared graphical role | Ghostty | SELECTED terminal for every graphical mode | Stable pin `ghostty` 1.3.1 is current, free, and ARM64-available; its large GTK/GStreamer closure is quantified below | Decide whether the roughly 1.1 GiB Ghostty closure is acceptable, then validate GTK/GPU behavior; keep out of headless |
-| Armen graphical overlay | Chromium | SELECTED browser; CURRENT CANDIDATE | Current apps pin exposes official-current `chromium` 152.0.7977.75 on ARM64/free; not wired into the overlay | Review its closure, extension policy, and NVIDIA graphics behavior before activation |
+| Armen graphical overlay | Chromium | CURRENT PIN; BUILD/POLICY PASSED; SANDBOX/ACTIVATION OPEN | Current apps pin exposes official-current `chromium` 152.0.7977.75 on ARM64/free. Its 340-path closure is about 1.7 GiB and has no service/autostart surface. Isolated launch correctly refuses both the non-setuid store helper and AppArmor-blocked user-namespace fallback; it is not in a Home profile | Review [exact evidence](2026-09-03-chromium-package.md); add and independently prove the exact graphical root sandbox role—never `--no-sandbox` or a global userns relaxation—then validate NVIDIA graphics/profile/extension behavior before activation |
 | Armen graphical overlay | Zed | CURRENT PIN; BUILD/POLICY PASSED; ACTIVATION OPEN | Official stable `v1.18.0` ARM64 bundle, published digest, and tag commit are pinned directly because the locked Nixpkgs package is 1.17.2. Its 6-path closure is 485.5 MiB; isolated version smoke test created no state; no service/autostart surface exists. It is not in a Home profile | Review [exact evidence](2026-09-03-zed-package.md), then test factory-GNOME Vulkan/NVIDIA and portal/MIME behavior before wiring and activation |
 | Armen graphical overlay | LM Studio desktop | CURRENT PIN; BUILD/POLICY PASSED; ACTIVATION OPEN | Official `0.4.23-1` Linux ARM64 AppImage is pinned directly because the locked apps package is 0.4.21-2. Its 9-path closure is 2.4 GiB; no service/autostart/API/model exists. The host-compatible launcher uses the vendor's no-sandbox fallback under Ubuntu's AppArmor user-namespace restriction. It is not in a Home profile | Review [exact evidence](2026-09-03-lmstudio-package.md); explicitly resolve the Electron sandbox caveat, then test factory-GNOME URL/MIME behavior and GB10 acceleration before wiring and activation |
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
@@ -163,6 +164,16 @@ Ghostty is the dominant new graphical cost. Its root alone reports roughly
 predominantly GTK, GStreamer, audio/video codecs, fonts, and graphics
 libraries. Evaluation found no Ghostty autostart, service, socket, or permission
 change.
+
+The exact locked Chromium 152.0.7977.75 ARM64 package is built as a
+candidate-only 340-path / 1.7 GiB closure. It declares no service, socket,
+timer, or autostart, but cannot launch safely on the current non-NixOS host
+without a root sandbox integration: its store helper is intentionally not
+setuid, while Ubuntu AppArmor blocks its user-namespace fallback. `--no-sandbox`
+and global AppArmor relaxation are explicitly rejected. A version-matched
+root-owned wrapper or exact-path AppArmor profile must be separately designed
+and tested before graphical activation. See the
+[package evidence](2026-09-03-chromium-package.md).
 
 The exact official Zed 1.18.0 ARM64 bundle is built as a candidate-only
 6-path / 485.5 MiB closure. Its vendor binaries remain byte-for-byte intact and
@@ -368,6 +379,7 @@ application launch may create mutable state that also needs explicit approval.
 - [ncdu releases](https://dev.yorhel.nl/ncdu)
 - [lazydocker releases](https://github.com/jesseduffield/lazydocker/releases)
 - [Devbox releases](https://github.com/jetify-com/devbox/releases)
+- [Current Chromium package evidence](2026-09-03-chromium-package.md)
 - [Zed Linux and ARM64 requirements](https://zed.dev/docs/linux)
 - [Zed releases](https://github.com/zed-industries/zed/releases)
 - [Current Zed package evidence](2026-09-03-zed-package.md)

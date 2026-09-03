@@ -109,6 +109,8 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.home-graphical \
   .#checks.aarch64-linux.home-hyprland \
   .#checks.aarch64-linux.home-hyprland-with-portal \
+  .#checks.aarch64-linux.chromium-package \
+  .#checks.aarch64-linux.chromium-policy \
   .#checks.aarch64-linux.codex-cli-package \
   .#checks.aarch64-linux.codex-cli-policy \
   .#checks.aarch64-linux.lmstudio-package \
@@ -123,6 +125,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.tailscale-package \
   .#checks.aarch64-linux.tailscale-policy \
   .#checks.aarch64-linux.tailscaled-unit \
+  .#chromium \
   .#devbox \
   .#codex-cli \
   .#hyprland \

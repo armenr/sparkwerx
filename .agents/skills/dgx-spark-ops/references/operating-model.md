@@ -103,12 +103,14 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   `./scripts/check.sh` are the canonical no-build profile audit;
 - Ghostty is current but its cache closure is roughly 1.1 GiB, so its build
   remains behind explicit graphical-role approval;
-- exact official Zed 1.18.0 and LM Studio 0.4.23-1 ARM64 packages passed their
-  candidate-only build/closure gates and remain absent from Home profiles. Zed
-  still needs factory Vulkan/portal validation. LM Studio's vendor launcher
-  falls back to Electron `--no-sandbox` because Ubuntu AppArmor blocks the
-  generic AppImage wrapper's user namespace; do not weaken host policy or
-  activate it without resolving that explicit gate;
+- exact Chromium 152.0.7977.75, Zed 1.18.0, and LM Studio 0.4.23-1 ARM64
+  packages passed their candidate-only build/closure gates and remain absent
+  from Home profiles. Chromium needs a separately proved exact root sandbox;
+  reject `--no-sandbox` and global userns relaxation. Zed still needs factory
+  Vulkan/portal validation. LM Studio's vendor launcher falls back to Electron
+  `--no-sandbox` because Ubuntu AppArmor blocks the generic AppImage wrapper's
+  user namespace; do not weaken host policy or activate it without resolving
+  that explicit gate;
 
 - DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
 - Nix was provisioned by the official NixOS `nix-installer` as a multi-user

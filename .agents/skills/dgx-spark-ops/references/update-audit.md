@@ -196,6 +196,11 @@ current package candidates, closures, services/autostarts, state paths, and
 ARM64 behavior pass the manifest gate. Zed and LM Studio now use direct official
 ARM64 source records plus `scripts/update-zed.sh` and
 `scripts/update-lmstudio.sh`; the generic audit must agree with those records.
+Chromium comes from the exact apps lock, but its non-NixOS sandbox is a separate
+root integration: the store helper is not setuid and Ubuntu AppArmor blocks the
+user-namespace fallback. Preserve the explicit rejection of `--no-sandbox` and
+global userns relaxation; a version change invalidates the future helper/profile
+evidence.
 The LM Studio check follows only the official Linux ARM64 latest-download
 redirect and does not download the installer. Its built vendor launcher falls
 back to Electron `--no-sandbox` because Ubuntu AppArmor blocks the generic

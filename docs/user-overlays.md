@@ -17,10 +17,10 @@ Pilot mapping:
 
 The mapping and graphical/headless activity gate are implemented. The host
 declares the overlay selected. Codex CLI is its first packaged all-modes tool.
-Exact current Zed and LM Studio graphical candidates have completed package and
-closure review but remain absent from every profile until their real graphical
-gates pass. In the staged headless profile, graphical selection persists in Git
-while its computed activity is false and Codex remains present.
+Exact current Chromium, Zed, and LM Studio graphical candidates have completed
+package and closure review but remain absent from every profile until their
+real graphical gates pass. In the staged headless profile, graphical selection
+persists in Git while its computed activity is false and Codex remains present.
 
 Every future mapping must be explicit in that host's configuration. Creating
 another Unix user must not give that user Armen's applications, browser
@@ -30,7 +30,7 @@ extensions, settings, accounts, or secrets.
 
 | Component | Intended ownership | Important boundary |
 | --- | --- | --- |
-| Chromium | Nix package in Armen's graphical overlay | Chromium, not Google Chrome; no autostart |
+| Chromium | Exact locked 152.0.7977.75 ARM64 Nixpkgs package, built candidate-only | Chromium, not Google Chrome; no autostart or MIME defaults; requires a separately reviewed root sandbox helper and must never use `--no-sandbox` for browsing |
 | 1Password extension for Chromium | Declarative browser-extension submodule after pin/update review | Vault data, login state, and account secrets remain mutable and external |
 | 1Password extension for Firefox | Declarative browser-extension submodule after pin/update review | Firefox is currently factory/manual context; do not replace its profile |
 | Zed | Exact official stable 1.18.0 ARM64 bundle, built candidate-only | Needs factory-GNOME Vulkan/portal integration tests; self-update is disabled, settings may be declarative, credentials are not |
@@ -39,6 +39,7 @@ extensions, settings, accounts, or secrets.
 
 Current package evidence:
 
+- [Chromium 152.0.7977.75](2026-09-03-chromium-package.md)
 - [Zed 1.18.0](2026-09-03-zed-package.md)
 - [LM Studio 0.4.23-1](2026-09-03-lmstudio-package.md)
 
