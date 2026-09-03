@@ -454,7 +454,7 @@ and other mutable data remain outside the Nix store even when Nix owns their
 packages, units, and declarative settings. This decision defines the target;
 the unified bootstrap/plan/apply implementation remains OPEN.
 
-### D-016: Armen's Codex sessions default to unrestricted access
+### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 
 **Status:** ACCEPTED
 
@@ -466,11 +466,18 @@ Codex access the full machine and network and execute without approval pauses.
 
 This belongs to Armen's non-graphical personal overlay, so it applies in
 headless, GNOME, Hyprland, and KDE modes without entering the exact fleet base
-or affecting another user. Home Manager invokes a narrow, idempotent reconciler
-that owns only these approval/permission keys and preserves the rest of mutable
+or affecting another user. The overlay owns the exact current official ARM64
+Codex release bundle and the higher-precedence `~/.local/bin/codex` launcher.
+Its standalone updater is disabled because the repository's checksum-verifying
+`scripts/update-codex.sh` owns release discovery and pin changes.
+
+Home Manager also invokes a narrow, idempotent reconciler that owns only these
+approval/permission and Nix-update keys and preserves the rest of mutable
 `~/.codex/config.toml`. It refuses symlinks and foreign-owned files. The live
-pilot config already has the exact settings and passes strict Codex parsing.
-Whether Nix should own the separately installed Codex CLI package remains OPEN.
+pilot config already has the permission settings and passes strict Codex
+parsing. The Nix package is build-validated but not yet activated; the visible
+0.152.0 standalone launcher and its release tree remain migration/rollback
+input until the first Home Manager activation replaces only that launcher.
 
 ## Explicit non-selections
 
@@ -499,9 +506,6 @@ Whether Nix should own the separately installed Codex CLI package remains OPEN.
   Zed, and LM Studio candidates.
 - Choose reproducible package/update paths for ChatGPT and both browser
   extensions.
-- Decide whether the already-installed Codex CLI moves into Armen's overlay or
-  another role; its permission defaults are already owned independently by
-  Armen's overlay.
 - Decide whether headless `llmster` is wanted as an independent serving
   workload; selecting the LM Studio desktop app did not select the daemon.
 - Approve the persistent workload/model storage root and backup policy.

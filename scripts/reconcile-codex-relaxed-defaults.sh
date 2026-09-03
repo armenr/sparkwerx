@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Reconcile only Armen's eight approval/permission defaults. Codex and the
-# ChatGPT desktop app may continue to own every unrelated key in config.toml.
+# Reconcile only Armen's approval/permission defaults plus the self-update
+# switch required by Nix package ownership. Codex and the ChatGPT desktop app
+# may continue to own every unrelated key in config.toml.
 
 fail() {
   printf 'FAIL|codex_relaxed_defaults|%s\n' "$1" >&2
@@ -42,6 +43,10 @@ config_is_current() {
         top_reviewer++
         if (line ~ /^[[:space:]]*approvals_reviewer[[:space:]]*=[[:space:]]*"auto_review"[[:space:]]*(#.*)?$/) top_reviewer_ok++
       }
+      if (section == "top" && line ~ /^[[:space:]]*check_for_update_on_startup[[:space:]]*=/) {
+        top_update++
+        if (line ~ /^[[:space:]]*check_for_update_on_startup[[:space:]]*=[[:space:]]*false[[:space:]]*(#.*)?$/) top_update_ok++
+      }
       if (section == "notice" && line ~ /^[[:space:]]*hide_full_access_warning[[:space:]]*=/) {
         notice_warning++
         if (line ~ /^[[:space:]]*hide_full_access_warning[[:space:]]*=[[:space:]]*true[[:space:]]*(#.*)?$/) notice_warning_ok++
@@ -67,6 +72,7 @@ config_is_current() {
       if (top_approval != 1 || top_approval_ok != 1) exit 1
       if (top_permissions != 1 || top_permissions_ok != 1) exit 1
       if (top_reviewer != 1 || top_reviewer_ok != 1) exit 1
+      if (top_update != 1 || top_update_ok != 1) exit 1
       if (notice_warning != 1 || notice_warning_ok != 1) exit 1
       if (apps_reviewer != 1 || apps_reviewer_ok != 1) exit 1
       if (apps_mode != 1 || apps_mode_ok != 1) exit 1
@@ -133,6 +139,7 @@ awk '
     print "approval_policy = \"never\""
     print "default_permissions = \":danger-full-access\""
     print "approvals_reviewer = \"auto_review\""
+    print "check_for_update_on_startup = false"
     top_emitted = 1
   }
 
@@ -186,7 +193,7 @@ awk '
     }
 
     if (section == "top" &&
-        line ~ /^[[:space:]]*(approval_policy|default_permissions|approvals_reviewer)[[:space:]]*=/) next
+        line ~ /^[[:space:]]*(approval_policy|default_permissions|approvals_reviewer|check_for_update_on_startup)[[:space:]]*=/) next
     if (section == "top" &&
         line ~ /^[[:space:]]*notice[.]hide_full_access_warning[[:space:]]*=/) next
     if (section == "top" &&

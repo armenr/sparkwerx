@@ -27,9 +27,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
   `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
   automatic review/approval, and destructive/open-world app tools enabled.
-  Reconcile only those keys; preserve mutable auth, plugins, MCP servers,
-  project trust, desktop preferences, and history. This preference policy does
-  not decide Codex CLI package ownership.
+  The exact current Codex CLI bundle belongs to Armen's all-modes overlay, not
+  the fleet base; disable its startup self-update because the repository owns
+  version updates. Reconcile only those keys; preserve mutable auth, plugins,
+  MCP servers, project trust, desktop preferences, and history. Keep the old
+  standalone release tree until the Nix launcher migration is activated and
+  verified.
 - Keep Hyprland opt-in and do not activate Home Manager or change GDM unless the
   user explicitly approves that exact activation.
 - Never expose secrets or place mutable model/application data in the Nix store.

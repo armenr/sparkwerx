@@ -64,8 +64,10 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Matching Home Manager branch | https://github.com/nix-community/home-manager/tree/release-26.05 |
 | Hyprland releases | https://github.com/hyprwm/Hyprland/releases |
 | Hyprland v0.56.2 Glaze packaging fix | https://github.com/hyprwm/Hyprland/commit/91f29f23bb691462f8aa6171b964069aebc37910 |
-| Codex CLI releases | https://github.com/openai/codex/releases |
+| Official Codex CLI install/update guidance | https://developers.openai.com/codex/cli/ |
+| Codex stable release metadata | https://releases.openai.com/codex/channels/latest |
 | Official Codex configuration reference | https://learn.chatgpt.com/docs/config-file/config-reference |
+| Current Codex package/build evidence | [docs/2026-09-03-codex-cli-package.md](../../../../docs/2026-09-03-codex-cli-package.md) |
 | System Manager matching stable branch | https://github.com/numtide/system-manager/tree/release-26.05 |
 | Repository System Manager canary/runbook | [root/system-manager/README.md](../../../../root/system-manager/README.md) |
 | Exact current System Manager container-test evidence | [root/system-manager/validation/2026-08-24-container-test.md](../../../../root/system-manager/validation/2026-08-24-container-test.md) |

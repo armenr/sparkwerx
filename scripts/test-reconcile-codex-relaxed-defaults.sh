@@ -25,6 +25,7 @@ printf '%s\n' \
   'approval_policy = "on-request"' \
   'default_permissions = ":workspace"' \
   'approvals_reviewer = "user"' \
+  'check_for_update_on_startup = true' \
   '' \
   '[notice]' \
   'hide_full_access_warning = false' \
@@ -53,6 +54,7 @@ for expected in \
   'approval_policy = "never"' \
   'default_permissions = ":danger-full-access"' \
   'approvals_reviewer = "auto_review"' \
+  'check_for_update_on_startup = false' \
   'hide_full_access_warning = true' \
   'default_tools_approval_mode = "approve"' \
   'destructive_enabled = true' \

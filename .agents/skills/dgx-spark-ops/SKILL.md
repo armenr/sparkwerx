@@ -74,9 +74,10 @@ Read the [architecture](../../../docs/architecture.md),
 declarative host/user role selection, the checksum-pinned Nix bootstrap or
 adoption boundary, exact plan/SBOM output, guarded apply sequence, recovery
 path, and postflight. Treat Tailscale as an explicit optional per-host role and
-keep its mutable identity outside the Nix store. Surface unresolved role
-choices, including Codex CLI ownership, instead of silently preserving manual
-installs. Planning does not authorize bootstrap, installation, activation,
+keep its mutable identity outside the Nix store. Include the current pinned
+Codex CLI in Armen's all-modes overlay when that named overlay is selected;
+never put it in the fleet base or invoke its standalone installer. Planning
+does not authorize bootstrap, installation, activation,
 service migration, desktop switching, or reboot.
 
 ### Apply an approved update
@@ -417,6 +418,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - Keep ChatGPT, Chromium, both 1Password browser extensions, Zed, and LM Studio
   in Armen's graphical overlay. Keep Isaac and Omniverse robotics/simulation
   tooling in an independent workload role.
+- Keep Codex CLI in Armen's all-modes overlay. Update it only through
+  `scripts/update-codex.sh`, keep `check_for_update_on_startup = false`, and
+  preserve mutable auth/plugin/MCP/history state plus the old standalone tree
+  until the declarative launcher is activated and verified.
 - Do not add or recommend VS Code, Google Chrome, NIM, NVIDIA AI Enterprise, the
   1Password desktop app, or LM Link unless Armen explicitly changes the current
   non-selection.

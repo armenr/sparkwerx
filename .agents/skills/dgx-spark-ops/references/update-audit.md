@@ -183,10 +183,13 @@ needs it and the build confirms that fact.
 ### Selected Nix packages
 
 The deterministic audit compares the selected direct packages against their
-official release sources: ncdu, lazydocker, Devbox, Ghostty, Chromium, Zed, and
-LM Studio. It also reports the locked stable/apps package versions separately
-from upstream application releases. A package may therefore be current while
-its branch has moved, or stale even before a lock refresh is approved.
+official release sources: ncdu, lazydocker, Devbox, Ghostty, Chromium, Zed, LM
+Studio, and Codex CLI. It also reports the locked stable/apps package versions
+separately from upstream application releases. A package may therefore be
+current while its branch has moved, or stale even before a lock refresh is
+approved. Codex uses OpenAI's stable release channel and exact ARM64 package
+bundle checksum through `scripts/update-codex.sh`; never invoke its installer
+during an audit.
 
 Treat Chromium, Zed, and LM Studio as selected-but-uninstalled until their exact
 current package candidates, closures, services/autostarts, state paths, and
@@ -286,8 +289,11 @@ Codex CLI, the ChatGPT Debian package, and the 1Password extension began as
 explicit manual installations. Firefox remains part of the factory/OS
 application substrate. Report their installed versions and ownership when
 available. ChatGPT and browser extensions are selected for Armen's future
-graphical overlay but are not Nix-managed yet. Codex remains manual until its
-shared developer-tools versus personal-overlay role is explicitly decided.
+graphical overlay but are not Nix-managed yet. The current Codex package is now
+owned by Armen's all-modes Nix overlay; until Home Manager activation, report
+the visible older standalone launcher as migration input rather than treating
+the package build as a completed ownership transfer. Never remove the retained
+standalone tree during a read-only audit.
 Tailscale is not in this category; it has its own optional fleet-access
 migration and update policy above.
 

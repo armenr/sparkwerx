@@ -70,6 +70,7 @@
       };
 
       devboxPackage = appsPkgs.callPackage ./packages/devbox { };
+      codexPackage = pkgs.callPackage ./packages/codex-cli { };
 
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
@@ -333,6 +334,7 @@
             inherit
               appsPkgs
               approvedUnfreePackageNames
+              codexPackage
               devboxPackage
               hostName
               userName
@@ -428,6 +430,8 @@
 
       expectedSharedGraphicalPackageNames = [ "ghostty" ];
 
+      expectedArmenAllModesPackageNames = [ "codex-cli" ];
+
       selectedPersonalGraphicalCandidates = [
         appsPkgs.chromium
         appsPkgs.lmstudio
@@ -512,6 +516,9 @@
             (mkPackageRecord "official Devbox release override on nixpkgs-apps" devboxPackage)
           ];
           sharedGraphical = [ (mkPackageRecord "nixpkgs-stable" pkgs.ghostty) ];
+          armenAllModes = [
+            (mkPackageRecord "official OpenAI stable ARM64 release bundle" codexPackage)
+          ];
           personalGraphicalCandidates = map (mkPackageRecord "nixpkgs-apps; selected but not installed") selectedPersonalGraphicalCandidates;
           hyprland = [ (mkPackageRecord "hyprland input" hyprlandPackage) ];
           hyprlandPortal = [
@@ -550,7 +557,9 @@
           scope = "Armen only; every desktop mode";
           settings = sparkleHome.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy;
           preservesUnrelatedMutableConfig = true;
-          ownsCodexPackage = false;
+          ownsCodexPackage = true;
+          package = mkPackageRecord "official OpenAI stable ARM64 release bundle" codexPackage;
+          launcher = "~/.local/bin/codex is Home Manager-owned in every desktop mode";
         };
 
         evaluatedProfiles = {
@@ -1190,12 +1199,32 @@
       stableRejectsVscode = !(builtins.tryEval pkgs.vscode.outPath).success;
       appsRejectsVscode = !(builtins.tryEval appsPkgs.vscode.outPath).success;
       appsAllowsLmStudio = (builtins.tryEval appsPkgs.lmstudio.outPath).success;
+      codexRelease = codexPackage.passthru.release;
 
       profilePolicyCheck =
         assert basePackageNames == expectedBasePackageNames;
         assert graphicalBasePackageNames == expectedBasePackageNames;
         assert headlessSharedGraphicalPackageNames == [ ];
         assert sharedGraphicalPackageNames == expectedSharedGraphicalPackageNames;
+        assert
+          packageNames baseProfile.config.dgx.userOverlays.armen.codex.packages
+          == expectedArmenAllModesPackageNames;
+        assert
+          packageNames graphicalProfile.config.dgx.userOverlays.armen.codex.packages
+          == expectedArmenAllModesPackageNames;
+        assert
+          packageNames hyprlandProfile.config.dgx.userOverlays.armen.codex.packages
+          == expectedArmenAllModesPackageNames;
+        assert
+          packageNames hyprlandPortalProfile.config.dgx.userOverlays.armen.codex.packages
+          == expectedArmenAllModesPackageNames;
+        assert baseProfile.config.dgx.userOverlays.armen.codex.active;
+        assert graphicalProfile.config.dgx.userOverlays.armen.codex.active;
+        assert hyprlandProfile.config.dgx.userOverlays.armen.codex.active;
+        assert hyprlandPortalProfile.config.dgx.userOverlays.armen.codex.active;
+        assert
+          toString baseProfile.config.home.file.".local/bin/codex".source == "${codexPackage}/bin/codex";
+        assert baseProfile.config.home.file.".local/bin/codex".force;
         assert packageNames selectedPersonalGraphicalCandidates == expectedPersonalGraphicalCandidateNames;
         assert graphicalPackageNames == expectedGraphicalPackageNames;
         assert !baseProfile.config.xdg.enable;
@@ -1219,6 +1248,8 @@
           baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.approvals_reviewer
           == "auto_review";
         assert
+          !baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.check_for_update_on_startup;
+        assert
           baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.notice.hide_full_access_warning;
         assert
           baseProfile.config.dgx.userOverlays.armen.codex.relaxedPermissions.policy.apps._default.default_tools_approval_mode
@@ -1239,6 +1270,22 @@
         assert appsRejectsVscode;
         assert appsAllowsLmStudio;
         pkgs.runCommand "dgx-profile-policy" { } ''
+          touch "$out"
+        '';
+
+      codexPolicyCheck =
+        assert codexRelease.architecture == "aarch64-unknown-linux-musl";
+        assert codexRelease.asset == "codex-package-aarch64-unknown-linux-musl.tar.gz";
+        assert codexRelease.releaseTag == "rust-v${codexRelease.version}";
+        assert builtins.match "[0-9a-f]{64}" codexRelease.upstreamSha256 != null;
+        assert lib.getName codexPackage == "codex-cli";
+        pkgs.runCommand "dgx-codex-cli-policy" { } ''
+          test -x ${codexPackage}/bin/codex
+          test -x ${codexPackage}/bin/codex-code-mode-host
+          test -x ${codexPackage}/codex-path/rg
+          test -x ${codexPackage}/codex-resources/bwrap
+          test "$(${codexPackage}/bin/codex --version)" = \
+            "codex-cli ${codexRelease.version}"
           touch "$out"
         '';
 
@@ -2127,6 +2174,7 @@
       systemConfigs.sparkle-01 = rootCanary;
 
       packages.${system} = {
+        codex-cli = codexPackage;
         devbox = devboxPackage;
         hyprland = hyprlandPackage;
         root-system-canary = rootCanary;
@@ -2139,6 +2187,8 @@
       };
 
       checks.${system} = {
+        codex-cli-package = codexPackage;
+        codex-cli-policy = codexPolicyCheck;
         codex-relaxed-defaults = codexRelaxedDefaultsRegressionCheck;
         devbox-package = devboxPackage;
         devbox-policy = devboxPolicyCheck;

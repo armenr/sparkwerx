@@ -1,5 +1,6 @@
 {
   config,
+  codexPackage,
   lib,
   pkgs,
   ...
@@ -30,21 +31,39 @@ in
       };
     };
 
-    codex.relaxedPermissions = {
-      enable = lib.mkEnableOption "Armen's deliberately unrestricted Codex session defaults";
+    codex = {
+      enable = lib.mkEnableOption "the Nix-managed Codex CLI in every desktop mode";
 
       active = lib.mkOption {
         type = lib.types.bool;
         readOnly = true;
         internal = true;
-        description = "Whether Armen's permissive Codex defaults are reconciled at Home Manager activation";
+        description = "Whether Armen's Nix-managed Codex CLI is active";
       };
 
-      policy = lib.mkOption {
-        type = lib.types.attrs;
+      packages = lib.mkOption {
+        type = lib.types.listOf lib.types.package;
         readOnly = true;
         internal = true;
-        description = "The exact non-secret Codex settings owned by Armen's overlay";
+        description = "Armen's exact all-modes Codex package set";
+      };
+
+      relaxedPermissions = {
+        enable = lib.mkEnableOption "Armen's deliberately unrestricted Codex session defaults";
+
+        active = lib.mkOption {
+          type = lib.types.bool;
+          readOnly = true;
+          internal = true;
+          description = "Whether Armen's permissive Codex defaults are reconciled at Home Manager activation";
+        };
+
+        policy = lib.mkOption {
+          type = lib.types.attrs;
+          readOnly = true;
+          internal = true;
+          description = "The exact non-secret Codex settings owned by Armen's overlay";
+        };
       };
     };
   };
@@ -55,6 +74,10 @@ in
         {
           assertion = !cfg.graphical.enable || cfg.enable;
           message = "Armen's graphical overlay requires dgx.userOverlays.armen.enable.";
+        }
+        {
+          assertion = !cfg.codex.enable || cfg.enable;
+          message = "Armen's Codex package requires dgx.userOverlays.armen.enable.";
         }
         {
           assertion = !cfg.codex.relaxedPermissions.enable || cfg.enable;
@@ -77,6 +100,7 @@ in
         approval_policy = "never";
         default_permissions = ":danger-full-access";
         approvals_reviewer = "auto_review";
+        check_for_update_on_startup = false;
         notice.hide_full_access_warning = true;
         apps._default = {
           approvals_reviewer = "auto_review";
@@ -85,7 +109,25 @@ in
           open_world_enabled = true;
         };
       };
+
+      dgx.userOverlays.armen.codex.active = cfg.enable && cfg.codex.enable;
+      dgx.userOverlays.armen.codex.packages = lib.optionals (cfg.enable && cfg.codex.enable) [
+        codexPackage
+      ];
     }
+
+    (lib.mkIf (cfg.enable && cfg.codex.enable) {
+      home.packages = cfg.codex.packages;
+
+      # The official standalone installer placed its launcher here and this
+      # directory precedes the Nix profile on the pilot PATH. Own the same
+      # launcher declaratively so the Nix package cannot be shadowed. The old
+      # standalone release tree remains untouched as a rollback input.
+      home.file.".local/bin/codex" = {
+        source = "${codexPackage}/bin/codex";
+        force = true;
+      };
+    })
 
     (lib.mkIf (cfg.enable && cfg.codex.relaxedPermissions.enable) {
       home.activation.dgxArmenCodexRelaxedDefaults = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

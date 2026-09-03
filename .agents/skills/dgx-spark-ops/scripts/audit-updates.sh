@@ -289,7 +289,7 @@ audit_selected_nix_packages() {
 
   if ! jq -e '.schemaVersion == 1' >/dev/null 2>&1 <<<"$manifest"; then
     for component in \
-      ncdu lazydocker Ghostty Chromium Zed "LM Studio desktop"; do
+      ncdu lazydocker Ghostty Chromium Zed "LM Studio desktop" "Codex CLI"; do
       emit "NIX_PACKAGE" "repository" "$component" \
         "MANIFEST_UNAVAILABLE" "UNKNOWN" "UNKNOWN" \
         "repo:flake.nix" \
@@ -368,7 +368,7 @@ audit_selected_nix_packages() {
     "NIX_PACKAGE" "Armen candidate overlay" "Zed" \
     "$current" "$candidate" \
     "https://github.com/zed-industries/zed/releases" \
-    "Refresh only the apps lock, inspect intervening security notes, and validate ARM64 Vulkan/Wayland/portal behavior before wiring it."
+    "The apps lane is already at branch head; pin the exact upstream release, inspect intervening security notes, and validate ARM64 Vulkan/Wayland/portal behavior before wiring it."
 
   current="$(package_version personalGraphicalCandidates lmstudio)"
   candidate=""
@@ -389,7 +389,23 @@ audit_selected_nix_packages() {
   emit_package_comparison \
     "NIX_PACKAGE" "Armen candidate overlay" "LM Studio desktop" \
     "$current" "$candidate" "https://lmstudio.ai/download" \
-    "Refresh only the apps lock, preserve the exact lmstudio unfree allowlist, inspect the ARM64 closure/model paths, and validate GB10 acceleration before wiring it."
+    "The apps lane is already at branch head; add a narrow exact current-release package, preserve the lmstudio-only unfree allowlist, inspect the ARM64 closure/model paths, and validate GB10 acceleration before wiring it."
+
+  current="$(package_version armenAllModes codex-cli)"
+  candidate=""
+  if [[ "$offline" -eq 0 ]]; then
+    tag="$(
+      timeout 30s curl --fail --silent --show-error --location \
+        https://releases.openai.com/codex/channels/latest 2>/dev/null |
+        jq -r '.tag_name // empty' 2>/dev/null || true
+    )"
+    candidate="${tag#rust-v}"
+  fi
+  emit_package_comparison \
+    "NIX_PACKAGE" "Armen all-modes overlay" "Codex CLI" \
+    "$current" "$candidate" \
+    "https://releases.openai.com/codex/channels/latest" \
+    "Run the exact Codex updater, build the official ARM64 bundle and profile, and keep the standalone launcher as migration input until activation."
 }
 
 audit_root_integration() {
@@ -1411,32 +1427,38 @@ else
     "repo:flake.lock" "flake.lock or jq is unavailable."
 fi
 
+codex_source_file="$repo_dir/packages/codex-cli/source.json"
+codex_repository_version="$(
+  jq -r '.version // empty' "$codex_source_file" 2>/dev/null || true
+)"
+codex_resolved=""
 if command -v codex >/dev/null 2>&1; then
   codex_version="$(codex --version 2>/dev/null | awk '{print $NF}')"
+  codex_resolved="$(readlink -f "$(command -v codex)" 2>/dev/null || true)"
 else
   codex_version="NOT_FOUND"
 fi
-if [[ "$offline" -eq 1 || "$codex_version" == "NOT_FOUND" ]]; then
-  emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
-    "REMOTE_SUPPRESSED" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
-    "Official npm metadata was not queried."
+if [[ -z "$codex_repository_version" ]]; then
+  emit "USER_APP" "ownership unknown" "Codex CLI launcher" "$codex_version" \
+    "NOT_PINNED" "UNKNOWN" "repo:packages/codex-cli/source.json" \
+    "The repository Codex package pin is missing or unreadable."
+elif [[ "$codex_version" == "NOT_FOUND" ]]; then
+  emit "USER_APP" "Armen overlay selected; not active" "Codex CLI launcher" \
+    "$codex_version" "$codex_repository_version" "NOT_ACTIVE" \
+    "repo:packages/codex-cli/source.json" \
+    "The current Nix package is declared and built, but no Codex command is visible."
 else
-  codex_candidate="$(
-    curl -fsSL --connect-timeout 10 --max-time 30 \
-      'https://registry.npmjs.org/@openai%2Fcodex/latest' 2>/dev/null |
-      jq -r '.version // empty' 2>/dev/null || true
-  )"
-  if [[ -n "$codex_candidate" ]]; then
-    codex_status="$(version_status "$codex_version" "$codex_candidate")"
-    emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
-      "$codex_candidate" "$codex_status" \
-      "https://www.npmjs.com/package/@openai/codex" \
-      "Availability only; update ownership has not yet been migrated into Nix."
+  codex_status="$(version_status "$codex_version" "$codex_repository_version")"
+  if [[ "$codex_resolved" == /nix/store/*-codex-cli-*/bin/codex ]]; then
+    codex_owner="Armen Nix overlay"
+    codex_detail="The visible launcher resolves to the exact repository package."
   else
-    emit "USER_APP" "manual install; role open" "Codex CLI" "$codex_version" \
-      "UNKNOWN" "UNKNOWN" "https://www.npmjs.com/package/@openai/codex" \
-      "Unable to read official npm release metadata."
+    codex_owner="manual standalone; migration input"
+    codex_detail="The current Nix package is declared and built, but the visible launcher still resolves outside its store output; activate Armen's Home profile to transfer ownership."
   fi
+  emit "USER_APP" "$codex_owner" "Codex CLI launcher" "$codex_version" \
+    "$codex_repository_version" "$codex_status" \
+    "repo:packages/codex-cli/source.json" "$codex_detail"
 fi
 
 chatgpt_packages="$(

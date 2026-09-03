@@ -1,0 +1,9 @@
+{
+  "architecture": "aarch64-unknown-linux-musl",
+  "asset": "codex-package-aarch64-unknown-linux-musl.tar.gz",
+  "hash": "sha256-B2srdRK62LluJDcMAx0tExH5g+mGUK+YJGOaYZ+pm+Q=",
+  "releaseTag": "rust-v0.153.0",
+  "upstreamSha256": "076b2b7512bad8b96e24370c031d2d1311f983e98650af9824639a619fa99be4",
+  "url": "https://releases.openai.com/codex/releases/0.153.0/codex-package-aarch64-unknown-linux-musl.tar.gz",
+  "version": "0.153.0"
+}

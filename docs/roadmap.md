@@ -148,7 +148,9 @@ approval, graphical validation, activation approval, and rollback.
 - [ ] ChatGPT desktop package/provenance migration
 - [x] Declare and regression-test Armen's all-modes permissive Codex defaults
       without taking ownership of mutable auth/plugin/MCP/desktop config
-- [ ] Decide where the existing Codex CLI belongs
+- [x] Put the exact current Codex CLI package and launcher in Armen's all-modes
+      overlay, with repository-owned update checks and standalone rollback input
+- [ ] Activate and verify the Codex launcher/profile migration on the pilot
 - [ ] Verify the entire graphical overlay becomes inactive in headless mode
 
 ## Phase 7: selected DGX workloads

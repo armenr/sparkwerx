@@ -19,6 +19,7 @@
     userOverlays.armen = {
       enable = true;
       graphical.enable = true;
+      codex.enable = true;
       codex.relaxedPermissions.enable = true;
     };
   };

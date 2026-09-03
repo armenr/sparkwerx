@@ -21,6 +21,9 @@ and Hyprland candidates are current against their selected official channels.
 Zed 1.18.0, LM Studio 0.4.23-1, and Codex CLI 0.153.0 remain explicit upstream
 application updates requiring their narrow package/ownership work; they are
 not hidden by the fact that the Nixpkgs branches themselves are current.
+Codex was subsequently packaged and build-validated later the same day; see
+[the Codex package evidence](2026-09-03-codex-cli-package.md). Zed and LM
+Studio remain open.
 
 ## Safety and build result
 

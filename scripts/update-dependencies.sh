@@ -97,6 +97,7 @@ fi
 printf '%s\n' "Root lane remained byte-for-byte identity-stable."
 
 ./scripts/update-tailscale.sh --apply
+./scripts/update-codex.sh --apply
 
 "${nix_command[@]}" fmt
 ./scripts/check.sh
@@ -106,6 +107,8 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.home-graphical \
   .#checks.aarch64-linux.home-hyprland \
   .#checks.aarch64-linux.home-hyprland-with-portal \
+  .#checks.aarch64-linux.codex-cli-package \
+  .#checks.aarch64-linux.codex-cli-policy \
   .#checks.aarch64-linux.profile-policy \
   .#checks.aarch64-linux.root-manager-policy \
   .#checks.aarch64-linux.root-system-canary \
@@ -115,6 +118,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.tailscale-policy \
   .#checks.aarch64-linux.tailscaled-unit \
   .#devbox \
+  .#codex-cli \
   .#hyprland \
   .#tailscale \
   .#tailscaled-unit \

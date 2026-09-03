@@ -16,10 +16,10 @@ Pilot mapping:
 `armen -> n0b0dy@sparkle-01`
 
 The mapping and graphical/headless activity gate are implemented. The host
-declares the overlay selected, but the module intentionally contains zero
-application packages until each item completes its own manifest and closure
-review. In the staged headless profile, the selection persists in Git while
-its computed graphical activity is false.
+declares the overlay selected. Codex CLI is its first packaged all-modes tool;
+graphical applications remain absent until each completes its own manifest and
+closure review. In the staged headless profile, graphical selection persists
+in Git while its computed activity is false and Codex remains present.
 
 Every future mapping must be explicit in that host's configuration. Creating
 another Unix user must not give that user Armen's applications, browser
@@ -50,6 +50,7 @@ in `~/.codex/config.toml` during Home Manager activation:
 approval_policy = "never"
 default_permissions = ":danger-full-access"
 approvals_reviewer = "auto_review"
+check_for_update_on_startup = false
 
 [notice]
 hide_full_access_warning = true
@@ -67,7 +68,12 @@ reconciler preserves all unrelated mutable Codex/ChatGPT configuration,
 including authentication, model selection, plugins, MCP servers, project trust,
 desktop preferences, and history. It refuses a symlinked or foreign-owned
 config rather than replacing it. Codex CLI package ownership remains a separate
-open decision; preference ownership does not install or update the binary.
+concern from mutable state: Armen's all-modes overlay now owns the current
+official ARM64 package and `~/.local/bin/codex` launcher, while login, plugins,
+MCP servers, project trust, preferences, and history remain mutable. Startup
+self-update is disabled because `scripts/update-codex.sh` owns release checks.
+The old standalone release tree remains untouched as rollback input until the
+first Home Manager activation is verified.
 
 ## Separate decisions that must stay separate
 
@@ -77,8 +83,7 @@ open decision; preference ownership does not install or update the binary.
 - The two 1Password browser extensions do not imply the 1Password desktop app.
 - Chromium does not imply Google Chrome.
 - Ghostty is shared graphical infrastructure, not a personal application.
-- ChatGPT desktop does not imply Codex CLI ownership.
-- Codex permission-default ownership does not imply Codex CLI package ownership.
+- ChatGPT desktop does not own or update Codex CLI.
 - Isaac Sim/Lab and Omniverse are a host workload role, not part of this
   overlay.
 

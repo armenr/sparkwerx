@@ -12,9 +12,10 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   created.
 - Repository-only Phase 1 policy alignment is complete and evaluates on
   `aarch64-linux`; no Home Manager configuration has been activated.
-- The exported pilot Home profile is staged as user-layer `headless`, containing
-  exactly `ncdu`, `lazydocker`, and current Devbox plus Home Manager's intrinsic
-  session-variable file. Factory GNOME/GDM remains running and untouched.
+- The exported pilot Home profile is staged as user-layer `headless`: its exact
+  fleet base is `ncdu`, `lazydocker`, and current Devbox, with Armen's current
+  Codex CLI layered above it plus Home Manager's intrinsic session-variable
+  file. Factory GNOME/GDM remains running and untouched.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
@@ -28,6 +29,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   LM Studio, and Chromium without adding them to a profile.
 - The `armen -> n0b0dy@sparkle-01` mapping exists, but no personal graphical
   application has been wired or installed.
+- Armen's all-modes overlay now contains the current Codex CLI 0.153.0 official
+  ARM64 bundle and owns its future launcher plus permissive defaults. The
+  package is built but not activated; the visible standalone 0.152.0 launcher
+  remains migration input. Exact evidence is in the
+  [Codex package record](docs/2026-09-03-codex-cli-package.md).
 - Devbox 0.18.0 and the official Tailscale 1.102.3 ARM64 package plus inert
   systemd-unit tree were built with `--no-link` and SBOM-reviewed. They were not
   installed into a profile or activated.
@@ -140,9 +146,11 @@ The human-reviewed size and package findings are in the
 This is a mutating, build-authorized workflow, not the default audit command. It
 preflights the exact Devbox and Hyprland release pins; advances stable Nixpkgs,
 the independently scoped apps input, and Home Manager; advances Tailscale only
-through its verified stable ARM64 artifact/checksum workflow; formats/evaluates
-the flake; and builds every ARM64 Home profile plus the Devbox, Tailscale,
-Hyprland, root canary/policy, unit, and portal outputs with `--no-link`. The
+through its verified stable ARM64 artifact/checksum workflow; advances Codex
+only through OpenAI's stable ARM64 bundle/checksum workflow; formats/evaluates
+the flake; and builds every ARM64 Home profile plus the Codex, Devbox,
+Tailscale, Hyprland, root canary/policy, unit, and portal outputs with
+`--no-link`. The
 live System Manager and its exact `nixpkgs-root` foundation are a separately
 reviewed frozen lane. The updater fingerprints that complete lane before and
 after the user/package refresh and stops if anything moved. It never activates
@@ -168,11 +176,11 @@ source breadcrumbs, workload packaging decisions, update procedure, and lessons
 from the pilot. Codex discovers it automatically while working anywhere in this
 repository.
 
-Armen's overlay also declares maximally permissive Codex approval/permission
-defaults for every desktop mode. Its tested reconciler changes only those keys
-in `~/.codex/config.toml`; it leaves auth, plugins, MCP servers, project trust,
-desktop preferences, and history mutable. This is independent of the still-open
-decision about which Nix role should own the Codex CLI binary.
+Armen's overlay declares the current Nix-managed Codex CLI and maximally
+permissive approval/permission defaults for every desktop mode. Its tested
+reconciler changes only those keys plus the centrally managed self-update
+switch in `~/.codex/config.toml`; it leaves auth, plugins, MCP servers, project
+trust, desktop preferences, and history mutable.
 
 For a safe first pass:
 
