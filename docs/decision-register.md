@@ -482,8 +482,17 @@ continuity, and disarms automatically. Its exact disposable Ubuntu lifecycle
 passed on 2026-09-03: injected post-runtime failure rolled back to the clean
 boundary, a clean retry reached exact Nix 2.35.2 with persistent flakes, and a
 second run adopted without mutation. The Nix-only branch is eligible for a
-declared clean ARM64 host through the one repository operator. The unified
-guarded `apply` and every optional ownership layer remain OPEN.
+declared clean ARM64 host through the one repository operator.
+
+The staged guarded `scripts/dgx-setup apply` entry point now composes that exact
+bootstrap with the proven headless Home first-activation/update lifecycle. Its
+live pilot regression passed with both layers as exact no-ops and proved the
+root lane, protected services, mutable Codex config, Tailscale, and GNOME state
+unchanged. It reports `APPLY_STATUS=PARTIAL` because the apt-to-Nix Tailscale
+migration and root desktop controller remain OPEN and untouched. This is
+deliberately not a false claim of complete desired-state convergence; the
+integrated clean-host path and each optional ownership layer retain their own
+gates.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 

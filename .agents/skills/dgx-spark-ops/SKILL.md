@@ -94,6 +94,16 @@ bootstrap and grants no authority for unified apply, Tailscale, desktop,
 workload, or reboot actions. Do not rerun the root-assisted lifecycle test
 during an ordinary audit.
 
+If the user explicitly requests configuration application, use
+`./scripts/dgx-setup apply [HOSTNAME]` rather than invoking Home Manager
+directly. Read
+[`docs/2026-09-03-guarded-staged-apply.md`](../../../docs/2026-09-03-guarded-staged-apply.md)
+first. The current operator composes only the independently proven Nix and
+headless Home transactions. Its exact live no-op regression passed, but
+`APPLY_STATUS=PARTIAL` deliberately leaves the apt-owned Tailscale daemon and
+factory GNOME/root desktop controller untouched. Do not treat that result as
+complete convergence or use it to infer authority for those roles.
+
 ### Apply an approved update
 
 Read [references/update-audit.md](references/update-audit.md). Confirm the user

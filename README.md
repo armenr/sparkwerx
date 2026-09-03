@@ -63,7 +63,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   branch is host-tested, and the exact disposable clean-install, injected
   failure/rollback, clean retry, and second-adoption lifecycle passed. The
   Nix-only bootstrap is ready for declared clean ARM64 hosts through that one
-  operator; unified guarded apply remains open.
+  operator. `scripts/dgx-setup apply` now composes the proven Nix and headless
+  Home transactions; its live no-op test passed without changing any profile,
+  service, root generation, or mutable Codex state. It honestly returns
+  `APPLY_STATUS=PARTIAL` while Tailscale migration and the root desktop
+  controller remain untouched gates.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -132,7 +136,7 @@ flake.lock                 Exact stable/apps/Home/desktop/root-manager pins
 The installed Nix currently enables `nix-command` but not `flakes`, so commands
 pass the feature explicitly instead of changing `/etc/nix/nix.conf`.
 
-The fresh-host front door currently implements its read-only half:
+The fresh-host front door starts with the read-only plan:
 
 ```bash
 ./scripts/dgx-setup plan
@@ -159,6 +163,20 @@ disarming. Its exact disposable-host lifecycle passed; read the
 [validation record](docs/2026-09-03-nix-bootstrap-lifecycle.md) before using it
 on another declared clean ARM64 Spark. This is a Nix-only bootstrap, not
 authorization for unified apply or any optional role.
+
+The guarded staged apply operator is:
+
+```bash
+./scripts/dgx-setup apply
+```
+
+It first prints the complete plan, then runs the exact install-or-adopt Nix
+transaction and the exact headless Home first-activation or update transaction.
+On the current declaration it leaves the apt-owned Tailscale daemon and
+factory GNOME/GDM untouched and ends with `APPLY_STATUS=PARTIAL`. That status is
+a successful convergence of the proven stages, not a claim that every selected
+role is active. Its retained-pilot no-op evidence is in the
+[guarded staged apply record](docs/2026-09-03-guarded-staged-apply.md).
 
 ```bash
 ./scripts/check.sh

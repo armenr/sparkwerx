@@ -10,7 +10,7 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Treat `fleet/hosts.json` and `bootstrap/nix/source.json` as the authoritative
   fresh-host selections. Start with `./scripts/dgx-setup plan [HOSTNAME]` and
   never infer install/apply authority from `PLAN_STATUS`; executable bootstrap
-  is implemented and unified apply remains unimplemented. Use
+  and staged Nix-plus-headless-Home apply are implemented. Use
   `scripts/update-nix-installer.sh` for installer release checks, and keep the
   provisioning artifact separate from the running Nix runtime.
 - `./scripts/dgx-setup bootstrap [HOSTNAME]` is the only bootstrap operator.
@@ -20,6 +20,11 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `docs/2026-09-03-nix-bootstrap-lifecycle.md`. Use it only for the Nix
   bootstrap on a declared clean ARM64 host; never invoke the installer binary
   directly or infer authority for unified apply or another ownership layer.
+- `./scripts/dgx-setup apply [HOSTNAME]` composes only the proven bootstrap and
+  headless Home transactions. Its exact retained-pilot no-op test passed; read
+  `docs/2026-09-03-guarded-staged-apply.md`. `APPLY_STATUS=PARTIAL` is expected
+  while Tailscale migration and the root desktop controller remain untouched;
+  never interpret it as full desired-state convergence or bypass those gates.
 - Read `docs/decision-register.md` before changing packages, profiles, desktop
   modes, user overlays, or workloads; ACCEPTED/SELECTED is not activation
   authorization.

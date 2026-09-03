@@ -53,11 +53,14 @@ validates the declaration using only factory Python, classifies the pinned Nix
 bootstrap, and—when Nix exists—evaluates the exact Home candidate and live
 drift. Nix evaluation may fetch absent locked sources, but the plan does not
 build/install packages, mutate profiles, change services, enroll Tailscale,
-switch desktops, or reboot. The future `apply` half must show the exact
-package/service/file/state delta, refuse unsupported host or substrate drift,
-retain the previous generation, and run role-specific health and rollback
-checks. Secrets, browser/account state, Tailscale node identity, models, and
-other mutable data remain external inputs rather than Nix-store contents.
+switch desktops, or reboot. The staged `scripts/dgx-setup apply` half now
+composes the independently proven Nix bootstrap/adoption and headless Home
+lifecycle, refusing unsupported host or declaration drift before mutation and
+using each layer's own retention, health, and rollback checks. It reports
+`APPLY_STATUS=PARTIAL` while Tailscale migration and the root desktop controller
+remain explicit untouched holds. Secrets, browser/account state, Tailscale node
+identity, models, and other mutable data remain external inputs rather than
+Nix-store contents.
 
 Nix itself is the unavoidable bootstrap exception on a pristine host. Its
 official ARM64 installer release, URL, size, hash, planner inputs, and desired
@@ -68,7 +71,8 @@ exact runtime update, and systemd/GPU/access continuity postflight. The adoption
 path is host-tested, and the exact clean install, injected-failure rollback,
 clean retry, and second-adoption lifecycle passed in disposable Ubuntu on
 2026-09-03. Once adopted, Nix version/update/rollback ownership belongs to this
-repository. The guarded configuration apply orchestrator is not yet
+repository. The guarded configuration apply orchestrator is implemented for
+the Nix and headless Home stages; complete optional-role convergence is not yet
 implemented.
 
 ## Managed by Nix
@@ -222,9 +226,11 @@ emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already
 matches the live generation. The separately gated pilot Nix runtime update to
 2.35.2 is complete. The declarative fleet selection and read-only plan are also
-implemented and host-tested. Exact Nix adoption is also host-tested; the
-implemented clean install/rollback branch awaits disposable-host validation,
-and the unified guarded apply remains open. Tailscale's package/unit no-link
+implemented and host-tested. Exact Nix adoption and the complete disposable
+clean-install/rollback lifecycle are host-tested. The staged guarded apply
+front door passed its live exact no-op test for Nix plus headless Home; it
+reports partial convergence and leaves Tailscale and the root desktop
+controller untouched. Tailscale's package/unit no-link
 build and the active
 Home generation do not authorize a raw `home-manager switch`, a systemd service
 link/restart, or another root-runtime change. Host mode switching and service

@@ -111,7 +111,10 @@ the measured software manifest; evaluation did not authorize realization.
       output and clean independent host postflight
 - [x] Build the single read-only host `plan` entry point that composes the exact
       base, optional roles, user overlays, and workloads
-- [ ] Build the unified guarded host `apply` entry point
+- [x] Build the staged guarded host `apply` entry point for the independently
+      proven Nix and headless Home lifecycles; pass its exact live no-op test
+- [ ] Extend `apply` from honest `APPLY_STATUS=PARTIAL` convergence to the
+      separately proven Tailscale and root desktop roles
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration
