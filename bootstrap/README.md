@@ -37,16 +37,57 @@ artifact with:
 full dependency updater invokes this verified pin updater before the flake
 refresh.
 
-The executable install/adopt transaction and complete uninstall/rollback path
-are still intentionally absent. Before adding them, require:
+The bootstrap operator is:
 
-- an exact clean-host versus existing-install classifier;
-- an idempotent, checksum-verifying download and reviewed installer plan;
-- explicit ownership for every `/etc`, `/nix`, user/group, and systemd change;
-- a previous-state snapshot and rollback/uninstall route;
-- Nix daemon, build, GPU, factory-service, and access-plane postflight; and
-- no implicit authority to activate Home Manager, migrate Tailscale, switch a
-  desktop, or reboot.
+```bash
+./scripts/dgx-setup bootstrap
+```
+
+An exact existing install is adopted as a verified no-op. The current pilot's
+installer, receipt, planner base, desired runtime, daemon endpoint, and Nix
+files pass that host test; its original receipt did not enable flakes, so that
+difference remains an explicit non-mutating hold.
+
+On a truly clean declared ARM64 host, the implemented branch:
+
+1. requires a clean committed repository and a still-current installer pin;
+2. downloads the artifact again as root and verifies version, size, and hash;
+3. generates and validates the official Linux/systemd plan with 32 build users,
+   profile integration, persistent flakes, no channel, and no force;
+4. snapshots sanitized systemd/GPU/Tailscale continuity evidence under
+   `/var/lib/dgx-setup/nix-bootstrap/`;
+5. arms a 15-minute transient rollback before installation;
+6. installs from that exact plan and advances the default profile through the
+   repository's separately verified Nix runtime path when required;
+7. verifies runtime, receipt, features, daemon, systemd, GPU, and every
+   pre-existing factory/access service; and
+8. disarms automatically only after complete postflight.
+
+The rollback helper invokes the same retained official installer against its
+receipt. It refuses manual deletion if a partial Nix surface has no receipt.
+For paths whose checksum-bound pre-state was absent, it moves any installer-created
+root profile/expression/state/cache residuals into the private rollback
+evidence directory rather than deleting them, then requires the exact clean
+boundary.
+The operator never activates Home Manager, System Manager, Tailscale, a
+desktop, or a workload, and never reboots.
+
+The exact-adoption branch is host-tested. The exact clean-install branch passed
+its disposable Ubuntu lifecycle on 2026-09-03. The
+[validation record](../docs/2026-09-03-nix-bootstrap-lifecycle.md) contains the
+derivation, output hash, five completed subtests, corrections discovered by
+the test, and independent host postflight. It proved:
+
+- clean official installation from the reviewed plan;
+- an armed rollback surviving an injected post-runtime failure;
+- receipt-driven uninstall back to the exact clean boundary;
+- successful retry at exact runtime 2.35.2 with persistent flakes; and
+- a second idempotent adoption with no profile/configuration mutation.
+
+The branch is therefore eligible for the Nix-only bootstrap of a declared
+clean ARM64 host through `scripts/dgx-setup bootstrap`. It still requires a
+clean commit, current installer pin, local `sudo`, and its built-in preflight;
+it grants no authority for unified apply or another ownership layer.
 
 “Safe over SSH” is not sufficient for a Tailscale package or service change:
 restarting `tailscaled` terminates Tailscale SSH sessions. Any bootstrap/apply

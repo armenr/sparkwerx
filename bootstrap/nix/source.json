@@ -16,6 +16,8 @@
   },
   "linuxPlanner": {
     "init": "systemd",
+    "startDaemon": true,
+    "modifyProfile": true,
     "buildGroupName": "nixbld",
     "buildGroupId": 30000,
     "buildUserPrefix": "nixbld",

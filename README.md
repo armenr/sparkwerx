@@ -56,8 +56,14 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   Tailscale, and selected-but-inactive workloads. `scripts/dgx-setup plan`
   validates it, verifies the exact installed bootstrap artifact, evaluates the
   selected Home candidate when Nix is available, and reports every remaining
-  apply gate without changing profiles or services. The executable fresh-host
-  install/adopt and unified guarded apply paths remain open.
+  apply gate without changing profiles or services. `scripts/dgx-setup
+  bootstrap` now adopts an exact healthy install as a verified no-op; its clean
+  fresh-host branch uses the pinned official plan, an automatic rollback, the
+  exact current runtime, and factory/GPU/access continuity checks. The adoption
+  branch is host-tested, and the exact disposable clean-install, injected
+  failure/rollback, clean retry, and second-adoption lifecycle passed. The
+  Nix-only bootstrap is ready for declared clean ARM64 hosts through that one
+  operator; unified guarded apply remains open.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -137,6 +143,22 @@ On a host with Nix, evaluation may fetch missing locked flake sources, but it
 does not build/install packages, mutate a profile, change a service, enroll
 Tailscale, switch the desktop, or reboot. `PLAN_STATUS=PARTIAL_READY` means the
 declared Home layer is usable while separately guarded root roles remain open.
+
+The corresponding bootstrap-only operator is:
+
+```bash
+./scripts/dgx-setup bootstrap
+```
+
+On `sparkle-01` this is a tested, zero-mutation adoption check. On a truly clean
+host it is implemented to verify the latest pin, generate and validate the
+official install plan, arm a 15-minute receipt-driven uninstall timer, install
+Nix with persistent flakes, advance to the separately pinned runtime, and
+verify systemd/GPU/existing-service/Tailscale continuity before automatically
+disarming. Its exact disposable-host lifecycle passed; read the
+[validation record](docs/2026-09-03-nix-bootstrap-lifecycle.md) before using it
+on another declared clean ARM64 Spark. This is a Nix-only bootstrap, not
+authorization for unified apply or any optional role.
 
 ```bash
 ./scripts/check.sh

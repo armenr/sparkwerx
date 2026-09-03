@@ -27,21 +27,35 @@ source_file=$repo_dir/bootstrap/nix/source.json
 project=NixOS/nix-installer
 asset=nix-installer-aarch64-linux
 
-for command_name in curl jq sha256sum stat timeout; do
+for command_name in curl python3 sha256sum stat timeout; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf 'ERROR: required command is missing: %s\n' "$command_name" >&2
     exit 1
   fi
 done
 
-pinned_project="$(jq -er '.installer.project' "$source_file")"
-pinned_version="$(jq -er '.installer.version' "$source_file")"
-pinned_tag="$(jq -er '.installer.releaseTag' "$source_file")"
-pinned_asset="$(jq -er '.installer.asset' "$source_file")"
-pinned_url="$(jq -er '.installer.url' "$source_file")"
-pinned_size="$(jq -er '.installer.size' "$source_file")"
-pinned_sha256="$(jq -er '.installer.sha256' "$source_file")"
-pinned_embedded_nix="$(jq -er '.installer.embeddedNixVersion' "$source_file")"
+json_value() {
+  python3 - "$source_file" "$1" <<'PY'
+import json
+import sys
+
+path, expression = sys.argv[1:]
+with open(path, encoding="utf-8") as handle:
+    value = json.load(handle)
+for component in expression.split("."):
+    value = value[component]
+print(value)
+PY
+}
+
+pinned_project="$(json_value installer.project)"
+pinned_version="$(json_value installer.version)"
+pinned_tag="$(json_value installer.releaseTag)"
+pinned_asset="$(json_value installer.asset)"
+pinned_url="$(json_value installer.url)"
+pinned_size="$(json_value installer.size)"
+pinned_sha256="$(json_value installer.sha256)"
+pinned_embedded_nix="$(json_value installer.embeddedNixVersion)"
 
 if [[ "$pinned_project" != "$project" || "$pinned_asset" != "$asset" ]]; then
   printf '%s\n' \
@@ -54,21 +68,34 @@ release_json="$(
     --proto '=https' --tlsv1.2 --retry 2 --max-time 60 \
     "https://api.github.com/repos/$project/releases/latest"
 )"
-candidate_tag="$(jq -er '.tag_name' <<<"$release_json")"
+mapfile -t release_fields < <(
+  python3 - "$asset" 3<<<"$release_json" <<'PY'
+import json
+import os
+import sys
+
+asset_name = sys.argv[1]
+release = json.load(os.fdopen(3))
+assets = [item for item in release.get("assets", []) if item.get("name") == asset_name]
+if len(assets) != 1:
+    raise SystemExit("expected exactly one ARM64 Linux asset")
+item = assets[0]
+for value in (
+    release.get("tag_name", ""),
+    item.get("browser_download_url", ""),
+    item.get("size", ""),
+    item.get("digest", ""),
+):
+    print(value)
+PY
+)
+[[ "${#release_fields[@]}" -eq 4 ]] ||
+  { printf '%s\n' 'ERROR: incomplete release metadata returned by GitHub.' >&2; exit 1; }
+candidate_tag=${release_fields[0]}
 candidate_version=${candidate_tag#v}
-candidate_url="$(
-  jq -er --arg asset "$asset" \
-    '.assets[] | select(.name == $asset) | .browser_download_url' \
-    <<<"$release_json"
-)"
-candidate_size="$(
-  jq -er --arg asset "$asset" \
-    '.assets[] | select(.name == $asset) | .size' <<<"$release_json"
-)"
-candidate_digest="$(
-  jq -er --arg asset "$asset" \
-    '.assets[] | select(.name == $asset) | .digest' <<<"$release_json"
-)"
+candidate_url=${release_fields[1]}
+candidate_size=${release_fields[2]}
+candidate_digest=${release_fields[3]}
 candidate_published_sha256=${candidate_digest#sha256:}
 expected_url="https://github.com/$project/releases/download/$candidate_tag/$asset"
 
@@ -154,25 +181,39 @@ cleanup_json() {
 }
 trap cleanup_json EXIT
 
-jq \
-  --arg project "$project" \
-  --arg version "$candidate_version" \
-  --arg releaseTag "$candidate_tag" \
-  --arg asset "$asset" \
-  --arg url "$candidate_url" \
-  --argjson size "$candidate_size" \
-  --arg sha256 "$candidate_sha256" \
-  --arg embeddedNixVersion "$candidate_version" \
-  '.installer = {
-    project: $project,
-    version: $version,
-    releaseTag: $releaseTag,
-    asset: $asset,
-    url: $url,
-    size: $size,
-    sha256: $sha256,
-    embeddedNixVersion: $embeddedNixVersion
-  }' "$source_file" >"$temporary_json"
+python3 - "$source_file" "$temporary_json" "$project" "$candidate_version" \
+  "$candidate_tag" "$asset" "$candidate_url" "$candidate_size" \
+  "$candidate_sha256" <<'PY'
+import json
+import sys
+
+(
+    source_path,
+    output_path,
+    project,
+    version,
+    release_tag,
+    asset,
+    url,
+    size,
+    sha256,
+) = sys.argv[1:]
+with open(source_path, encoding="utf-8") as handle:
+    source = json.load(handle)
+source["installer"] = {
+    "project": project,
+    "version": version,
+    "releaseTag": release_tag,
+    "asset": asset,
+    "url": url,
+    "size": int(size),
+    "sha256": sha256,
+    "embeddedNixVersion": version,
+}
+with open(output_path, "w", encoding="utf-8") as handle:
+    json.dump(source, handle, indent=2)
+    handle.write("\n")
+PY
 chmod 0644 "$temporary_json"
 mv -- "$temporary_json" "$source_file"
 temporary_json=""

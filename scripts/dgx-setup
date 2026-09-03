@@ -16,7 +16,7 @@ nix_bin=/nix/var/nix/profiles/default/bin/nix
 nix_args=(--extra-experimental-features "nix-command flakes")
 
 usage() {
-  printf 'Usage: %s plan [HOSTNAME]\n' "$(basename "$0")" >&2
+  printf 'Usage: %s <plan | bootstrap> [HOSTNAME]\n' "$(basename "$0")" >&2
 }
 
 die() {
@@ -97,6 +97,14 @@ if not re.fullmatch(r"[0-9a-f]{64}", installer["sha256"]):
     raise SystemExit("Nix installer SHA-256 is invalid")
 if not bootstrap["linuxPlanner"]["enableFlakes"]:
     raise SystemExit("the repository bootstrap requires flakes")
+if bootstrap["linuxPlanner"]["init"] != "systemd":
+    raise SystemExit("the repository bootstrap requires systemd")
+if not bootstrap["linuxPlanner"]["startDaemon"]:
+    raise SystemExit("the repository bootstrap must start the daemon")
+if not bootstrap["linuxPlanner"]["modifyProfile"]:
+    raise SystemExit("the repository bootstrap must configure shell profiles")
+if bootstrap["linuxPlanner"]["addChannel"]:
+    raise SystemExit("the repository bootstrap must not add a Nix channel")
 PY
 }
 
@@ -184,7 +192,7 @@ plan_host() {
   elif [[ -e /nix || -e /etc/nix ]]; then
     emit HOLD nix_bootstrap 'partial or foreign Nix surface exists; do not overwrite it'
   else
-    emit ACTION nix_bootstrap "download=$installer_url;sha256=$installer_sha;plan=linux/systemd/32-build-users/flakes;no action performed"
+    emit ACTION nix_bootstrap "download=$installer_url;sha256=$installer_sha;plan=linux/systemd/32-build-users/flakes/profile/no-channel;no action performed"
   fi
 
   if [[ -x "$nix_bin" ]]; then
@@ -235,12 +243,19 @@ plan_host() {
   printf 'PLAN_STATUS=PARTIAL_READY\n'
 }
 
-[[ "${1:-}" == plan ]] || {
-  usage
-  exit 2
-}
 [[ "$#" -le 2 ]] || {
   usage
   exit 2
 }
-plan_host "${2:-$(hostname -s)}"
+case "${1:-}" in
+  plan)
+    plan_host "${2:-$(hostname -s)}"
+    ;;
+  bootstrap)
+    exec "$repo_dir/scripts/bootstrap-nix.sh" "${2:-$(hostname -s)}"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

@@ -51,10 +51,10 @@ The provisioning binary and runtime are deliberately not conflated.
 
 ## Safety and validation
 
-The planner intentionally does not provide `apply`. It can use Nix evaluation,
-which may fetch missing locked flake sources, but it does not build or install
-packages, mutate profiles, activate configuration, restart services, enroll
-Tailscale, switch desktops, or reboot.
+The planner intentionally does not provide configuration `apply`. It can use
+Nix evaluation, which may fetch missing locked flake sources, but it does not
+build or install packages, mutate profiles, activate configuration, restart
+services, enroll Tailscale, switch desktops, or reboot.
 
 `scripts/test-dgx-setup-plan.sh` records the Home/profile links and protected
 service PID/fragment/start-time tuples before planning, then verifies they are
@@ -62,6 +62,32 @@ identical afterward. It also verifies that an unknown host fails, the exact
 bootstrap is recognized, selected role gates are shown, the live Home candidate
 is current, and no DGX serial field is emitted.
 
-The remaining implementation boundary is explicit: executable Nix
-install/adoption and uninstall/rollback, persistent Nix feature policy, unified
-guarded apply, Tailscale ownership migration, and host desktop control.
+The remaining implementation boundary is explicit: persistent Nix feature
+policy for already installed hosts, unified guarded apply, Tailscale ownership
+migration, and host desktop control. The clean-install/rollback lifecycle is
+now closed by the exact disposable PASS recorded in
+[the bootstrap validation](2026-09-03-nix-bootstrap-lifecycle.md).
+
+## Bootstrap operator follow-through
+
+`scripts/dgx-setup bootstrap` now has two fail-closed branches:
+
+- On the pilot, it verified the exact installer, receipt planner base, runtime,
+  and daemon endpoint and returned `BOOTSTRAP_STATUS=ADOPTED` without changing
+  the root/user profile, Home profile, Nix files, or protected unit identity.
+  `scripts/test-dgx-bootstrap-adoption.sh` independently captured and compared
+  those surfaces around the command.
+- On a clean declared host, it is implemented to require a clean commit and
+  current pin, generate/validate the official Linux plan, retain root-only
+  evidence, arm a 15-minute receipt-driven uninstall before mutation, install
+  persistent flakes, advance to the separately pinned runtime, and compare
+  systemd, GPU, existing service, and sanitized Tailscale/SSH state before
+  automatic disarming.
+
+The clean-install branch was not run against this already configured pilot.
+Instead, its exact five-stage lifecycle passed in a disposable DGX-like Ubuntu
+container: injected failure returned to the clean boundary, retry installed
+Nix 2.35.2 with persistent flakes, and the second operator run adopted with no
+mutation. Independent postflight left `sparkle-01` exact and healthy. The
+Nix-only bootstrap is now eligible for another declared clean ARM64 host; it is
+not the still-open unified configuration apply.

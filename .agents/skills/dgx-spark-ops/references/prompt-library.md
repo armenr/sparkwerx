@@ -98,6 +98,14 @@ whether they apply; do not execute any playbook.
 ## Explain and plan
 
 ```text
+$dgx-spark-ops Bootstrap Nix only on this newly factory-updated, declared ARM64
+DGX. First run the read-only host plan, read the recorded disposable lifecycle
+PASS, and then use only ./scripts/dgx-setup bootstrap <hostname>. I authorize
+the Nix bootstrap and its built-in rollback, but not unified configuration
+apply, Tailscale enrollment/migration, desktop changes, workloads, or reboot.
+```
+
+```text
 $dgx-spark-ops Explain why the proposed Nix runtime candidate is safe, ahead,
 or a downgrade. Show the installed version, candidate source, ARM64 binary
 path, daemon/profile ownership, validation gates, and rollback risks.
@@ -125,6 +133,14 @@ fleet/hosts.json and bootstrap/nix/source.json, report exact bootstrap
 install/adoption classification, selected roles, current Home candidate/live
 state, and every remaining apply gate. Do not infer apply permission from a
 successful plan.
+```
+
+```text
+$dgx-spark-ops Bootstrap Nix on the declared host through ./scripts/dgx-setup
+bootstrap. Require exact adoption or a truly clean ARM64 host, the current
+checksum-pinned official installer, validated plan, rollback-before-mutation,
+desired runtime, and factory/GPU/access postflight. Do not apply Home, migrate
+Tailscale, switch desktops, deploy workloads, or reboot.
 ```
 
 ```text

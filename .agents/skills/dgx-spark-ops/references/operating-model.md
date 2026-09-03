@@ -117,6 +117,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
 - Nix was provisioned by the official NixOS `nix-installer` as a multi-user
   daemon installation, even though Devbox triggered it;
+- the repository's exact fresh-host Nix operator passed its disposable
+  clean-install, injected post-runtime failure, receipt-driven rollback,
+  clean-retry, and second no-mutation adoption lifecycle on 2026-09-03. The
+  Nix-only branch is eligible for a declared clean ARM64 host; unified apply
+  and every optional role remain separate gates;
 - the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;

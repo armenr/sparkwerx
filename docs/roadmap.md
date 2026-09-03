@@ -102,8 +102,13 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Define and audit the checksum-pinned official ARM64 Nix installer source,
       Linux planner inputs, exact-installed adoption classification, and
       read-only fresh-host bootstrap plan
-- [ ] Implement the idempotent Nix install/adoption transaction and complete
-      uninstall/rollback path
+- [x] Implement exact-existing Nix adoption as a host-tested zero-mutation
+      transaction
+- [x] Implement the clean-host Nix install path with validated official plan,
+      rollback-before-mutation, exact runtime update, and continuity postflight
+- [x] Pass the exact disposable clean-install, injected-failure/timed-uninstall,
+      clean-retry, and second-run adoption lifecycle; record its hash-valid
+      output and clean independent host postflight
 - [x] Build the single read-only host `plan` entry point that composes the exact
       base, optional roles, user overlays, and workloads
 - [ ] Build the unified guarded host `apply` entry point

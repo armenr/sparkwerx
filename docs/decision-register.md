@@ -472,8 +472,18 @@ bootstrap adoption/install classification, exact Home candidate/live state,
 and remaining role gates without applying them. Its host test proves unknown
 hosts fail, the serial is never emitted, Home/profile links remain exact, and
 protected service processes/fragments do not change. Nix evaluation may fetch
-missing locked flake sources. The executable install/adopt transaction,
-complete uninstall/rollback path, and unified guarded `apply` remain OPEN.
+missing locked flake sources.
+
+The bootstrap subcommand now verifies and adopts the exact healthy pilot with
+zero mutation. Its clean-host branch is implemented around the same pin: it
+validates the official plan, arms receipt-driven rollback before installation,
+advances to the separately pinned runtime, verifies systemd/GPU/access
+continuity, and disarms automatically. Its exact disposable Ubuntu lifecycle
+passed on 2026-09-03: injected post-runtime failure rolled back to the clean
+boundary, a clean retry reached exact Nix 2.35.2 with persistent flakes, and a
+second run adopted without mutation. The Nix-only branch is eligible for a
+declared clean ARM64 host through the one repository operator. The unified
+guarded `apply` and every optional ownership layer remain OPEN.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 

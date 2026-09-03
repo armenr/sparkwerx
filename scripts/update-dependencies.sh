@@ -141,6 +141,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
 ./scripts/test-dgx-home-rollback.sh
 ./scripts/test-dgx-home-update-rollback.sh
 ./scripts/test-dgx-setup-plan.sh
+./scripts/test-dgx-bootstrap-adoption.sh
 
 printf '%s\n' \
   "Root-canary activation/rollback test remains a separate reviewed gate:" \

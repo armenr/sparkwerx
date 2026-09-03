@@ -54,6 +54,7 @@
       fleetSpec = builtins.fromJSON (builtins.readFile ./fleet/hosts.json);
       fleetHosts = fleetSpec.hosts;
       nixBootstrapSpec = builtins.fromJSON (builtins.readFile ./bootstrap/nix/source.json);
+      nixRuntimeStorePaths = import ./root/nix/store-paths.nix;
 
       # This is an evaluation exception, not a package selection. LM Studio is
       # the only currently selected package whose Nix metadata is unfree.
@@ -1305,7 +1306,11 @@
         assert builtins.match "[0-9a-f]{64}" nixBootstrapSpec.installer.sha256 != null;
         assert nixBootstrapSpec.installer.embeddedNixVersion == nixBootstrapSpec.installer.version;
         assert nixBootstrapSpec.desiredRuntime.version == "2.35.2";
+        assert nixBootstrapSpec.linuxPlanner.init == "systemd";
+        assert nixBootstrapSpec.linuxPlanner.startDaemon;
+        assert nixBootstrapSpec.linuxPlanner.modifyProfile;
         assert nixBootstrapSpec.linuxPlanner.enableFlakes;
+        assert !nixBootstrapSpec.linuxPlanner.addChannel;
         assert basePackageNames == expectedBasePackageNames;
         assert graphicalBasePackageNames == expectedBasePackageNames;
         assert headlessSharedGraphicalPackageNames == [ ];
@@ -2338,6 +2343,178 @@
               ;
           };
 
+      nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
+        mkdir -p \
+          "$out/bootstrap/nix" \
+          "$out/fleet" \
+          "$out/root/nix" \
+          "$out/scripts" \
+          "$out/test-bin"
+        cp ${./bootstrap/nix/source.json} "$out/bootstrap/nix/source.json"
+        cp ${./fleet/hosts.json} "$out/fleet/hosts.json"
+        cp ${./root/nix/store-paths.nix} "$out/root/nix/store-paths.nix"
+        cp ${./scripts/bootstrap-nix.sh} "$out/scripts/bootstrap-nix.sh"
+        cp ${./scripts/dgx-setup} "$out/scripts/dgx-setup"
+        cp ${./scripts/rollback-fresh-nix-bootstrap.sh} \
+          "$out/scripts/rollback-fresh-nix-bootstrap.sh"
+        cp ${./scripts/update-nix-installer.sh} \
+          "$out/scripts/update-nix-installer.sh"
+        chmod 0755 "$out/scripts/"*
+        printf '%s\n' \
+          '#!/bin/sh' \
+          "printf '%s\\n' 'NVIDIA GB10, 580.173.02'" \
+          >"$out/test-bin/nvidia-smi"
+        chmod 0755 "$out/test-bin/nvidia-smi"
+      '';
+
+      nixBootstrapLifecycleContainerTest = system-manager.lib.containerTest.makeContainerTest {
+        hostPkgs = rootPkgs;
+        name = "dgx-nix-bootstrap-lifecycle";
+        toplevel = rootCanary;
+        extraPathsToRegister = [ nixBootstrapTestFixture ];
+        testScript = ''
+          start_all()
+          machine.wait_for_unit("multi-user.target")
+
+          repo = "/home/n0b0dy/Development/DGX-setup"
+          installer = "/root/nix-installer-preseed"
+          fixed_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+          with subtest("Prepare a committed declared-host fixture outside the Nix store"):
+              machine.succeed("hostname sparkle-01")
+              machine.succeed("useradd --create-home --shell /bin/bash n0b0dy")
+              machine.succeed(f"install -d -o n0b0dy -g n0b0dy '{repo}'")
+              machine.succeed(f"cp -a '${nixBootstrapTestFixture}/.' '{repo}/'")
+              machine.succeed(f"chown -R n0b0dy:n0b0dy '{repo}'")
+              machine.succeed(f"chmod -R u+w '{repo}'")
+              machine.succeed(
+                  "install -m 0755 '${nixBootstrapTestFixture}/test-bin/nvidia-smi' "
+                  "/usr/local/bin/nvidia-smi"
+              )
+              machine.succeed(f"install -m 0755 /usr/local/bin/nix-installer '{installer}'")
+              machine.succeed(
+                  "/nix/var/nix/profiles/default/bin/nix "
+                  "--extra-experimental-features nix-command copy "
+                  "--to file:///root/dgx-nix-runtime-cache "
+                  "'${nixRuntimeStorePaths.${system}}'"
+              )
+              machine.succeed(
+                  "sha256sum /usr/local/bin/nix-installer | "
+                  "grep -F '7e6e2f753144d7f19b16a9fce4b354cb0f46d1d47e6908bfb9186c89e0e0e649'"
+              )
+              machine.succeed(f"runuser -u n0b0dy -- git -C '{repo}' init -q")
+              machine.succeed(f"runuser -u n0b0dy -- git -C '{repo}' add -A")
+              machine.succeed(
+                  f"runuser -u n0b0dy -- git -C '{repo}' "
+                  "-c user.name='DGX Bootstrap Test' "
+                  "-c user.email='bootstrap-test@invalid' "
+                  "commit -qm 'bootstrap fixture'"
+              )
+              commit = machine.succeed(
+                  f"runuser -u n0b0dy -- git -C '{repo}' rev-parse HEAD"
+              ).strip()
+
+          with subtest("Return the driver-provisioned container to a clean Nix boundary"):
+              machine.succeed(
+                  "/usr/local/bin/nix-installer uninstall --no-confirm /nix/receipt.json"
+              )
+              # The container driver bootstraps Nix before this test and is not
+              # itself the transaction under test. Normalize only its exact,
+              # rootfs-baseline-absent Nix links before exercising our clean-host
+              # path. The later repository rollback receives no such cleanup.
+              machine.succeed(
+                  "rm -rf -- "
+                  "/root/.nix-profile /root/.nix-defexpr /root/.nix-channels "
+                  "/root/.local/state/nix /root/.cache/nix "
+                  "/etc/profile.d/nix.sh /etc/tmpfiles.d/nix-daemon.conf "
+                  "/etc/systemd/system/nix-daemon.service "
+                  "/etc/systemd/system/nix-daemon.socket "
+                  "/etc/systemd/system/multi-user.target.wants/nix-daemon.service "
+                  "/etc/systemd/system/sockets.target.wants/nix-daemon.socket"
+              )
+              machine.succeed("systemctl daemon-reload")
+              machine.fail("test -e /nix || test -L /nix")
+              machine.fail("test -e /etc/nix || test -L /etc/nix")
+              machine.fail("test -e /root/.nix-profile || test -L /root/.nix-profile")
+              machine.fail("test -e /root/.nix-defexpr || test -L /root/.nix-defexpr")
+              machine.fail("test -e /root/.nix-channels || test -L /root/.nix-channels")
+              machine.fail("test -e /root/.local/state/nix || test -L /root/.local/state/nix")
+              machine.fail("test -e /root/.cache/nix || test -L /root/.cache/nix")
+              machine.fail("getent group nixbld")
+              machine.succeed(
+                  "for index in $(seq 1 32); do "
+                  "! getent passwd nixbld$index >/dev/null || exit 1; done"
+              )
+
+          root_command = (
+              f"env PATH='{fixed_path}' SUDO_USER=n0b0dy "
+              "NIX_CONFIG=$'substituters = file:///root/dgx-nix-runtime-cache\\n"
+              "require-sigs = false' "
+              f"DGX_NIX_BOOTSTRAP_PRESEEDED_INSTALLER='{installer}' "
+              f"'{repo}/scripts/bootstrap-nix.sh' sparkle-01 --root-install "
+              f"'{commit}' n0b0dy"
+          )
+
+          with subtest("Injected failure remains protected by receipt-driven rollback"):
+              failure = machine.fail(
+                  "DGX_NIX_BOOTSTRAP_TEST_FAIL_AFTER_RUNTIME=1 " + root_command
+              )
+              assert "injected post-runtime failure" in failure, failure
+              timer = machine.succeed(
+                  "systemctl list-units --type=timer --all --plain --no-legend "
+                  "'dgx-nix-bootstrap-rollback-*.timer' | awk 'NR == 1 { print $1 }'"
+              ).strip()
+              assert timer.endswith(".timer"), timer
+              machine.succeed(f"systemctl is-active --quiet '{timer}'")
+              machine.succeed(f"systemctl start '{timer.removesuffix('.timer')}.service'")
+              machine.wait_until_succeeds(
+                  "find /var/lib/dgx-setup/nix-bootstrap -name ROLLED_BACK -print -quit | grep -q ."
+              )
+              machine.succeed(f"systemctl stop '{timer}'")
+              machine.fail("test -e /nix || test -L /nix")
+              machine.fail("test -e /etc/nix || test -L /etc/nix")
+              machine.fail("test -e /root/.nix-profile || test -L /root/.nix-profile")
+              machine.fail("test -e /root/.nix-defexpr || test -L /root/.nix-defexpr")
+              machine.fail("test -e /root/.nix-channels || test -L /root/.nix-channels")
+              machine.fail("test -e /root/.local/state/nix || test -L /root/.local/state/nix")
+              machine.fail("test -e /root/.cache/nix || test -L /root/.cache/nix")
+              machine.fail("getent group nixbld")
+
+          with subtest("Clean install reaches the exact desired runtime and disarms"):
+              success = machine.succeed(root_command)
+              assert "BOOTSTRAP_STATUS=INSTALLED" in success, success
+              machine.succeed("test \"$(/nix/var/nix/profiles/default/bin/nix --version | awk '{print $NF}')\" = 2.35.2")
+              machine.succeed(
+                  "/nix/var/nix/profiles/default/bin/nix config show experimental-features "
+                  "| tr ' ' '\\n' | grep -Fx nix-command"
+              )
+              machine.succeed(
+                  "/nix/var/nix/profiles/default/bin/nix config show experimental-features "
+                  "| tr ' ' '\\n' | grep -Fx flakes"
+              )
+              machine.fail(
+                  "systemctl is-active --quiet 'dgx-nix-bootstrap-rollback-*.timer'"
+              )
+
+          with subtest("A second run adopts the exact installation without mutation"):
+              before = machine.succeed(
+                  "sha256sum /nix/nix-installer /nix/receipt.json /etc/nix/nix.conf; "
+                  "readlink -f /nix/var/nix/profiles/default"
+              )
+              adopted = machine.succeed(
+                  f"runuser -u n0b0dy -- env HOME=/home/n0b0dy PATH='{fixed_path}' "
+                  f"'{repo}/scripts/dgx-setup' bootstrap sparkle-01"
+              )
+              assert "BOOTSTRAP_STATUS=ADOPTED" in adopted, adopted
+              assert "PASS|nix_features|flakes were enabled by the original install plan" in adopted, adopted
+              after = machine.succeed(
+                  "sha256sum /nix/nix-installer /nix/receipt.json /etc/nix/nix.conf; "
+                  "readlink -f /nix/var/nix/profiles/default"
+              )
+              assert after == before
+        '';
+      };
+
       systemdSnapshotPropertyRegressionCheck =
         rootPkgs.runCommand "dgx-systemd-snapshot-property-test" { }
           ''
@@ -2409,6 +2586,7 @@
         home-update-rollback-fixture = homeUpdateRollbackTestProfile.activationPackage;
         lmstudio-package = lmstudioPackage;
         lmstudio-policy = lmstudioPolicyCheck;
+        nix-bootstrap-lifecycle-container = nixBootstrapLifecycleContainerTest;
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
         root-canary-boot-persistence-transaction-container =

@@ -62,10 +62,13 @@ other mutable data remain external inputs rather than Nix-store contents.
 Nix itself is the unavoidable bootstrap exception on a pristine host. Its
 official ARM64 installer release, URL, size, hash, planner inputs, and desired
 runtime are now plain-JSON repository inputs with a verified updater and plan.
-A small, idempotent executable transaction must still install or adopt that
-reviewed Nix runtime before the repository can manage everything above it.
-Once adopted, Nix version/update/rollback ownership belongs to this repository.
-The install/adopt transaction and guarded apply orchestrator are not yet
+The executable operator adopts the exact healthy pilot as a no-op and contains
+a clean-host install path with validated official plan, rollback-before-mutation,
+exact runtime update, and systemd/GPU/access continuity postflight. The adoption
+path is host-tested, and the exact clean install, injected-failure rollback,
+clean retry, and second-adoption lifecycle passed in disposable Ubuntu on
+2026-09-03. Once adopted, Nix version/update/rollback ownership belongs to this
+repository. The guarded configuration apply orchestrator is not yet
 implemented.
 
 ## Managed by Nix
@@ -219,8 +222,10 @@ emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already
 matches the live generation. The separately gated pilot Nix runtime update to
 2.35.2 is complete. The declarative fleet selection and read-only plan are also
-implemented and host-tested; executable Nix bootstrap/adoption and the unified
-guarded apply remain open. Tailscale's package/unit no-link build and the active
+implemented and host-tested. Exact Nix adoption is also host-tested; the
+implemented clean install/rollback branch awaits disposable-host validation,
+and the unified guarded apply remains open. Tailscale's package/unit no-link
+build and the active
 Home generation do not authorize a raw `home-manager switch`, a systemd service
 link/restart, or another root-runtime change. Host mode switching and service
 changes require their own later approval.

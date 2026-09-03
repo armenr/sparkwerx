@@ -10,9 +10,16 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Treat `fleet/hosts.json` and `bootstrap/nix/source.json` as the authoritative
   fresh-host selections. Start with `./scripts/dgx-setup plan [HOSTNAME]` and
   never infer install/apply authority from `PLAN_STATUS`; executable bootstrap
-  and unified apply remain unimplemented. Use
+  is implemented and unified apply remains unimplemented. Use
   `scripts/update-nix-installer.sh` for installer release checks, and keep the
   provisioning artifact separate from the running Nix runtime.
+- `./scripts/dgx-setup bootstrap [HOSTNAME]` is the only bootstrap operator.
+  Its exact-existing branch is a tested no-op, and its clean-install branch
+  passed the exact disposable install, injected-failure/timed-uninstall,
+  clean-retry, and second-adoption lifecycle recorded in
+  `docs/2026-09-03-nix-bootstrap-lifecycle.md`. Use it only for the Nix
+  bootstrap on a declared clean ARM64 host; never invoke the installer binary
+  directly or infer authority for unified apply or another ownership layer.
 - Read `docs/decision-register.md` before changing packages, profiles, desktop
   modes, user overlays, or workloads; ACCEPTED/SELECTED is not activation
   authorization.

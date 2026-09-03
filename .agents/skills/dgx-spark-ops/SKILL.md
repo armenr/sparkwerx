@@ -83,6 +83,17 @@ never put it in the fleet base or invoke its standalone installer. Planning
 does not authorize bootstrap, installation, activation,
 service migration, desktop switching, or reboot.
 
+If the user explicitly requests bootstrap, use `./scripts/dgx-setup bootstrap
+[HOSTNAME]`; do not invoke the vendor binary directly. An exact existing install
+must resolve as a zero-mutation adoption. The clean-install branch passed its
+exact disposable install, injected-failure timed-uninstall, clean retry, and
+second-adoption lifecycle; read
+[`docs/2026-09-03-nix-bootstrap-lifecycle.md`](../../../docs/2026-09-03-nix-bootstrap-lifecycle.md)
+before using it on a declared clean ARM64 host. That PASS covers only Nix
+bootstrap and grants no authority for unified apply, Tailscale, desktop,
+workload, or reboot actions. Do not rerun the root-assisted lifecycle test
+during an ordinary audit.
+
 ### Apply an approved update
 
 Read [references/update-audit.md](references/update-audit.md). Confirm the user
