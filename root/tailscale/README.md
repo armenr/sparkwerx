@@ -1,9 +1,12 @@
-# Tailscale root-service artifact
+# Tailscale root-service ownership
 
-This directory declares the future repository-owned `tailscaled.service`
-separately from the pinned binary package. The flake exposes the inert unit tree
-as `packages.aarch64-linux.tailscaled-unit`; building it does not copy anything
-to `/etc` or `/usr`, reload systemd, stop the apt unit, or restart the daemon.
+This directory contains both the independently inspectable systemd artifacts
+and the disposable lifecycle test for the repository-owned `tailscaled.service`.
+The actual System Manager role lives in `modules/system/tailscale.nix`, and the
+flake exposes its first host candidate as
+`packages.aarch64-linux.root-system-tailscale-migration`. Building any of these
+outputs does not copy anything to `/etc` or `/usr`, reload systemd, stop the apt
+unit, or restart the daemon.
 
 The unit deliberately preserves the current access-plane invariants:
 
@@ -21,9 +24,22 @@ and this repository does not enable them implicitly. A future workload may opt
 into `tailscale-online.target` only after its boot-order requirement is
 reviewed; ordinary headless reachability does not need it.
 
-This is not yet an activation mechanism. Do not link the unit into systemd or
-remove apt ownership until a non-NixOS root manager is selected, independent
-console/recovery access is proven, and a timed rollback guard is reviewed. A
-restart will terminate the current Tailscale SSH connection. Follow
+The generation-four candidate is not live yet. Its disposable container test
+has passed the complete vendor-to-Nix handoff, candidate reboot, rollback to
+the vendor unit, and vendor reboot while preserving the same mutable identity
+file. Run it with:
+
+```bash
+sudo ./scripts/test-tailscale-unit-lifecycle.sh
+```
+
+The wrapper also proves the real host's retained generation and running vendor
+Tailscale process are identical before and after the disposable test. See the
+[recorded result](validation/2026-09-03-unit-lifecycle-container-test.md).
+
+Do not activate generation four or remove apt ownership until the live
+migration transaction has a persistent timed rollback and independent local
+console access has been verified. The deliberate daemon restart will terminate
+the current Tailscale SSH connection. Follow
 [`tailscale.md`](../../.agents/skills/dgx-spark-ops/references/tailscale.md) for
 the migration and validation gates.

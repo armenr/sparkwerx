@@ -29,7 +29,7 @@ remote-access daemon. Building the adapter did not migrate service ownership.
 | Concern | Owner and location |
 | --- | --- |
 | `tailscale` and `tailscaled` binaries | This repository, through a pinned Nix package |
-| `tailscaled.service` and headless boot behavior | Reviewed root configuration; the bounded System Manager canary is validated and retained, but Tailscale unit ownership is not yet added or approved |
+| `tailscaled.service` and headless boot behavior | Explicit System Manager role in `modules/system/tailscale.nix`; generation four is built and lifecycle-tested but is not yet active on the host |
 | Node identity and daemon state | Mutable root-owned state under `/var/lib/tailscale`; never copy into Git or the Nix store |
 | Tailscale SSH preference | Declarative desired state applied without embedding an auth key |
 | Tailnet ACLs, grants, SSH policy, and device approval | Tailscale control-plane state; document and manage separately from the host package |
@@ -143,6 +143,15 @@ state, and remove apt ownership only after the Nix-managed daemon has survived a
 reboot and a fresh Tailscale SSH connection. Exact cutover commands depend on
 the approved root manager and belong in a separately reviewed runbook.
 
+The current pre-migration proof is
+`scripts/test-tailscale-unit-lifecycle.sh`. It runs the apt-shaped vendor unit,
+generation-three preservation, generation-four takeover with one explicit
+restart, a candidate reboot, exact generation-three rollback, and a vendor
+reboot entirely inside a disposable container. It also refuses to run unless
+the real host remains on exact generation three with the vendor Tailscale unit,
+and compares the host daemon PID/start time before and after. Passing this test
+does not authorize the live restart.
+
 ## Headless and rollback invariants
 
 - `tailscaled.service` must remain reachable from `multi-user.target` even when
@@ -166,3 +175,8 @@ the approved root manager and belong in a separately reviewed runbook.
 - Candidate non-NixOS root manager: https://github.com/numtide/system-manager
 - Repository package pin: `packages/tailscale/source.json`
 - Repository inert unit: `root/tailscale/unit.nix`
+- Repository System Manager role: `modules/system/tailscale.nix`
+- Disposable ownership test: `root/tailscale/unit-lifecycle-test.nix`
+- Root-only safe test wrapper: `scripts/test-tailscale-unit-lifecycle.sh`
+- Latest recorded result:
+  `root/tailscale/validation/2026-09-03-unit-lifecycle-container-test.md`

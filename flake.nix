@@ -182,10 +182,41 @@
         ];
       };
 
+      # First access-plane ownership candidate. It inherits the exact retained
+      # generation-three canary and boot edge, then adds only the pinned
+      # Tailscale service. Building this output does not register, activate,
+      # restart, enroll, or remove the apt rollback package on the host.
+      rootTailscaleMigrationGeneration = system-manager.lib.makeSystemConfig {
+        overlays = rootManagerOverlays;
+        modules = [
+          ./hosts/sparkle-01/system.nix
+          {
+            dgx.root = {
+              bootPersistence.enable = true;
+              tailscale = {
+                enable = true;
+                package = tailscalePackage;
+                sshDesired = true;
+              };
+            };
+            environment.etc."dgx-setup/canary".text = rootLib.mkForce ''
+              schema=1
+              host=sparkle-01
+              owner=DGX-setup
+              purpose=system-manager activation and rollback canary
+              registration-test-generation=2
+              boot-persistence-generation=3
+              tailscale-migration-generation=4
+            '';
+          }
+        ];
+      };
+
       systemManagerPackage = rootPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
       rootCanaryBootPersistenceConfig = rootCanaryBootPersistenceGeneration.config;
+      rootTailscaleMigrationConfig = rootTailscaleMigrationGeneration.config;
       rootCanaryServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.services
       );
@@ -194,6 +225,9 @@
       );
       rootCanaryBootPersistenceServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryBootPersistenceConfig.build.services
+      );
+      rootTailscaleMigrationServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootTailscaleMigrationConfig.build.services
       );
       rootCanaryEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.etc.entries
@@ -204,9 +238,13 @@
       rootCanaryBootPersistenceEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryBootPersistenceConfig.build.etc.entries
       );
+      rootTailscaleMigrationEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootTailscaleMigrationConfig.build.etc.entries
+      );
       rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
       rootCanaryRegistrationTestPackageNames = packageNames rootCanaryRegistrationTestConfig.environment.systemPackages;
       rootCanaryBootPersistencePackageNames = packageNames rootCanaryBootPersistenceConfig.environment.systemPackages;
+      rootTailscaleMigrationPackageNames = packageNames rootTailscaleMigrationConfig.environment.systemPackages;
       rootCanaryClosureInfo = rootPkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
@@ -321,6 +359,10 @@
         "dgx-setup-canary.service"
         "sysinit-reactivation.target"
         "system-manager.target"
+      ];
+
+      expectedRootTailscaleMigrationServiceNames = expectedRootCanaryServiceNames ++ [
+        "tailscaled.service"
       ];
 
       expectedRootCanaryEtcNames = [
@@ -592,6 +634,8 @@
           # Declarative side-effect flag: this output is inert. It is not a
           # live-host observation of the apt-owned daemon.
           activated = false;
+          rootCandidate = rootTailscaleMigrationGeneration.outPath;
+          ownershipState = "candidate-only";
         };
 
         policies.armenCodexRelaxedDefaults = {
@@ -1502,7 +1546,34 @@
         assert lib.hasInfix "WantedBy=multi-user.target" tailscaleService.unitText;
         assert lib.hasInfix "/bin/tailscale wait" tailscaleService.waitOnlineUnitText;
         assert lib.hasInfix "Requires=tailscale-wait-online.service" tailscaleService.onlineTargetText;
+        assert rootTailscaleMigrationConfig.dgx.root.bootPersistence.enable;
+        assert rootTailscaleMigrationConfig.dgx.root.tailscale.enable;
+        assert rootTailscaleMigrationConfig.dgx.root.tailscale.sshDesired;
+        assert rootTailscaleMigrationConfig.dgx.root.tailscale.package == tailscalePackage;
+        assert rootTailscaleMigrationServiceNames == expectedRootTailscaleMigrationServiceNames;
+        assert rootTailscaleMigrationEtcNames == expectedRootCanaryEtcNames;
+        assert rootTailscaleMigrationPackageNames == [ ];
+        assert rootTailscaleMigrationGeneration.outPath != rootCanaryBootPersistenceGeneration.outPath;
+        assert rootTailscaleMigrationConfig.systemd.services.tailscaled.wantedBy == [ "multi-user.target" ];
+        assert
+          rootTailscaleMigrationConfig.systemd.services.tailscaled.serviceConfig.ExecStart
+          == "${tailscalePackage}/bin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=\${PORT} $FLAGS";
         pkgs.runCommand "dgx-tailscale-policy" { } ''
+          units="$(${rootPkgs.coreutils}/bin/readlink -f -- \
+            ${rootTailscaleMigrationConfig.build.etc.staticEnv}/systemd/system)"
+          test -L "$units/tailscaled.service"
+          test -L "$units/system-manager.target.wants/tailscaled.service"
+          test "$(${rootPkgs.coreutils}/bin/readlink -- \
+            "$units/system-manager.target.wants/tailscaled.service")" = \
+            ../tailscaled.service
+          grep -F '${tailscalePackage}/bin/tailscaled' \
+            "$units/tailscaled.service"
+          grep -F '/var/lib/tailscale/tailscaled.state' \
+            "$units/tailscaled.service"
+          grep -F '/run/tailscale/tailscaled.sock' \
+            "$units/tailscaled.service"
+          grep -F 'EnvironmentFile=-/etc/dgx-setup/tailscaled.env' \
+            "$units/tailscaled.service"
           touch "$out"
         '';
 
@@ -1535,6 +1606,9 @@
         assert rootCanaryBootPersistenceServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryBootPersistenceEtcNames == expectedRootCanaryEtcNames;
         assert rootCanaryBootPersistencePackageNames == [ ];
+        assert !rootCanaryConfig.dgx.root.tailscale.enable;
+        assert !rootCanaryRegistrationTestConfig.dgx.root.tailscale.enable;
+        assert !rootCanaryBootPersistenceConfig.dgx.root.tailscale.enable;
         assert rootCanaryBootPersistenceGeneration.outPath != rootCanaryRegistrationTestGeneration.outPath;
         assert !rootCanaryConfig.nix.enable;
         assert !rootCanaryRegistrationTestConfig.nix.enable;
@@ -2343,6 +2417,16 @@
               ;
           };
 
+      tailscaleUnitLifecycleContainerTest = import ./root/tailscale/unit-lifecycle-test.nix {
+        pkgs = rootPkgs;
+        inherit
+          rootManagerOverlays
+          rootCanary
+          rootCanaryBootPersistenceGeneration
+          system-manager
+          ;
+      };
+
       nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
         mkdir -p \
           "$out/bootstrap/nix" \
@@ -2563,6 +2647,7 @@
         root-system-canary = rootCanary;
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
+        root-system-tailscale-migration = rootTailscaleMigrationGeneration;
         root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
@@ -2600,8 +2685,10 @@
           rootCanaryRebootRecoveryTransactionContainerTest;
         root-manager-policy = rootManagerPolicyCheck;
         root-system-canary = rootCanary;
+        root-system-tailscale-migration = rootTailscaleMigrationGeneration;
         tailscale-package = tailscalePackage;
         tailscale-policy = tailscalePolicyCheck;
+        tailscale-unit-lifecycle-container = tailscaleUnitLifecycleContainerTest;
         tailscaled-unit = tailscaleService.package;
         zed-editor-package = zedPackage;
         zed-editor-policy = zedPolicyCheck;

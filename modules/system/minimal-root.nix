@@ -10,14 +10,16 @@ let
     "docker.service"
     "gdm.service"
     "nix-daemon.service"
-    "tailscaled.service"
   ];
 
   unitIsInactive =
     name: !(builtins.hasAttr name config.systemd.units) || !config.systemd.units.${name}.enable;
 in
 {
-  imports = [ ./boot-persistence.nix ];
+  imports = [
+    ./boot-persistence.nix
+    ./tailscale.nix
+  ];
 
   # System Manager imports several broad NixOS-derived modules. Every default
   # below is deliberately narrowed so the first root closure is only a canary,
@@ -79,7 +81,7 @@ in
     }
     {
       assertion = lib.all unitIsInactive forbiddenUnitNames;
-      message = "The inert root canary must not declare Nix, Tailscale, GDM, or Docker units.";
+      message = "The DGX root role must not declare Nix, GDM, or Docker units.";
     }
   ];
 }
