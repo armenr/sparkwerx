@@ -125,7 +125,7 @@ assert_profile_policy() {
     ([.roles.fleetBase[].pname] | sort) == ["devbox", "lazydocker", "ncdu"] and
     ([.roles.armenAllModes[].pname] | sort) == ["codex-cli"] and
     ([.evaluatedProfiles.headless[].pname] | sort) ==
-      ["codex-cli", "devbox", "lazydocker", "ncdu"] and
+      ["codex-cli", "devbox", "hm-session-vars.sh", "lazydocker", "ncdu"] and
     ([.evaluatedProfiles.headless[].pname] |
       map(select(. == "chromium" or . == "ghostty" or . == "hyprland" or
                  . == "lmstudio" or . == "zed-editor"))) == [] and
