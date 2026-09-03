@@ -10,6 +10,29 @@ nix_command=(
   "nix-command flakes"
 )
 
+root_fingerprint() {
+  "${nix_command[@]}" eval --json --no-write-lock-file \
+    .#lib.dgxRootManagerManifest.aarch64-linux |
+    jq -Sc '{
+      foundationNixpkgs,
+      manager: {
+        rev: .manager.rev,
+        drvPath: .manager.drvPath,
+        rootOutputPath: .manager.rootOutputPath
+      },
+      exactCandidates: .bootPersistence.exactCandidates,
+      recoveryBundle: .bootPersistence.rebootRecovery.productionBundle,
+      tests: {
+        activation: .isolatedTest.currentDrvPath,
+        registration: .registration.isolatedLifecycleTest.currentDrvPath,
+        firstRegistration: .registration.guardedFirstGeneration.isolatedTransactionTest.currentDrvPath,
+        generationSwitch: .registration.guardedGenerationSwitch.isolatedTransactionTest.currentDrvPath,
+        bootPersistence: .bootPersistence.isolatedTransactionTest.currentDrvPath,
+        rebootRecovery: .bootPersistence.rebootRecovery.isolatedTransactionTest.currentDrvPath
+      }
+    }'
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   printf '%s\n' "jq is required to audit the pinned Devbox release." >&2
   exit 1
@@ -61,7 +84,18 @@ if [[ "$pinned_hyprland" != "$latest_hyprland" ]]; then
   exit 2
 fi
 
-"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager system-manager
+# System Manager and nixpkgs-root are a frozen, separately reviewed lane. A
+# user/package refresh must leave their complete evidence fingerprint exact.
+root_before="$(root_fingerprint)"
+"${nix_command[@]}" flake update nixpkgs nixpkgs-apps home-manager
+root_after="$(root_fingerprint)"
+if [[ "$root_after" != "$root_before" ]]; then
+  printf '%s\n' \
+    "The user/package update changed the frozen root lane; refusing to continue." >&2
+  exit 1
+fi
+printf '%s\n' "Root lane remained byte-for-byte identity-stable."
+
 ./scripts/update-tailscale.sh --apply
 
 "${nix_command[@]}" fmt

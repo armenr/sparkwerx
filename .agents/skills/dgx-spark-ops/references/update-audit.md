@@ -160,6 +160,8 @@ Current policy:
 
 - Nixpkgs tracks stable `nixos-26.05`;
 - Home Manager tracks matching `release-26.05` and follows Nixpkgs;
+- the live root closure and its evidence use an immutable `nixpkgs-root` at the
+  already-proven stable revision; System Manager follows that root-only input;
 - Hyprland tracks a separately reviewed upstream release tag.
 
 A stable branch moving is an available lock refresh. A new Hyprland tag is an
@@ -169,7 +171,9 @@ build gate.
 When explicitly approved, `scripts/update-dependencies.sh` is the repository's
 mutation path. Review its diff, ensure Hyprland's tag and compatibility patch are
 still correct, and keep all builds `--no-link` until activation is separately
-approved.
+approved. It advances only user/package Nixpkgs, apps, and Home Manager inputs.
+It must fingerprint the complete root lane before and after, exclude
+`nixpkgs-root` and System Manager, and refuse any root identity change.
 
 The Hyprland v0.56.2 pin currently carries a small patch matching upstream commit
 `91f29f2`, because the release tag's CMake Glaze constraint rejects its own

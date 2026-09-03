@@ -182,6 +182,12 @@ Manager, the base tools that are current there, and shared infrastructure. Use
 the independently locked `nixpkgs-apps` input only for reviewed fast-moving
 applications whose stable package trails the current release.
 
+The live System Manager closure and its exact test evidence use a third,
+immutable `nixpkgs-root` input at the already-proven stable revision. Routine
+dependency updates exclude both that input and System Manager and must prove
+their complete root fingerprint unchanged before continuing. Advancing the
+root lane is a separate root-generation workflow, not a user-package refresh.
+
 The apps pin supplies current dev-shell Git/ripgrep and exposes the reviewed
 Zed, LM Studio, and Chromium candidates. Both current Nixpkgs branches still
 trail Devbox at 0.17.5, so the fleet base uses a narrow exact override for the

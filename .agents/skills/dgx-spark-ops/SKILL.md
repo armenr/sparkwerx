@@ -99,8 +99,12 @@ Read the [root-manager runbook](../../../root/system-manager/README.md),
 An audit may evaluate `lib.dgxRootManagerManifest`, policy assertions, lock
 metadata, and dry-run plans. It must not run the root-assisted container helper,
 register a profile, create state, or activate the host. Keep System Manager on
-the branch matching stable Nixpkgs and keep its private wrapper aligned with the
-separately reviewed current host Nix release. Treat any reappearance of stale
+the branch matching its exact `nixpkgs-root` foundation and keep its private
+wrapper aligned with the separately reviewed current host Nix release. Routine
+user/package updates must exclude both System Manager and `nixpkgs-root` and
+prove the full root evidence fingerprint unchanged. Read the
+[root dependency lane record](../../../root/system-manager/validation/2026-09-03-root-dependency-lane.md)
+before changing either root input. Treat any reappearance of stale
 Nix, real `userborn`, users, wrappers, global PATH, boot links, unexpected
 units, replacement ownership, global tmpfiles processing, a missing or
 version-mismatched `skip-empty-tmpfiles` patch, or a processed unmanaged

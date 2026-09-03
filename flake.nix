@@ -5,6 +5,11 @@
     # Stable foundation for the fleet and Home Manager.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # Immutable foundation for the currently live System Manager closure and
+    # its exact disposable-test evidence. User/package refreshes must not move
+    # this input; advance it only through a separately reviewed root generation.
+    nixpkgs-root.url = "github:NixOS/nixpkgs/a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
+
     # Narrow, independently pinned source for fast-moving selected apps. Do not
     # replace the stable package set with this input wholesale.
     nixpkgs-apps.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -23,7 +28,7 @@
     # installation itself.
     system-manager = {
       url = "github:numtide/system-manager/release-26.05";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-root";
     };
 
     # Hyprland moves faster than stable Nixpkgs. Pin the latest reviewed
@@ -34,6 +39,7 @@
   outputs =
     {
       nixpkgs,
+      nixpkgs-root,
       nixpkgs-apps,
       home-manager,
       nix-release,
@@ -44,6 +50,7 @@
     let
       system = "aarch64-linux";
       lib = nixpkgs.lib;
+      rootLib = nixpkgs-root.lib;
 
       # This is an evaluation exception, not a package selection. LM Studio is
       # the only currently selected package whose Nix metadata is unfree.
@@ -113,7 +120,7 @@
         })
       ];
 
-      rootManagerPkgs = import nixpkgs {
+      rootPkgs = import nixpkgs-root {
         inherit system;
         overlays = rootManagerOverlays;
         config.allowUnfree = false;
@@ -133,7 +140,7 @@
         modules = [
           ./hosts/sparkle-01/system.nix
           {
-            environment.etc."dgx-setup/canary".text = lib.mkForce ''
+            environment.etc."dgx-setup/canary".text = rootLib.mkForce ''
               schema=1
               host=sparkle-01
               owner=DGX-setup
@@ -154,7 +161,7 @@
           ./hosts/sparkle-01/system.nix
           {
             dgx.root.bootPersistence.enable = true;
-            environment.etc."dgx-setup/canary".text = lib.mkForce ''
+            environment.etc."dgx-setup/canary".text = rootLib.mkForce ''
               schema=1
               host=sparkle-01
               owner=DGX-setup
@@ -166,7 +173,7 @@
         ];
       };
 
-      systemManagerPackage = rootManagerPkgs.callPackage "${system-manager}/package.nix" { };
+      systemManagerPackage = rootPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
       rootCanaryBootPersistenceConfig = rootCanaryBootPersistenceGeneration.config;
@@ -191,7 +198,7 @@
       rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
       rootCanaryRegistrationTestPackageNames = packageNames rootCanaryRegistrationTestConfig.environment.systemPackages;
       rootCanaryBootPersistencePackageNames = packageNames rootCanaryBootPersistenceConfig.environment.systemPackages;
-      rootCanaryClosureInfo = pkgs.closureInfo {
+      rootCanaryClosureInfo = rootPkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
       rootCanaryPilotGcRoot = "/nix/var/nix/gcroots/dgx-setup-root-canary-pilot";
@@ -225,14 +232,14 @@
           name,
           onBootSec,
         }:
-        pkgs.runCommand name
+        rootPkgs.runCommand name
           {
-            nativeBuildInputs = [ pkgs.makeWrapper ];
+            nativeBuildInputs = [ rootPkgs.makeWrapper ];
           }
           ''
             mkdir -p "$out/bin" "$out/lib/systemd/system"
 
-            makeWrapper ${pkgs.bash}/bin/bash "$out/bin/dgx-root-reboot-recovery" \
+            makeWrapper ${rootPkgs.bash}/bin/bash "$out/bin/dgx-root-reboot-recovery" \
               --add-flags '${rootRebootRecoveryTransactionProgram}' \
               --set DGX_RECOVERY_BUNDLE "$out" \
               --set DGX_RECOVERY_GENERATION_ONE '${rootCanary}' \
@@ -241,12 +248,12 @@
               --set DGX_RECOVERY_BOOT_TRANSACTION '${rootBootPersistenceTransactionProgram}' \
               --set DGX_RECOVERY_AUDIT '${rootCanaryAuditProgram}' \
               --set DGX_RECOVERY_PATH '${
-                lib.makeBinPath [
-                  pkgs.coreutils
-                  pkgs.findutils
-                  pkgs.gnugrep
-                  pkgs.jq
-                  pkgs.util-linux
+                rootLib.makeBinPath [
+                  rootPkgs.coreutils
+                  rootPkgs.findutils
+                  rootPkgs.gnugrep
+                  rootPkgs.jq
+                  rootPkgs.util-linux
                 ]
               }:/nix/var/nix/profiles/default/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
@@ -558,6 +565,14 @@
         schemaVersion = 1;
         inherit system;
         hostName = "sparkle-01";
+
+        foundationNixpkgs = {
+          policy = "frozen-live-root-lane";
+          sourceBranch = "nixos-26.05";
+          rev = nixpkgs-root.rev;
+          lastModified = nixpkgs-root.lastModified;
+          advancesWithUserPackages = false;
+        };
 
         manager = {
           name = "system-manager";
@@ -1258,6 +1273,9 @@
         assert
           builtins.hashFile "sha256" systemManagerEnginePatch == reviewedSystemManagerEnginePatchSha256;
         assert verifiedNixPackage.version == "2.35.2";
+        assert rootManagerManifest.foundationNixpkgs.policy == "frozen-live-root-lane";
+        assert rootManagerManifest.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
+        assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;
@@ -1637,7 +1655,7 @@
         assert !rootCanaryConfig.environment.etc."tmpfiles.d".enable;
         assert rootCanaryConfig.systemd.tmpfiles.rules == [ ];
         assert rootCanaryConfig.systemd.tmpfiles.settings == { };
-        pkgs.runCommand "dgx-root-manager-policy" { } ''
+        rootPkgs.runCommand "dgx-root-manager-policy" { } ''
           if grep -Eq -- '-nix-2\.34\.8$' ${rootCanaryClosureInfo}/store-paths; then
             echo "The root-manager closure retained stale Nix 2.34.8." >&2
             exit 1
@@ -1683,7 +1701,7 @@
         '';
 
       rootCanaryContainerTest = system-manager.lib.containerTest.makeContainerTest {
-        hostPkgs = pkgs;
+        hostPkgs = rootPkgs;
         name = "dgx-root-canary";
         toplevel = rootCanary;
         testScript = ''
@@ -1791,7 +1809,7 @@
       };
 
       rootCanaryRegistrationContainerTest = system-manager.lib.containerTest.makeContainerTest {
-        hostPkgs = pkgs;
+        hostPkgs = rootPkgs;
         name = "dgx-root-canary-registration";
         toplevel = rootCanary;
         extraPathsToRegister = [ rootCanaryRegistrationTestGeneration ];
@@ -2023,8 +2041,8 @@
       rootCanaryRegistrationTransactionContainerTest =
         import ./root/system-manager/registration-transaction-test.nix
           {
+            pkgs = rootPkgs;
             inherit
-              pkgs
               rootCanary
               rootRegistrationTransactionProgram
               system-manager
@@ -2034,8 +2052,8 @@
       rootCanaryGenerationSwitchTransactionContainerTest =
         import ./root/system-manager/generation-switch-transaction-test.nix
           {
+            pkgs = rootPkgs;
             inherit
-              pkgs
               rootCanary
               rootCanaryRegistrationTestGeneration
               rootGenerationSwitchTransactionProgram
@@ -2047,8 +2065,8 @@
       rootCanaryBootPersistenceTransactionContainerTest =
         import ./root/system-manager/boot-persistence-transaction-test.nix
           {
+            pkgs = rootPkgs;
             inherit
-              pkgs
               rootBootPersistenceTransactionProgram
               rootCanary
               rootCanaryBootPersistenceGeneration
@@ -2062,8 +2080,8 @@
       rootCanaryRebootRecoveryTransactionContainerTest =
         import ./root/system-manager/reboot-recovery-transaction-test.nix
           {
+            pkgs = rootPkgs;
             inherit
-              pkgs
               rootBootPersistenceTransactionProgram
               rootCanaryAuditProgram
               rootCanary
@@ -2077,15 +2095,17 @@
               ;
           };
 
-      systemdSnapshotPropertyRegressionCheck = pkgs.runCommand "dgx-systemd-snapshot-property-test" { } ''
-        test_root="$TMPDIR/dgx-systemd-snapshot-property-test"
-        mkdir -p "$test_root/scripts"
-        cp ${systemdSnapshotPropertyProgram} "$test_root/scripts/systemd-snapshot-property.sh"
-        cp ${systemdSnapshotPropertyTestProgram} "$test_root/scripts/test-systemd-snapshot-property.sh"
-        chmod +x "$test_root/scripts/"*.sh
-        patchShebangs "$test_root/scripts"
-        "$test_root/scripts/test-systemd-snapshot-property.sh" >"$out"
-      '';
+      systemdSnapshotPropertyRegressionCheck =
+        rootPkgs.runCommand "dgx-systemd-snapshot-property-test" { }
+          ''
+            test_root="$TMPDIR/dgx-systemd-snapshot-property-test"
+            mkdir -p "$test_root/scripts"
+            cp ${systemdSnapshotPropertyProgram} "$test_root/scripts/systemd-snapshot-property.sh"
+            cp ${systemdSnapshotPropertyTestProgram} "$test_root/scripts/test-systemd-snapshot-property.sh"
+            chmod +x "$test_root/scripts/"*.sh
+            patchShebangs "$test_root/scripts"
+            "$test_root/scripts/test-systemd-snapshot-property.sh" >"$out"
+          '';
 
       codexRelaxedDefaultsRegressionCheck = pkgs.runCommand "dgx-codex-relaxed-defaults-test" { } ''
         test_root="$TMPDIR/dgx-codex-relaxed-defaults-test"

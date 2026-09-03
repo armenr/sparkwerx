@@ -603,6 +603,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-root": {
+      "locked": {
+        "lastModified": 1787414105,
+        "narHash": "sha256-WncT27+3BOkgTaJZLnCsf3LcYf9RXMuR9ONSN4rzQ7s=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "a9e6d84f9c2f9012f5fe7d964a7851352300e61a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "a9e6d84f9c2f9012f5fe7d964a7851352300e61a",
+        "type": "github"
+      }
+    },
     "nixpkgs_2": {
       "locked": {
         "lastModified": 1782535326,
@@ -689,6 +705,7 @@
         "nix-release": "nix-release",
         "nixpkgs": "nixpkgs_3",
         "nixpkgs-apps": "nixpkgs-apps",
+        "nixpkgs-root": "nixpkgs-root",
         "system-manager": "system-manager"
       }
     },
@@ -696,7 +713,7 @@
       "inputs": {
         "flake-compat": "flake-compat_3",
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-root"
         ],
         "userborn": "userborn"
       },

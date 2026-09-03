@@ -394,6 +394,8 @@ audit_selected_nix_packages() {
 
 audit_root_integration() {
   local manifest manager_node manager_ref manager_locked_rev
+  local manager_nixpkgs_follow root_nixpkgs_node root_nixpkgs_locked_rev
+  local root_nixpkgs_manifest_rev
   local manager_version manager_branch manager_rev private_nix_version
   local private_nix_rev release_version release_rev current candidate
   local test_result registration_test_result registration_test_matches
@@ -434,12 +436,18 @@ audit_root_integration() {
   fi
 
   manager_node="$(root_input_node "system-manager")"
+  root_nixpkgs_node="$(root_input_node "nixpkgs-root")"
   manager_ref="$(lock_value "$manager_node" \
     '.nodes[$node].locked.ref // .nodes[$node].original.ref')"
   manager_locked_rev="$(lock_value "$manager_node" '.nodes[$node].locked.rev')"
+  root_nixpkgs_locked_rev="$(lock_value "$root_nixpkgs_node" '.nodes[$node].locked.rev')"
+  manager_nixpkgs_follow="$(
+    jq -c --arg node "$manager_node" '.nodes[$node].inputs.nixpkgs // null' flake.lock
+  )"
   manager_version="$(jq -r '.manager.version // empty' <<<"$manifest")"
   manager_branch="$(jq -r '.manager.branch // empty' <<<"$manifest")"
   manager_rev="$(jq -r '.manager.rev // empty' <<<"$manifest")"
+  root_nixpkgs_manifest_rev="$(jq -r '.foundationNixpkgs.rev // empty' <<<"$manifest")"
   private_nix_version="$(jq -r '.privateNixRuntime.version // empty' <<<"$manifest")"
   private_nix_rev="$(jq -r '.privateNixRuntime.rev // empty' <<<"$manifest")"
   manager_patch_name="$(jq -r '.manager.patches[0].name // empty' <<<"$manifest")"
@@ -512,10 +520,14 @@ audit_root_integration() {
     jq -r '.bootPersistence.exactCandidates.generationThree // empty' <<<"$manifest"
   )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};restoration=${restoration_status:-UNKNOWN};live-state=${declared_current_state:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");root-nixpkgs=$(short_rev "$root_nixpkgs_manifest_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};restoration=${restoration_status:-UNKNOWN};live-state=${declared_current_state:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
+    (.foundationNixpkgs.policy == "frozen-live-root-lane") and
+    (.foundationNixpkgs.sourceBranch == "nixos-26.05") and
+    (.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a") and
+    (.foundationNixpkgs.advancesWithUserPackages == false) and
     (.manager.activated == false) and
     ((.manager.patches | length) == 1) and
     (.manager.patches[0].name == "skip-empty-tmpfiles") and
@@ -732,6 +744,11 @@ audit_root_integration() {
         "$manager_branch" != "$manager_ref" ]]; then
     status="HOLD"
     detail="Manifest and System Manager lock metadata disagree; no activation was attempted."
+  elif [[ -z "$root_nixpkgs_node" ||
+          "$root_nixpkgs_manifest_rev" != "$root_nixpkgs_locked_rev" ||
+          "$manager_nixpkgs_follow" != '["nixpkgs-root"]' ]]; then
+    status="HOLD"
+    detail="The frozen root Nixpkgs lane or System Manager follow edge differs from the manifest."
   elif [[ "$private_nix_version" != "$release_version" ||
           "$private_nix_rev" != "$release_rev" ]]; then
     status="HOLD"

@@ -22,8 +22,11 @@ generation three plus its one declarative boot edge. The separately authorized
 first real reboot then exercised persistent recovery. Its ten-minute deadline
 expired, automatic rollback restored exact registered/live no-boot generation
 two, and snapshot-bound verification plus exact cleanup passed. Generations
-one and two remain registered, all three pilot roots remain, generation three
-is available for guarded restoration, and no broader root role exists.
+one and two remained registered and all three pilot roots remained. The
+retry-safe restoration then passed two full postflights and automatically
+retained exact registered/live/boot-linked generation three. All three numbered
+generations and direct pilot roots remain, recovery is unarmed, and no broader
+root role exists.
 
 ## Reviewed candidate
 
@@ -43,13 +46,15 @@ is available for guarded restoration, and no broader root role exists.
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
 | Persistent first-reboot recovery | **PASS** for exact 13-subtest/two-restart lifecycle and first real reboot; missed deadline automatically restored generation two, verification/cleanup passed, host recovery is unarmed |
-| Host registration | Exact generations one and two registered; generation two selected/upstream-rooted; generation three directly retained for restoration |
-| Host activation | Exact generation-two canary active with no boot edge after verified automatic rollback |
-| Rollback anchors | All three exact direct pilot roots remain; generation two is the reviewed no-boot rollback state |
+| Host registration | Exact generations one, two, and three registered; generation three selected/upstream-rooted |
+| Host activation | Exact generation-three canary active with its one declarative boot edge after verified restoration |
+| Rollback anchors | All three exact direct pilot roots and numbered generations remain; generation two is the reviewed no-boot rollback target |
+| Root package foundation | Exact `nixpkgs-root` revision `a9e6d84f9c2f9012f5fe7d964a7851352300e61a`; routine user/package updates cannot advance it |
 
-The release branch deliberately matches stable Nixpkgs/Home Manager 26.05.
-System Manager is a candidate for small reviewed root integration above DGX OS;
-it is not allowed to turn the machine into NixOS or own NVIDIA components.
+The release branch deliberately matches the frozen root Nixpkgs 26.05 lane;
+Home Manager and user packages advance independently. System Manager is a
+candidate for small reviewed root integration above DGX OS; it is not allowed
+to turn the machine into NixOS or own NVIDIA components.
 
 ## Host canary attempt 1
 
@@ -821,15 +826,17 @@ preflight, and a fresh same-window snapshot.
 
 ## Updates
 
-`scripts/update-dependencies.sh` advances the matching System Manager release
-branch and reruns its evaluation, closure-policy, and no-link runtime gates. The
-update remains valid only while the exact-version overlay applies the reviewed
-patch and the manifest/audit retain its hash and no-global-tmpfiles policy. An
-upstream version change is a mandatory reassessment, not permission to drop or
-blindly carry the patch. The root-assisted container test remains the explicit
-helper above. Any input, patch, ownership surface, test, or closure change
-invalidates the recorded pass and requires a newly authorized disposable test
-rather than being accepted automatically.
+`scripts/update-dependencies.sh` advances only the user/package Nixpkgs lanes
+and Home Manager. System Manager and its exact `nixpkgs-root` foundation are
+excluded. The updater fingerprints the manager, all candidates, recovery
+bundle, and six disposable derivations before and after the refresh and refuses
+to continue if any differ. See the
+[root dependency lane record](validation/2026-09-03-root-dependency-lane.md).
+An explicit future root-lane update remains valid only while the exact-version
+overlay applies the reviewed patch and the manifest/audit retain its hash and
+no-global-tmpfiles policy. Any root input, patch, ownership surface, test, or
+closure change invalidates the recorded pass and requires a newly authorized
+disposable test rather than being accepted automatically.
 
 The `nix-release` input is an exact tag and is intentionally not auto-advanced.
 Audit and activate a new host Nix runtime through `root/nix/README.md` first;

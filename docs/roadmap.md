@@ -96,6 +96,9 @@ the measured software manifest; evaluation did not authorize realization.
       two used one pre-mutation Enter, passed two complete postflights,
       automatically disarmed rollback, and retained exact selected/live/
       boot-linked generation three
+- [x] Freeze the live System Manager package set in a dedicated exact
+      `nixpkgs-root` lane and prove every candidate, recovery bundle, policy,
+      parser, and disposable-test derivation remains identity-stable
 - [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
       complete uninstall/rollback path
 - [ ] Build a single read-only host `plan` and guarded host `apply` entry point

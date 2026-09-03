@@ -75,11 +75,13 @@ orchestrator are not implemented yet.
 - Host access services such as Tailscale after their reviewed migration
 - Pinned workload definitions, wrappers, and validation commands
 
-The stable Nixpkgs input remains the foundation. A separately locked apps input
-is consumed narrowly for reviewed fast-moving packages. Exact current-release
-adapters cover Devbox and Tailscale only while both package sets lag; they do
-not replace the fleet package set wholesale and must be retired when stock
-catches up.
+The stable Nixpkgs input remains the Home Manager and fleet-package foundation.
+A separately locked apps input is consumed narrowly for reviewed fast-moving
+packages. The live System Manager closure and its test evidence use an exact
+`nixpkgs-root` revision that routine user/package updates cannot advance.
+Exact current-release adapters cover Devbox and Tailscale only while both
+package sets lag; they do not replace the fleet package set wholesale and must
+be retired when stock catches up.
 
 ## Intentionally outside Nix ownership
 

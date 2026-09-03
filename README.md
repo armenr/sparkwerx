@@ -17,8 +17,10 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   session-variable file. Factory GNOME/GDM remains running and untouched.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
-- Stable Nixpkgs remains the foundation. A separate lockfile-pinned apps input
-  supplies fast-moving packages. Because both current Nixpkgs branches still
+- Stable Nixpkgs remains the user/fleet foundation. The live System Manager
+  evidence has its own immutable root Nixpkgs lane, while a separate
+  lockfile-pinned apps input supplies fast-moving packages. Because both
+  current Nixpkgs branches still
   trail Devbox, an exact upstream source/vendor-hash adapter supplies current
   Devbox 0.18.0. The apps input also exposes reviewed candidates for Zed,
   LM Studio, and Chromium without adding them to a profile.
@@ -135,13 +137,15 @@ The human-reviewed size and package findings are in the
 
 This is a mutating, build-authorized workflow, not the default audit command. It
 preflights the exact Devbox and Hyprland release pins; advances stable Nixpkgs,
-the independently scoped apps input, Home Manager, and matching System Manager
-release branch; advances Tailscale only through its verified stable ARM64
-artifact/checksum workflow; formats/evaluates the flake; and builds every ARM64
-Home profile plus the Devbox, Tailscale, Hyprland, root canary/policy, unit,
-and portal outputs with `--no-link`. It never activates a profile, service, or
-desktop session, but it does rewrite pins, fetch inputs, and realize packages,
-so run it only after those actions are explicitly
+the independently scoped apps input, and Home Manager; advances Tailscale only
+through its verified stable ARM64 artifact/checksum workflow; formats/evaluates
+the flake; and builds every ARM64 Home profile plus the Devbox, Tailscale,
+Hyprland, root canary/policy, unit, and portal outputs with `--no-link`. The
+live System Manager and its exact `nixpkgs-root` foundation are a separately
+reviewed frozen lane. The updater fingerprints that complete lane before and
+after the user/package refresh and stops if anything moved. It never activates
+a profile, service, or desktop session, but it does rewrite pins, fetch inputs,
+and realize packages, so run it only after those actions are explicitly
 approved.
 
 Hyprland release tags are bumped deliberately rather than automatically because
