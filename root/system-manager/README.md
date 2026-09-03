@@ -505,10 +505,10 @@ then rebooted outside the helpers. The persistent timer started on the new boot
 and its ten-minute deadline expired before a valid confirmation arrived.
 Automatic rollback restored exact registered/live no-boot generation two.
 Snapshot-bound `verify-rolled-back` passed, exact cleanup removed the recovery
-surface, and independent classification returned
+surface, and classification at that recovery milestone returned
 `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`. All three direct pilot
-roots remain; generation three's numbered profile link and boot edge are
-absent; no recovery timer is armed.
+roots remained; generation three's numbered profile link and boot edge were
+absent; no recovery timer remained armed.
 
 The first correctly formed confirmation command began two seconds after the
 deadline and also exposed a false assumption: after a clean boot,
@@ -519,16 +519,23 @@ short operator interface and deliberately has no reboot action. Full evidence
 is in the
 [first real reboot record](validation/2026-09-03-reboot-recovery-host-attempt-1.md).
 
-The next mutation is a hash-pinned no-reboot restoration helper that requires
-this exact generation-two state, a clean commit, a new private snapshot,
-independent console access, a transient ten-minute rollback, repeated health
-checks, and one pre-mutation Enter after the local-console check. It requires no
-exact phrase and automatically retains generation three only after two complete
-postflights. If the terminal disappears after activation, the same command can
-resume only the exact in-flight timer/snapshot transaction. The first attempt
-reached healthy generation three but the old phrase was mistyped, after which
-the exact timer safely restored generation two. See the
-[first restoration attempt](validation/2026-09-03-restoration-host-attempt-1.md).
+The hash-pinned no-reboot restoration helper requires exact generation-two
+state, a clean commit, a new private snapshot, independent console access, a
+transient ten-minute rollback, repeated health checks, and one pre-mutation
+Enter after the local-console check. It requires no exact phrase and
+automatically retains generation three only after two complete postflights. If
+the terminal disappears after activation, the same command can resume only the
+exact in-flight timer/snapshot transaction. The first attempt reached healthy
+generation three but the old phrase was mistyped, after which the exact timer
+safely restored generation two. The retry used snapshot `20260903T083058Z`,
+passed both postflights, automatically disarmed rollback, and retained exact
+generation three without rebooting. Independent classification returned
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: all three numbered
+generations and direct pilot roots remain, generation three is selected/
+upstream-rooted/live, the boot edge exists, and recovery is absent. See the
+[first restoration attempt](validation/2026-09-03-restoration-host-attempt-1.md)
+and [successful retry](validation/2026-09-03-restoration-host-attempt-2.md).
+Both snapshots are spent; do not rerun restoration from the current state.
 Any later recovery arming and reboot remain separate gates.
 
 ## Defaults we rejected

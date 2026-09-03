@@ -404,10 +404,15 @@ activation, the separately authorized persistent recovery survived the first
 real reboot. The ten-minute confirmation deadline expired, so automatic
 rollback restored exact registered/live no-boot generation two; subsequent
 snapshot-bound verification and exact recovery cleanup passed. All three
-direct pilot roots remain, the recovery surface and boot edge are absent, and
-no timer is armed. The postboot health gate now recognizes Nix's normal idle
-daemon behind its active socket, and a short operator router removes fragile
-private-snapshot paths while still exposing no reboot action. See the
+direct pilot roots remained. The first restoration attempt then safely timed
+back after a mistyped retention phrase. Its retry-safe replacement used one
+Enter, passed two full postflights, and automatically retained exact registered/
+live/boot-linked generation three without rebooting. All three numbered
+generations and direct roots remain; generation three is selected and
+upstream-rooted, the one declarative boot edge exists, the recovery surface is
+absent, and no timer is armed. The postboot health gate recognizes Nix's normal
+idle daemon behind its active socket, and a short operator router removes
+fragile private-snapshot paths while still exposing no reboot action. See the
 [guarded live activation plan](../root/system-manager/validation/2026-09-02-boot-persistence-live-plan.md).
 The recovery design and exact result are in the
 [persistent recovery plan](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-plan.md)
@@ -415,8 +420,9 @@ and
 [container-test result](../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md).
 The original live sequence is in the
 [live recovery plan](../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md).
-The current host authority is the
-[first real reboot record](../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md).
+The real reboot record remains recovery authority; the current live-state
+authority is the
+[successful restoration record](../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md).
 
 ### D-015: one declarative fresh-host workflow
 
@@ -473,13 +479,12 @@ Whether Nix should own the separately installed Codex CLI package remains OPEN.
 
 ## Open decisions
 
-- The first real host reboot and automatic recovery rollback are proven.
-  Generation two is now selected/upstream-rooted/live with no boot edge;
-  generation three is directly retained, and all three pilot roots remain.
-  Exact recovery cleanup and the first restoration attempt's timed rollback
-  passed; no timer is armed. Retry-safe no-reboot restoration of generation
-  three is next. Any later recovery arming, reboot, generation/pilot-root
-  retirement, or first real managed service remains a separate decision.
+- The first real host reboot and automatic recovery rollback are proven, and
+  retry-safe no-reboot restoration has returned generation three to selected/
+  upstream-rooted/live/boot-linked state. All three numbered generations and
+  direct pilot roots remain; recovery is clean and unarmed. Any later recovery
+  arming, reboot, generation/pilot-root retirement, or first real managed
+  service remains a separate decision.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for

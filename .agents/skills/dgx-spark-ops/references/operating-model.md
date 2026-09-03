@@ -178,13 +178,16 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   `20260902T204546Z`. The ten-minute deadline expired before valid
   confirmation, automatic rollback restored exact registered/live no-boot
   generation two, verification passed, and exact cleanup removed the recovery
-  surface. Current class is
-  `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`; all three direct roots
-  remain and no boot/recovery edge or timer exists. Postboot checks must accept
-  a cleanly idle `nix-daemon.service` behind active `nix-daemon.socket` while
-  preserving strict same-boot process continuity. `scripts/dgx-recovery`
-  supplies the short no-reboot operator path, and guarded generation-three
-  restoration is next;
+  surface. The first restoration attempt then safely timed back after a
+  mistyped phrase; retry-safe attempt two used one Enter, passed two automatic
+  postflights, and retained generation three without rebooting. Current class
+  is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; all three
+  numbered generations and direct roots remain, generation three is selected/
+  upstream-rooted/live, its one boot edge exists, and no recovery or rollback
+  timer exists. Postboot checks must accept a cleanly idle
+  `nix-daemon.service` behind active `nix-daemon.socket` while preserving strict
+  same-boot process continuity. `scripts/dgx-recovery` supplies the short
+  no-reboot operator path;
 - the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
   factory/access services; a factory Firefox Snap refresh one minute later
   changed the unit graph and correctly invalidated the earlier preflight until

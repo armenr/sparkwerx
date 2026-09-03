@@ -55,14 +55,18 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   remained registered and both pilot roots were recovery anchors. The
   historical generation-two classifier was
   `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`. The later separately authorized
-  boot-persistence pilot retained exact generation three and its boot edge, but
-  the first real reboot recovery and the first restoration attempt both safely
-  timed back to exact generation two. Current classifier authority is
-  `ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED`: generations one/two are
-  registered, generation two is selected/upstream-rooted/live, generation three
-  remains directly rooted, and boot/recovery edges are absent. Read the
+  boot-persistence pilot retained exact generation three and its boot edge. The
+  first real reboot recovery and first restoration attempt both safely timed
+  back to exact generation two; the retry-safe second restoration then passed
+  two postflights and automatically retained generation three. Current
+  classifier authority is
+  `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: all three
+  generations are registered and directly rooted, generation three is
+  selected/upstream-rooted/live, its declarative boot edge exists, and recovery
+  is unarmed. Read the
   generation-switch, boot-persistence, reboot-recovery, and
-  `2026-09-03-restoration-host-attempt-1.md` records before touching this state.
+  `2026-09-03-restoration-host-attempt-1.md` and
+  `2026-09-03-restoration-host-attempt-2.md` records before touching this state.
   Do not rerun the one-time activation, registration, snapshot, switch, or
   boot-persistence helpers; reboot; change boot linkage; select or remove a
   generation; remove any current root; or broaden ownership without a separate
@@ -75,7 +79,7 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   Their distinct live wrappers completed under separate authorization. Never
   rerun any of those helpers against the current post-state or infer new
   authority from their spent snapshots. Preserve all three pilot roots;
-  generation cleanup, rollback, and first reboot are later exact reviewed
+  generation cleanup, rollback, and any future reboot are exact reviewed
   actions, not automatic tidying.
 - Do not run the root-canary helper or any System Manager activation merely to
   complete an audit. The helper is a separately approved disposable-container
@@ -85,10 +89,11 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   The live pilot therefore still requires the documented
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The guarded
   registration, switch, and boot-persistence work retained three direct pilot
-  roots. The current rollback state has numbered generations one/two, selects
-  generation two, and points `/nix/var/nix/gcroots/system-manager-current` to
-  generation two; generation three's numbered link and boot edge are absent.
-  Preserve that exact surface plus all three direct pilot roots; never infer
+  roots. The current restored state has all three numbered generations,
+  selects generation three, points
+  `/nix/var/nix/gcroots/system-manager-current` to generation three, and keeps
+  generation three's declarative boot edge. Preserve that exact surface plus
+  all three direct pilot roots; never infer
   permission to rerun upstream
   `register-profile`, remove registration, select a different generation, or
   retire any pilot root.

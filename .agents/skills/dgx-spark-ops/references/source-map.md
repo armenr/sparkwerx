@@ -86,7 +86,8 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Exact persistent first-reboot recovery lifecycle result | [root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md](../../../../root/system-manager/validation/2026-09-02-reboot-recovery-transaction-container-test.md) |
 | Executed persistent first-reboot live lifecycle plan | [root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md) |
 | Verified first-reboot automatic-rollback authority | [root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md) |
-| Current generation-two restoration-retry authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md) |
+| Historical restoration-attempt rollback authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md) |
+| Current successful generation-three restoration authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |
 | Thunderbird Snap unit-graph reload disposition | [root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md](../../../../root/system-manager/validation/2026-09-03-thunderbird-unit-graph-reload.md) |

@@ -51,20 +51,21 @@ live wrapper, roll back or select a generation, or remove any retained root.
 ```
 
 ```text
-$dgx-spark-ops Audit the current System Manager post-recovery state read-only.
-Require exact classifier ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED,
-generation-one/two numbered links, selected/upstream-rooted/live generation
-two, all three direct pilot roots, absent generation-three numbered link and
-boot/recovery edges, unloaded recovery units, healthy protected
+$dgx-spark-ops Audit the current System Manager post-restoration state
+read-only. Require exact classifier
+ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED, all three numbered
+generation links and direct pilot roots, selected/upstream-rooted/live
+generation three, its one declarative boot edge, absent recovery edges,
+unloaded recovery and restoration rollback units, healthy protected
 services/GPU/sanitized Tailscale SSH, and no broader ownership. Accept a
 cleanly idle nix-daemon.service only behind exact active/listening
 nix-daemon.socket. Require recovery status
-live-recovery-operational-host-not-armed, live-attempt status
+live-recovery-operational-host-not-armed, historical live-attempt status
 automatic-rollback-verified-cleaned, restoration status
-attempt-one-rolled-back-retry-ready, its spent-attempt evidence, and matching
-13-subtest evidence. Do not create a
-snapshot, invoke a bare transaction, rerun a spent wrapper, restore, arm,
-reboot, or remove a generation/root.
+generation-three-restored-after-verified-postflight, both restoration attempt
+records, and matching 13-subtest evidence. Do not create a snapshot, invoke a
+bare transaction, rerun a spent wrapper, restore, arm, reboot, or remove a
+generation/root.
 ```
 
 ```text

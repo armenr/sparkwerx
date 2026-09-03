@@ -717,7 +717,7 @@
               generationTwo = "/nix/var/nix/gcroots/dgx-setup-root-canary-generation-two-pilot";
             };
             requiredHostState = "ACTIVE_REGISTERED_RETAINED";
-            currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
+            currentHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
             initialHostState = "generation one selected, extra-rooted, and live; generation two absent";
             preState = "generation one selected, extra-rooted, and live; generation two retained only";
             postState = "generation two selected, extra-rooted, and live; generation one retained";
@@ -813,9 +813,9 @@
         };
 
         bootPersistence = {
-          status = "first-reboot-rollback-verified-restoration-ready";
+          status = "live-generation-three-boot-linked-retained";
           requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED";
-          currentHostState = "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
+          currentHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
           exactCandidates = {
             generationOne = rootCanary.outPath;
             generationTwo = rootCanaryRegistrationTestGeneration.outPath;
@@ -1024,7 +1024,7 @@
                 evidence = "root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md";
               };
               restoration = {
-                status = "attempt-one-rolled-back-retry-ready";
+                status = "generation-three-restored-after-verified-postflight";
                 requiredHostState = "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
                 program = {
                   repositoryPath = "scripts/root-recovery-restore-generation-three.sh";
@@ -1037,7 +1037,16 @@
                 rollbackDelayMinutes = 10;
                 preservesAllThreePilotRoots = true;
                 performsReboot = false;
-                hostRestorationPerformed = false;
+                hostRestorationPerformed = true;
+                snapshotStamp = "20260903T083058Z";
+                repositoryCommit = "1a191e246cbfacbff9946887f7b2b594b4486ff3";
+                restoredAt = "2026-09-03T08:31:04Z";
+                independentlyVerifiedAt = "2026-09-03T08:35:31Z";
+                currentHostState = "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
+                automaticPostflightPasses = 2;
+                rollbackDisarmed = true;
+                rollbackServiceRan = false;
+                evidence = "root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md";
                 priorAttempt = {
                   snapshotStamp = "20260903T042141Z";
                   generationThreeActivated = true;
@@ -1361,7 +1370,7 @@
           == "ACTIVE_REGISTERED_RETAINED";
         assert
           rootManagerManifest.registration.guardedGenerationSwitch.currentHostState
-          == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesGenerationOne;
         assert rootManagerManifest.registration.guardedGenerationSwitch.preservesBothPilotRoots;
         assert !rootManagerManifest.registration.guardedGenerationSwitch.createsBootLink;
@@ -1411,11 +1420,10 @@
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed;
         assert
           !rootManagerManifest.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed;
-        assert
-          rootManagerManifest.bootPersistence.status == "first-reboot-rollback-verified-restoration-ready";
+        assert rootManagerManifest.bootPersistence.status == "live-generation-three-boot-linked-retained";
         assert
           rootManagerManifest.bootPersistence.currentHostState
-          == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
         assert rootManagerManifest.bootPersistence.delta.serviceInventoryUnchanged;
         assert rootManagerManifest.bootPersistence.delta.globalPackagesUnchanged;
         assert !rootManagerManifest.bootPersistence.delta.linksCurrentSystem;
@@ -1575,7 +1583,7 @@
         assert rootManagerManifest.bootPersistence.rebootRecovery.liveAttempt.recoverySurface == "absent";
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.restoration.status
-          == "attempt-one-rolled-back-retry-ready";
+          == "generation-three-restored-after-verified-postflight";
         assert
           rootManagerManifest.bootPersistence.rebootRecovery.restoration.program.sha256
           == reviewedRootRecoveryRestoreGenerationThreeSha256;
@@ -1603,7 +1611,22 @@
           == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED";
         assert rootManagerManifest.bootPersistence.rebootRecovery.restoration.preservesAllThreePilotRoots;
         assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.performsReboot;
-        assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed;
+        assert rootManagerManifest.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.snapshotStamp == "20260903T083058Z";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.repositoryCommit
+          == "1a191e246cbfacbff9946887f7b2b594b4486ff3";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.currentHostState
+          == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED";
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.automaticPostflightPasses == 2;
+        assert rootManagerManifest.bootPersistence.rebootRecovery.restoration.rollbackDisarmed;
+        assert !rootManagerManifest.bootPersistence.rebootRecovery.restoration.rollbackServiceRan;
+        assert
+          rootManagerManifest.bootPersistence.rebootRecovery.restoration.evidence
+          == "root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md";
         assert !rootManagerManifest.bootPersistence.rebootRecovery.hostRecoveryArmed;
         assert rootManagerManifest.bootPersistence.rebootRecovery.hostRebootPerformed;
         assert !rootCanaryConfig.services.userborn.enable;

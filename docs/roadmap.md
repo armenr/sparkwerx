@@ -91,11 +91,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Separately authorize recovery arming and the first real pilot reboot; let
       the missed deadline automatically restore exact generation two, then
       verify rollback and clean the recovery surface
-- [ ] Retry the hash-pinned, timed, no-reboot restoration path to return
-      generation three to selected/live/boot-linked state. Attempt one reached
-      healthy generation three, then safely timed back to generation two after
-      the old retention phrase was mistyped; the corrected helper uses one
-      pre-mutation Enter and automatic repeated-postflight retention
+- [x] Retry the hash-pinned, timed, no-reboot restoration path. Attempt one
+      safely timed back after the old retention phrase was mistyped; attempt
+      two used one pre-mutation Enter, passed two complete postflights,
+      automatically disarmed rollback, and retained exact selected/live/
+      boot-linked generation three
 - [ ] Define a checksum-pinned, idempotent Nix install/adoption bootstrap and a
       complete uninstall/rollback path
 - [ ] Build a single read-only host `plan` and guarded host `apply` entry point

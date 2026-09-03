@@ -398,8 +398,8 @@ audit_root_integration() {
   local private_nix_rev release_version release_rev current candidate
   local test_result registration_test_result registration_test_matches
   local live_registration_host live_registration_state registration_mode
-  local live_switch_host live_switch_state live_boot_host live_boot_state
-  local declared_current_state recovery_live_host recovery_live_state
+  local live_switch_host live_switch_state live_boot_host
+  local declared_current_state
   local restoration_status root_evidence generation_one_output generation_two_output
   local generation_three_output other_root_output middle_root_output
   local policy_ok live_state root_output status detail
@@ -489,17 +489,8 @@ audit_root_integration() {
   live_boot_host="$(
     jq -r '.bootPersistence.liveActivation.host // empty' <<<"$manifest"
   )"
-  live_boot_state="$(
-    jq -r '.bootPersistence.liveActivation.stateClass // empty' <<<"$manifest"
-  )"
   declared_current_state="$(
     jq -r '.bootPersistence.currentHostState // empty' <<<"$manifest"
-  )"
-  recovery_live_host="$(
-    jq -r '.bootPersistence.rebootRecovery.liveAttempt.host // empty' <<<"$manifest"
-  )"
-  recovery_live_state="$(
-    jq -r '.bootPersistence.rebootRecovery.liveAttempt.currentHostState // empty' <<<"$manifest"
   )"
   restoration_status="$(
     jq -r '.bootPersistence.rebootRecovery.restoration.status // empty' <<<"$manifest"
@@ -565,20 +556,17 @@ audit_root_integration() {
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostActivationPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostCandidateRetentionPerformed == false) and
     (.registration.guardedGenerationSwitch.isolatedTransactionTest.hostPostflight == "clean") and
-    (
-      (
-        (.bootPersistence.status == "first-reboot-rollback-verified-restoration-ready") and
-        (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED") and
-        (.bootPersistence.rebootRecovery.restoration.status == "attempt-one-rolled-back-retry-ready") and
-        (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == false)
-      ) or
-      (
-        (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
-        (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
-        (.bootPersistence.rebootRecovery.restoration.status == "generation-three-restored-after-verified-postflight") and
-        (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == true)
-      )
-    ) and
+    (.bootPersistence.status == "live-generation-three-boot-linked-retained") and
+    (.bootPersistence.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (.bootPersistence.rebootRecovery.restoration.status == "generation-three-restored-after-verified-postflight") and
+    (.bootPersistence.rebootRecovery.restoration.hostRestorationPerformed == true) and
+    (.bootPersistence.rebootRecovery.restoration.snapshotStamp == "20260903T083058Z") and
+    (.bootPersistence.rebootRecovery.restoration.repositoryCommit == "1a191e246cbfacbff9946887f7b2b594b4486ff3") and
+    (.bootPersistence.rebootRecovery.restoration.currentHostState == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED") and
+    (.bootPersistence.rebootRecovery.restoration.automaticPostflightPasses == 2) and
+    (.bootPersistence.rebootRecovery.restoration.rollbackDisarmed == true) and
+    (.bootPersistence.rebootRecovery.restoration.rollbackServiceRan == false) and
+    (.bootPersistence.rebootRecovery.restoration.evidence == "root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md") and
     (.bootPersistence.retention.hostCreated == true) and
     (.bootPersistence.isolatedTransactionTest.result == "passed") and
     (.bootPersistence.isolatedTransactionTest.matchesCurrent == true) and
@@ -752,16 +740,9 @@ audit_root_integration() {
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
   elif [[ "$host_name" == "$live_boot_host" &&
-          "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" &&
-          "$recovery_live_host" == "$host_name" &&
-          "$recovery_live_state" == "$declared_current_state" &&
-          "$live_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" ]]; then
-    status="CURRENT"
-    detail="The first guarded host reboot exercised the real persistent deadline, and restoration attempt one later exercised its own timed rollback after the old retention phrase was mistyped. Both returned exact registered/live no-boot generation two; cleanup is complete, all three direct pilot roots remain, and no timer is armed. The active Nix daemon may be running or cleanly idle behind nix-daemon.socket after boot. The corrected no-reboot restoration helper is retry-ready with one Enter and automatic verified retention."
-  elif [[ "$host_name" == "$live_boot_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     status="CURRENT"
-    detail="The exact tests and manifest agree; sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Persistent recovery is operational and unarmed; the first host reboot's verified automatic rollback remains recorded."
+    detail="The exact tests, successful retry-safe restoration record, manifest, and live classifier agree. sparkle-01 retains registered/live generation three, all three numbered generations and direct pilot roots, the upstream generation-three root, and the one declarative boot edge. Two restoration postflights passed before its transient rollback was disarmed; persistent recovery is operational and unarmed, no restoration reboot occurred, and the first host reboot's verified automatic rollback remains recorded."
   elif [[ "$host_name" == "$live_boot_host" ]]; then
     status="HOLD"
     detail="${live_state#DRIFT|}"
