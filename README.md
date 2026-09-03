@@ -153,6 +153,7 @@ deliberately first-generation-only commands for a pristine fleet host:
 ./scripts/dgx-home status
 ./scripts/dgx-home preflight
 ./scripts/dgx-home activate-headless
+./scripts/dgx-home update-headless
 ```
 
 The activation command snapshots the exact prior user state, arms a ten-minute
@@ -161,6 +162,12 @@ it, and disarms rollback automatically. It has no confirmation phrase, sudo,
 reboot, root role, desktop switch, or Tailscale change. See the
 [first-activation preflight](docs/2026-09-03-home-headless-preflight.md) and
 [successful pilot result](docs/2026-09-03-home-headless-host.md).
+
+Later dependency commits use `update-headless`. It is a no-op when the live
+generation already matches Git; otherwise it snapshots the exact current
+generation, retains the next candidate, arms rollback before mutation, keeps
+the prior generation, and disarms automatically after two postflights. See the
+[generation-update lifecycle](docs/2026-09-03-home-headless-update-lifecycle.md).
 
 ## Dependency updates
 
@@ -233,8 +240,8 @@ The guarded Nix 2.35.2 runtime and first headless Home rollout are complete.
 Tailscale and the three selected graphical application candidates have passed
 explicitly scoped no-link builds; that does not authorize a Chromium sandbox
 role, Tailscale service migration, or desktop activation. Do not run a raw
-`home-manager switch`; the next-generation update transaction still needs its
-own reviewed path. Do not install Hyprland into a system profile, replace the
+`home-manager switch`; use `scripts/dgx-home update-headless` for reviewed
+later-generation changes. Do not install Hyprland into a system profile, replace the
 apt Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 System Manager is currently exact registered/live/boot-linked generation three
 after the first real reboot's verified automatic rollback, the first

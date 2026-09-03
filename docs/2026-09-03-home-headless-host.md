@@ -67,3 +67,8 @@ Both activation postflights and the real rollback verified:
 The retained standalone Codex release tree is intentionally not deleted yet.
 It remains a rollback input while the new launcher is exercised, even though
 it no longer wins command resolution.
+
+Future dependency revisions use the separately disposable-tested
+[`update-headless` lifecycle](2026-09-03-home-headless-update-lifecycle.md).
+That command is a mutation-free no-op while the repository continues to
+evaluate this exact generation.

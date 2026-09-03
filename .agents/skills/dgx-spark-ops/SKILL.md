@@ -440,8 +440,12 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   `../../../docs/2026-09-03-home-headless-host.md`. Real rollback and fresh
   reactivation passed; snapshot `20260903T120519Z` is current authority. The
   active headless generation contains no Home Manager user-systemd units. Do
-  not raw-switch it or reuse the first-generation action for an update; design
-  the guarded next-generation path first.
+  not raw-switch it or reuse the first-generation action for an update. Later
+  generations use `../../../scripts/dgx-home update-headless`; read
+  `../../../docs/2026-09-03-home-headless-update-lifecycle.md`. Its disposable
+  rollback test passed. Preserve its exact live-record check, candidate roots,
+  automatic timer, prior generation, partial-transition rollback, repeated
+  postflight, and follow-up deployment-record reconciliation.
 - Do not add or recommend VS Code, Google Chrome, NIM, NVIDIA AI Enterprise, the
   1Password desktop app, or LM Link unless Armen explicitly changes the current
   non-selection.

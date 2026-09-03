@@ -207,8 +207,10 @@ Desktop-mode root control, Tailscale ownership migration, personal app
 packages, workload roles, and all graphical/desktop/workload activation remain
 deliberately inactive. The first minimal Home transaction passed disposable
 and real rollback, then retained exact generation one; its headless profile
-emits no Home Manager user units. The separately gated pilot Nix runtime update
-to 2.35.2 is complete. Tailscale's package/unit no-link build and the active
+emits no Home Manager user units. Its later-generation operator is also
+implemented and disposable-rollback-tested, with a true no-op when Git already
+matches the live generation. The separately gated pilot Nix runtime update to
+2.35.2 is complete. Tailscale's package/unit no-link build and the active
 Home generation do not authorize a raw `home-manager switch`, a systemd service
 link/restart, or another root-runtime change. Host mode switching and service
 changes require their own later approval.

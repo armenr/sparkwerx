@@ -130,6 +130,7 @@ the same reviewed change.
 | Current Chromium package evidence | [docs/2026-09-03-chromium-package.md](../../../../docs/2026-09-03-chromium-package.md) |
 | First headless Home activation preflight | [docs/2026-09-03-home-headless-preflight.md](../../../../docs/2026-09-03-home-headless-preflight.md) |
 | Retained headless Home host result | [docs/2026-09-03-home-headless-host.md](../../../../docs/2026-09-03-home-headless-host.md) |
+| Guarded later-generation Home lifecycle | [docs/2026-09-03-home-headless-update-lifecycle.md](../../../../docs/2026-09-03-home-headless-update-lifecycle.md) |
 | Guarded Home operator | [scripts/dgx-home](../../../../scripts/dgx-home) |
 | Isaac Sim/Lab on Spark | https://build.nvidia.com/spark/isaac |
 

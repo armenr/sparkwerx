@@ -112,7 +112,7 @@ rebuilt in Phase 1.
 
 | Layer | Item | Intent | Current evidence | Gate before build/install |
 | --- | --- | --- | --- | --- |
-| Fleet base | Exact role | REQUIRED; ACTIVE | Exactly `ncdu`, `lazydocker`, and `devbox` are active through Home generation one; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Update only through a guarded next-generation Home transaction |
+| Fleet base | Exact role | REQUIRED; ACTIVE | Exactly `ncdu`, `lazydocker`, and `devbox` are active through Home generation one; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Update only through `scripts/dgx-home update-headless`; its disposable rollback passed |
 | Fleet base | ncdu | CURRENT; ACTIVE | Stable pin `ncdu` 2.9.2 is current, free, ARM64-available, and visible from the Nix user profile | Keep in the exact fleet base unless deliberately removed |
 | Fleet base | lazydocker | CURRENT; ACTIVE | Stable pin `lazydocker` 0.25.2 is current and active; account groups/socket ACLs are unchanged, so it grants no Docker daemon permission | Do not add Docker group membership, socket ACLs, a service, or autostart |
 | Fleet base | Devbox | CURRENT; NIX-MANAGED ACTIVE | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. The active ARM64 binary resolves through `~/.nix-profile`; its 8-path runtime closure is 65.8 MiB NAR. The old `/usr/local/bin/devbox` copy remains on disk but no longer wins normal command resolution | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; retain the adapter until stock catches up and treat removal of the old copy as separate cleanup |
@@ -162,6 +162,11 @@ Home Manager generation outputs after the 2026-09-03 Codex package build. They a
 store closure sizes, not additional disk-space estimates for another host;
 deduplication and its existing store contents will change incremental cost.
 
+Later headless generations are governed by the
+[guarded update lifecycle](2026-09-03-home-headless-update-lifecycle.md). The
+operator is a true no-op while this table's candidate remains current; it does
+not manufacture a generation merely to prove the path.
+
 Ghostty is the dominant new graphical cost. Its root alone reports roughly
 369 MiB compressed download and 1.1 GiB NAR closure. The dependency list is
 predominantly GTK, GStreamer, audio/video codecs, fonts, and graphics
@@ -198,7 +203,8 @@ autostart. See the [package evidence](2026-09-03-lmstudio-package.md).
 The Devbox build fetched a Go/compiler build toolchain because upstream 0.18.0
 is not yet in the binary cache; those build-time paths are not its runtime
 closure. The output is a 16.1 MiB root NAR with an 8-path, 65.8 MiB closure and
-no service or autostart. No Home Manager profile was installed or activated.
+no service or autostart. That no-link build installed or activated no Home
+Manager profile; the later guarded Home transaction is recorded separately.
 
 The Tailscale source archive is 35,733,085 bytes with published SHA-256
 `a0fa1b154af8c61f862a2259f559f7396d96c0225f4a863eae2333e1546bbe25`.

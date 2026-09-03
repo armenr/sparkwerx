@@ -46,6 +46,14 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   not for updating this active generation.
   User snapshots belong under `inventory/<host>/private/`; `raw/` is the
   root-owned System Manager evidence tree and must not be repurposed.
+- Later headless generations must use `scripts/dgx-home update-headless` after
+  reading `docs/2026-09-03-home-headless-update-lifecycle.md`. It is a no-op
+  when current, otherwise retains the candidate, snapshots both exact profile
+  inventories, arms rollback before activation, preserves the previous
+  generation, and verifies twice before automatic disarming. A reviewed update
+  commit may make `currentCandidate` differ from recorded `observedCandidate`;
+  reconcile the deployment record after successful activation and before a
+  subsequent update. Never bypass this with a raw activation command.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
   `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
   automatic review/approval, and destructive/open-world app tools enabled.

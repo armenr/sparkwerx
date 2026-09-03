@@ -576,3 +576,15 @@ exact 52-path candidate, collision audit, dry run, disposable rollback, real
 rollback, and fresh retained reactivation are recorded in the
 [preflight](2026-09-03-home-headless-preflight.md) and
 [host result](2026-09-03-home-headless-host.md).
+
+Later headless package revisions use `scripts/dgx-home update-headless`. The
+command is deliberately idempotent when Git and the live generation match. For
+a distinct committed candidate it requires the exact recorded live state,
+retains both candidate outputs, snapshots the profile/GC-root inventories,
+arms a ten-minute rollback before activation, keeps the prior generation, and
+passes two postflights before disarming. Its disposable completed and
+partial-transition rollback tests passed without touching the real profile. A dependency-review
+commit may expose `currentCandidate != observedCandidate`; that is a reviewable
+`UPDATE_AVAILABLE` state, not flake-evaluation failure. A successful real
+update must be followed by a deployment-evidence commit before another update.
+See the [update lifecycle](2026-09-03-home-headless-update-lifecycle.md).

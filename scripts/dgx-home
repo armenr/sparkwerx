@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-command, user-scoped Home Manager lifecycle for the first minimal
-# headless activation. The command itself is the intent signal: there is no
-# brittle confirmation phrase. A ten-minute user timer restores the exact
-# pre-Home state if the terminal disappears, and successful postflight disarms
-# it automatically.
+# One-command, user-scoped Home Manager lifecycle for the minimal headless
+# profile. The command itself is the intent signal: there is no brittle
+# confirmation phrase. First activation and later generation updates use
+# distinct, exact snapshots. A ten-minute user timer restores the prior state
+# if the terminal disappears, and successful postflight disarms it
+# automatically.
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -d "$script_dir/../.git" ]]; then
@@ -27,7 +28,9 @@ usage() {
     "Usage: $(basename "$0") status" \
     "       $(basename "$0") preflight" \
     "       $(basename "$0") activate-headless" \
-    "       $(basename "$0") rollback SNAPSHOT_STAMP" >&2
+    "       $(basename "$0") update-headless" \
+    "       $(basename "$0") rollback SNAPSHOT_STAMP" \
+    "       $(basename "$0") rollback-update SNAPSHOT_STAMP" >&2
 }
 
 die() {
@@ -147,6 +150,60 @@ assert_profile_policy() {
     die 'headless profile unexpectedly enables user systemd, XDG, a portal, or the Home Manager CLI'
 }
 
+assert_headless_candidate_structure() {
+  local candidate=$1 home_files
+  local -a leaves expected
+  [[ "$candidate" == /nix/store/*-home-manager-generation ]] ||
+    die 'activation candidate is not an exact Home Manager store output'
+  home_files="$(readlink -e "$candidate/home-files" 2>/dev/null || true)"
+  [[ -x "$candidate/activate" && -d "$home_files" && -d "$candidate/home-path" ]] ||
+    die 'activation candidate is incomplete'
+  mapfile -t leaves < <(find "$home_files" \( -type f -o -type l \) -printf '%P\n' | sort)
+  expected=(.cache/.keep .local/bin/codex .local/state/.keep)
+  [[ "${leaves[*]}" == "${expected[*]}" ]] ||
+    die "managed home files differ from the exact three-file boundary: ${leaves[*]}"
+  ! rg -q '^_iNote .*reloadSystemd' "$candidate/activate" ||
+    die 'headless activation unexpectedly contains Home Manager systemd reload'
+}
+
+manifest_deployment_field() {
+  local field=$1
+  profile_manifest_json | jq -er ".deployments.sparkle01Home.${field} // empty"
+}
+
+capture_symlink_inventory() {
+  local directory=$1 entry name
+  [[ -d "$directory" && ! -L "$directory" ]] ||
+    die "symlink inventory directory is invalid: $directory"
+  while IFS= read -r entry; do
+    [[ -L "$entry" ]] || die "unexpected non-symlink profile entry: $entry"
+    name=${entry##*/}
+    printf '%s\t%s\n' "$name" "$(readlink -- "$entry")"
+  done < <(find "$directory" -mindepth 1 -maxdepth 1 -print | sort)
+}
+
+next_profile_generation_link() {
+  local directory=$1 prefix=$2 entry name number max=0
+  while IFS= read -r entry; do
+    name=${entry##*/}
+    if [[ "$name" =~ ^${prefix}-([0-9]+)-link$ ]]; then
+      number=${BASH_REMATCH[1]}
+      ((number > max)) && max=$number
+    fi
+  done < <(find "$directory" -mindepth 1 -maxdepth 1 -print | sort)
+  printf '%s-%s-link\n' "$prefix" "$((max + 1))"
+}
+
+assert_no_home_rollback_timer() {
+  local active_timers
+  active_timers="$({
+    systemctl --user list-units --state=active --no-legend --plain \
+      'dgx-home-headless-rollback-*.timer' \
+      'dgx-home-headless-update-rollback-*.timer' 2>/dev/null || true
+  } | sed '/^[[:space:]]*$/d')"
+  [[ -z "$active_timers" ]] || die 'a Home rollback timer is already active'
+}
+
 assert_root_lane_unchanged() {
   [[ "$(host_name)" == sparkle-01 ]] || return 0
 
@@ -223,7 +280,6 @@ assert_host_health() {
 
 assert_first_activation_surface() {
   local home candidate home_files user_profiles hm_state launcher config
-  local -a leaves expected
   home="$(home_directory)"
   candidate=$1
   home_files="$(readlink -e "$candidate/home-files")"
@@ -232,14 +288,7 @@ assert_first_activation_surface() {
   launcher=$home/.local/bin/codex
   config=$home/.codex/config.toml
 
-  [[ -x "$candidate/activate" && -d "$home_files" ]] ||
-    die 'activation candidate is incomplete'
-  mapfile -t leaves < <(find "$home_files" \( -type f -o -type l \) -printf '%P\n' | sort)
-  expected=(.cache/.keep .local/bin/codex .local/state/.keep)
-  [[ "${leaves[*]}" == "${expected[*]}" ]] ||
-    die "managed home files differ from the exact three-file boundary: ${leaves[*]}"
-  ! rg -q '^_iNote .*reloadSystemd' "$candidate/activate" ||
-    die 'headless activation unexpectedly contains Home Manager systemd reload'
+  assert_headless_candidate_structure "$candidate"
 
   path_is_absent "$user_profiles/home-manager" ||
     die 'a Home Manager profile already exists; use a future generation-update workflow'
@@ -390,6 +439,96 @@ create_snapshot() {
   created_snapshot=$destination
 }
 
+create_update_snapshot() {
+  local old_candidate=$1 candidate=$2
+  local home host user stamp destination profiles gcroots unit
+  local old_home_path old_home_files old_user_environment home_path home_files
+  local old_hm_selected old_profile_selected new_hm_generation new_profile_generation
+  local expected_user_environment
+  home="$(home_directory)"
+  host="$(host_name)"
+  user="$(user_name)"
+  profiles=$home/.local/state/nix/profiles
+  gcroots=$home/.local/state/home-manager/gcroots
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  destination=$repo_dir/inventory/$host/private/home-manager-headless-update/$stamp
+  unit="dgx-home-headless-update-rollback-${stamp,,}"
+
+  old_home_path="$(readlink -e "$old_candidate/home-path")"
+  old_home_files="$(readlink -e "$old_candidate/home-files")"
+  old_user_environment="$(readlink -e "$profiles/profile")"
+  home_path="$(readlink -e "$candidate/home-path")"
+  home_files="$(readlink -e "$candidate/home-files")"
+  old_hm_selected="$(readlink -- "$profiles/home-manager")"
+  old_profile_selected="$(readlink -- "$profiles/profile")"
+  new_hm_generation="$(next_profile_generation_link "$profiles" home-manager)"
+  new_profile_generation="$(next_profile_generation_link "$profiles" profile)"
+
+  [[ "$old_candidate" != "$candidate" ]] ||
+    die 'generation-update snapshot requires a distinct candidate'
+  [[ "$old_hm_selected" =~ ^home-manager-[0-9]+-link$ &&
+    "$old_profile_selected" =~ ^profile-[0-9]+-link$ ]] ||
+    die 'current generation selection names are invalid'
+  path_is_absent "$profiles/$new_hm_generation" ||
+    die 'computed next Home Manager generation already exists'
+  path_is_absent "$profiles/$new_profile_generation" ||
+    die 'computed next user-profile generation already exists'
+
+  umask 077
+  mkdir -p -- "$destination/backup"
+  chmod 0700 -- "$destination"
+  capture_symlink_inventory "$profiles" >"$destination/profiles.before.tsv"
+  capture_symlink_inventory "$gcroots" >"$destination/gcroots.before.tsv"
+  cp -p -- "$home/.codex/config.toml" "$destination/backup/codex_config"
+  cp -p -- "$home/.codex/config.toml" "$destination/codex-config.expected"
+  "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
+    --apply "$destination/codex-config.expected" >/dev/null
+  capture_protected_units >"$destination/protected-units.before.tsv"
+
+  "$nix_store" --realise "$candidate" \
+    --add-root "$destination/candidate-root" >/dev/null
+  "$nix_env" --profile "$destination/expected-profile" -i "$home_path" >/dev/null
+  expected_user_environment="$(readlink -e "$destination/expected-profile")"
+
+  printf '%s\t%s\n' \
+    format 2 \
+    kind headless-update \
+    snapshot "$destination" \
+    stamp "$stamp" \
+    host "$host" \
+    user "$user" \
+    home "$home" \
+    repo "$repo_dir" \
+    repo_commit "$(git -C "$repo_dir" rev-parse HEAD)" \
+    old_candidate "$old_candidate" \
+    old_home_path "$old_home_path" \
+    old_home_files "$old_home_files" \
+    old_user_environment "$old_user_environment" \
+    old_home_manager_selected "$old_hm_selected" \
+    old_profile_selected "$old_profile_selected" \
+    candidate "$candidate" \
+    home_path "$home_path" \
+    home_files "$home_files" \
+    expected_user_environment "$expected_user_environment" \
+    new_home_manager_generation "$new_hm_generation" \
+    new_profile_generation "$new_profile_generation" \
+    expected_codex_config_sha256 "$(sha256sum "$destination/codex-config.expected" | awk '{print $1}')" \
+    timer_unit "$unit" \
+    user_groups "$(id -G)" \
+    >"$destination/context.tsv"
+
+  cp -p -- "$repo_dir/scripts/dgx-home" "$destination/dgx-home"
+  chmod 0700 -- "$destination/dgx-home"
+  printf 'Snapshot creation completed.\n' >"$destination/SNAPSHOT_COMPLETE"
+  (
+    cd "$destination"
+    find . -type f ! -name SHA256SUMS ! -name RETAINED ! -name ROLLED_BACK \
+      -print0 | sort -z | xargs -0 sha256sum
+  ) >"$destination/SHA256SUMS"
+
+  created_snapshot=$destination
+}
+
 load_snapshot() {
   local snapshot=$1 key value mode owner
   [[ "$snapshot" == /* && -d "$snapshot" && ! -L "$snapshot" ]] ||
@@ -412,7 +551,8 @@ load_snapshot() {
     context[$key]=$value
   done <"$snapshot/context.tsv"
 
-  [[ "${context[format]-}" == 1 ]] || die 'snapshot format is unsupported'
+  [[ "${context[format]-}" == 1 || "${context[format]-}" == 2 ]] ||
+    die 'snapshot format is unsupported'
   [[ "${context[snapshot]-}" == "$snapshot" ]] || die 'snapshot path differs from its context'
   [[ "${context[host]-}" == "$(host_name)" ]] || die 'snapshot host differs from this host'
   [[ "${context[user]-}" == "$(user_name)" ]] || die 'snapshot user differs from this user'
@@ -423,6 +563,37 @@ load_snapshot() {
     die 'snapshot home path is invalid'
   [[ "${context[home_files]-}" == /nix/store/*-home-manager-files ]] ||
     die 'snapshot home-files path is invalid'
+
+  if [[ "${context[format]}" == 2 ]]; then
+    [[ "${context[kind]-}" == headless-update ]] ||
+      die 'generation-update snapshot kind is invalid'
+    [[ "${context[old_candidate]-}" == /nix/store/*-home-manager-generation ]] ||
+      die 'old Home Manager candidate is invalid'
+    [[ "${context[old_home_path]-}" == /nix/store/*-home-manager-path ]] ||
+      die 'old Home Manager path is invalid'
+    [[ "${context[old_home_files]-}" == /nix/store/*-home-manager-files ]] ||
+      die 'old Home Manager files path is invalid'
+    [[ "${context[old_user_environment]-}" == /nix/store/*-user-environment ]] ||
+      die 'old user environment is invalid'
+    [[ "${context[expected_user_environment]-}" == /nix/store/*-user-environment ]] ||
+      die 'expected user environment is invalid'
+    [[ "${context[old_home_manager_selected]-}" =~ ^home-manager-[0-9]+-link$ ]] ||
+      die 'old Home Manager selected link is invalid'
+    [[ "${context[new_home_manager_generation]-}" =~ ^home-manager-[0-9]+-link$ ]] ||
+      die 'new Home Manager generation link is invalid'
+    [[ "${context[old_profile_selected]-}" =~ ^profile-[0-9]+-link$ ]] ||
+      die 'old user-profile selected link is invalid'
+    [[ "${context[new_profile_generation]-}" =~ ^profile-[0-9]+-link$ ]] ||
+      die 'new user-profile generation link is invalid'
+    [[ -r "$snapshot/profiles.before.tsv" && -r "$snapshot/gcroots.before.tsv" ]] ||
+      die 'generation-update symlink inventories are absent'
+    [[ -L "$snapshot/candidate-root" &&
+      "$(readlink -e "$snapshot/candidate-root")" == "${context[candidate]}" ]] ||
+      die 'generation-update candidate retention is not exact'
+    [[ -L "$snapshot/expected-profile" &&
+      "$(readlink -e "$snapshot/expected-profile")" == "${context[expected_user_environment]}" ]] ||
+      die 'expected user-environment retention is not exact'
+  fi
 }
 
 assert_profile_contains_only_home_path() {
@@ -436,6 +607,114 @@ assert_managed_link() {
   local path=$1 expected_path=$2
   [[ -L "$path" && "$(readlink -- "$path")" == "$expected_path" ]] ||
     die "$path is not the exact Home Manager link"
+}
+
+assert_exact_headless_live() {
+  local candidate=$1 home_path=$2 home_files=$3 user_environment=$4
+  local expected_hm_selected=$5 expected_profile_selected=$6
+  local home profiles hm_state command expected_command
+  home="$(home_directory)"
+  profiles=$home/.local/state/nix/profiles
+  hm_state=$home/.local/state/home-manager
+
+  assert_headless_candidate_structure "$candidate"
+  [[ -L "$profiles/home-manager" &&
+    "$(readlink -- "$profiles/home-manager")" == "$expected_hm_selected" ]] ||
+    die 'selected Home Manager generation link is not exact'
+  [[ -L "$profiles/$expected_hm_selected" &&
+    "$(readlink -e "$profiles/$expected_hm_selected")" == "$candidate" ]] ||
+    die 'selected Home Manager generation does not resolve to the expected candidate'
+  [[ -L "$hm_state/gcroots/current-home" &&
+    "$(readlink -e "$hm_state/gcroots/current-home")" == "$candidate" ]] ||
+    die 'Home Manager current-generation root is not exact'
+
+  [[ -L "$profiles/profile" &&
+    "$(readlink -- "$profiles/profile")" == "$expected_profile_selected" ]] ||
+    die 'selected user-profile generation link is not exact'
+  [[ -L "$profiles/$expected_profile_selected" &&
+    "$(readlink -e "$profiles/$expected_profile_selected")" == "$user_environment" ]] ||
+    die 'selected user-profile generation does not resolve to the expected environment'
+  assert_profile_contains_only_home_path "$profiles/profile" "$home_path"
+
+  assert_managed_link "$home/.local/bin/codex" "$home_files/.local/bin/codex"
+  assert_managed_link "$home/.cache/.keep" "$home_files/.cache/.keep"
+  assert_managed_link "$home/.local/state/.keep" "$home_files/.local/state/.keep"
+  path_is_absent "$home/.config/environment.d/10-home-manager.conf" ||
+    die 'headless profile contains an environment.d file'
+  path_is_absent "$home/.config/systemd/user/tray.target" ||
+    die 'headless profile contains tray.target'
+
+  [[ -f "$home/.codex/config.toml" && ! -L "$home/.codex/config.toml" &&
+    -O "$home/.codex/config.toml" ]] ||
+    die 'Codex config is not an owned regular mutable file'
+  for command in codex ncdu lazydocker devbox; do
+    expected_command=$home_path/bin/$command
+    [[ -x "$home/.nix-profile/bin/$command" && -x "$expected_command" &&
+      "$(readlink -e "$home/.nix-profile/bin/$command")" == "$(readlink -e "$expected_command")" ]] ||
+      die "$command does not resolve through the exact Home Manager path"
+  done
+  [[ "$(readlink -e "$home/.local/bin/codex")" == "$(readlink -e "$home_path/bin/codex")" ]] ||
+    die 'the high-precedence Codex launcher does not match the profile package'
+  for command in chromium ghostty home-manager lmstudio zed; do
+    path_is_absent "$home/.nix-profile/bin/$command" ||
+      die "forbidden headless launcher entered the profile: $command"
+  done
+}
+
+smoke_current_manifest_versions() {
+  local home manifest codex_version ncdu_version lazydocker_version devbox_version
+  home="$(home_directory)"
+  manifest="$(profile_manifest_json)"
+  codex_version="$(jq -er '.roles.armenAllModes[] | select(.pname == "codex-cli") | .version' <<<"$manifest")"
+  ncdu_version="$(jq -er '.roles.fleetBase[] | select(.pname == "ncdu") | .version' <<<"$manifest")"
+  lazydocker_version="$(jq -er '.roles.fleetBase[] | select(.pname == "lazydocker") | .version' <<<"$manifest")"
+  devbox_version="$(jq -er '.roles.fleetBase[] | select(.pname == "devbox") | .version' <<<"$manifest")"
+
+  [[ "$("$home/.local/bin/codex" --version 2>/dev/null)" == "codex-cli $codex_version" ]] ||
+    die "Codex $codex_version smoke test failed"
+  "$home/.nix-profile/bin/ncdu" --version | grep -Fx "ncdu $ncdu_version" >/dev/null ||
+    die "ncdu $ncdu_version smoke test failed"
+  "$home/.nix-profile/bin/lazydocker" --version | grep -F "Version: $lazydocker_version" >/dev/null ||
+    die "lazydocker $lazydocker_version smoke test failed"
+  [[ "$("$home/.nix-profile/bin/devbox" version)" == "$devbox_version" ]] ||
+    die "Devbox $devbox_version smoke test failed"
+}
+
+assert_recorded_headless_live() {
+  local home profiles candidate home_path home_files user_environment
+  local declared_host declared_user declared_mode declared_status
+  local hm_selected profile_selected
+  home="$(home_directory)"
+  profiles=$home/.local/state/nix/profiles
+  declared_host="$(manifest_deployment_field hostName)"
+  declared_user="$(manifest_deployment_field userName)"
+  declared_mode="$(manifest_deployment_field mode)"
+  declared_status="$(manifest_deployment_field status)"
+  candidate="$(manifest_deployment_field observedCandidate)"
+  home_files="$(manifest_deployment_field observedHomeFiles)"
+  user_environment="$(manifest_deployment_field observedUserEnvironment)"
+  home_path="$(readlink -e "$candidate/home-path" 2>/dev/null || true)"
+  hm_selected="$(readlink -- "$profiles/home-manager" 2>/dev/null || true)"
+  profile_selected="$(readlink -- "$profiles/profile" 2>/dev/null || true)"
+
+  [[ "$declared_host" == "$(host_name)" && "$declared_user" == "$(user_name)" ]] ||
+    die 'the deployment record belongs to another host or user'
+  [[ "$declared_mode" == headless && "$declared_status" =~ ^active-generation-[a-z0-9-]+-retained$ ]] ||
+    die 'the deployment record is not a retained headless generation'
+  [[ "$(readlink -e "$candidate/home-files" 2>/dev/null || true)" == "$home_files" ]] ||
+    die 'recorded Home files do not match the recorded candidate'
+  [[ "$(readlink -e "$profiles/home-manager" 2>/dev/null || true)" == "$candidate" ]] ||
+    die 'live Home Manager candidate differs from the deployment record'
+  [[ "$(readlink -e "$profiles/profile" 2>/dev/null || true)" == "$user_environment" ]] ||
+    die 'live user environment differs from the deployment record'
+  [[ "$hm_selected" =~ ^home-manager-[0-9]+-link$ &&
+    "$profile_selected" =~ ^profile-[0-9]+-link$ ]] ||
+    die 'selected Home generation names are invalid'
+  capture_symlink_inventory "$profiles" >/dev/null
+  capture_symlink_inventory "$home/.local/state/home-manager/gcroots" >/dev/null
+  assert_exact_headless_live "$candidate" "$home_path" "$home_files" \
+    "$user_environment" "$hm_selected" "$profile_selected"
+  assert_no_home_rollback_timer
 }
 
 run_postflight() {
@@ -517,6 +796,18 @@ arm_timer() {
     --timer-property=AccuracySec=1s \
     /bin/bash "$snapshot/dgx-home" rollback-snapshot "$snapshot"
   timer_is_active "$unit" || die 'automatic Home rollback timer did not arm'
+  pass rollback "$unit.timer is active for ten minutes"
+}
+
+arm_update_timer() {
+  local snapshot=$1 unit=${context[timer_unit]}
+  ! timer_is_active "$unit" || die "rollback timer $unit.timer is already active"
+  systemd-run --user --quiet --collect \
+    --unit="$unit" \
+    --on-active=10m \
+    --timer-property=AccuracySec=1s \
+    /bin/bash "$snapshot/dgx-home" rollback-update-snapshot "$snapshot"
+  timer_is_active "$unit" || die 'automatic Home update rollback timer did not arm'
   pass rollback "$unit.timer is active for ten minutes"
 }
 
@@ -676,6 +967,417 @@ rollback_snapshot() {
   pass rollback 'exact pre-Home profile and launcher state restored; snapshot retained'
 }
 
+assert_inventory_transition() {
+  local inventory=$1 directory=$2 selection=$3 old_selection=$4
+  local new_generation=$5 new_target=$6 phase=$7
+  local peer_new_generation=$8 peer_new_target=$9
+  local peer_selection=${10} peer_old_selection=${11}
+  local name target entry saw_new=false
+  local -A before=()
+
+  while IFS=$'\t' read -r name target; do
+    [[ -n "$name" && -z "${before[$name]+set}" ]] ||
+      die "invalid or duplicate entry in $inventory"
+    before[$name]=$target
+  done <"$inventory"
+  [[ "${before[$selection]-}" == "$old_selection" ]] ||
+    die "$selection pre-state differs from its snapshot"
+  [[ -z "${before[$new_generation]+set}" ]] ||
+    die "$new_generation unexpectedly existed before the update"
+
+  while IFS= read -r entry; do
+    [[ -L "$entry" ]] || die "unexpected non-symlink profile entry: $entry"
+    name=${entry##*/}
+    target="$(readlink -- "$entry")"
+    if [[ "$name" == "$selection" ]]; then
+      if [[ "$phase" == complete ]]; then
+        [[ "$target" == "$new_generation" ]] ||
+          die "$selection does not select the new generation"
+      else
+        [[ "$target" == "$old_selection" || "$target" == "$new_generation" ]] ||
+          die "$selection points outside the old/new update boundary"
+      fi
+    elif [[ "$name" == "$peer_selection" ]]; then
+      if [[ "$phase" == complete ]]; then
+        [[ "$target" == "$peer_new_generation" ]] ||
+          die "$peer_selection does not select the new generation"
+      else
+        [[ "$target" == "$peer_old_selection" || "$target" == "$peer_new_generation" ]] ||
+          die "$peer_selection points outside the old/new update boundary"
+      fi
+    elif [[ "$name" == "$new_generation" ]]; then
+      [[ "$target" == "$new_target" ]] ||
+        die "$new_generation does not point to the exact candidate"
+      saw_new=true
+    elif [[ "$name" == "$peer_new_generation" ]]; then
+      [[ "$target" == "$peer_new_target" ]] ||
+        die "$peer_new_generation does not point to its exact update target"
+    elif [[ -n "${before[$name]+set}" ]]; then
+      [[ "$target" == "${before[$name]}" ]] ||
+        die "pre-existing generation $name changed during the update"
+    else
+      die "unexpected generation appeared during the update: $name"
+    fi
+  done < <(find "$directory" -mindepth 1 -maxdepth 1 -print | sort)
+
+  for name in "${!before[@]}"; do
+    [[ -L "$directory/$name" ]] ||
+      die "pre-existing generation disappeared during the update: $name"
+  done
+  if [[ "$phase" == complete ]]; then
+    [[ "$saw_new" == true ]] || die "$new_generation was not created"
+  fi
+}
+
+assert_gcroot_transition() {
+  local inventory=$1 directory=$2 old_candidate=$3 candidate=$4 phase=$5
+  local name target entry
+  local -A before=()
+
+  while IFS=$'\t' read -r name target; do
+    [[ -n "$name" && -z "${before[$name]+set}" ]] ||
+      die "invalid or duplicate entry in $inventory"
+    before[$name]=$target
+  done <"$inventory"
+  [[ "${before[current-home]-}" == "$old_candidate" ]] ||
+    die 'current-home pre-state differs from its snapshot'
+
+  while IFS= read -r entry; do
+    [[ -L "$entry" ]] || die "unexpected non-symlink Home GC root: $entry"
+    name=${entry##*/}
+    target="$(readlink -- "$entry")"
+    if [[ "$name" == current-home ]]; then
+      if [[ "$phase" == complete ]]; then
+        [[ "$target" == "$candidate" ]] ||
+          die 'current-home does not retain the new candidate'
+      else
+        [[ "$target" == "$old_candidate" || "$target" == "$candidate" ]] ||
+          die 'current-home points outside the old/new update boundary'
+      fi
+    elif [[ "$name" == new-home ]]; then
+      [[ "$phase" == partial && "$target" == "$candidate" ]] ||
+        die 'unexpected temporary Home GC root'
+    elif [[ -n "${before[$name]+set}" ]]; then
+      [[ "$target" == "${before[$name]}" ]] ||
+        die "pre-existing Home GC root $name changed during the update"
+    else
+      die "unexpected Home GC root appeared during the update: $name"
+    fi
+  done < <(find "$directory" -mindepth 1 -maxdepth 1 -print | sort)
+
+  for name in "${!before[@]}"; do
+    [[ -L "$directory/$name" ]] ||
+      die "pre-existing Home GC root disappeared during the update: $name"
+  done
+}
+
+assert_transition_link() {
+  local path=$1 old_target=$2 new_target=$3 phase=$4
+  if path_is_absent "$path"; then
+    [[ "$phase" == partial ]] || die "managed link is absent after update: $path"
+    return
+  fi
+  [[ -L "$path" ]] || die "managed path became a non-symlink: $path"
+  if [[ "$old_target" == "$new_target" ]]; then
+    [[ "$(readlink -- "$path")" == "$new_target" ]] ||
+      die "managed link differs from the unchanged old/new target: $path"
+    return
+  fi
+  case "$(readlink -- "$path")" in
+    "$old_target")
+      [[ "$phase" == partial ]] || die "managed link still points to the old generation: $path"
+      ;;
+    "$new_target") ;;
+    *) die "managed link points outside the old/new update boundary: $path" ;;
+  esac
+}
+
+validate_update_transition_surface() {
+  local phase=$1 home profiles gcroots
+  home=${context[home]}
+  profiles=$home/.local/state/nix/profiles
+  gcroots=$home/.local/state/home-manager/gcroots
+  [[ "$phase" == partial || "$phase" == complete ]] ||
+    die 'invalid update-transition validation phase'
+
+  assert_inventory_transition \
+    "${context[snapshot]}/profiles.before.tsv" "$profiles" \
+    home-manager "${context[old_home_manager_selected]}" \
+    "${context[new_home_manager_generation]}" "${context[candidate]}" "$phase" \
+    "${context[new_profile_generation]}" "${context[expected_user_environment]}" \
+    profile "${context[old_profile_selected]}"
+  assert_inventory_transition \
+    "${context[snapshot]}/profiles.before.tsv" "$profiles" \
+    profile "${context[old_profile_selected]}" \
+    "${context[new_profile_generation]}" "${context[expected_user_environment]}" "$phase" \
+    "${context[new_home_manager_generation]}" "${context[candidate]}" \
+    home-manager "${context[old_home_manager_selected]}"
+  assert_gcroot_transition \
+    "${context[snapshot]}/gcroots.before.tsv" "$gcroots" \
+    "${context[old_candidate]}" "${context[candidate]}" "$phase"
+
+  assert_transition_link "$home/.local/bin/codex" \
+    "${context[old_home_files]}/.local/bin/codex" \
+    "${context[home_files]}/.local/bin/codex" "$phase"
+  assert_transition_link "$home/.cache/.keep" \
+    "${context[old_home_files]}/.cache/.keep" \
+    "${context[home_files]}/.cache/.keep" "$phase"
+  assert_transition_link "$home/.local/state/.keep" \
+    "${context[old_home_files]}/.local/state/.keep" \
+    "${context[home_files]}/.local/state/.keep" "$phase"
+
+  path_is_absent "$home/.config/environment.d/10-home-manager.conf" ||
+    die 'headless update created an environment.d file'
+  path_is_absent "$home/.config/systemd/user/tray.target" ||
+    die 'headless update created tray.target'
+  [[ -f "$home/.codex/config.toml" && ! -L "$home/.codex/config.toml" &&
+    -O "$home/.codex/config.toml" ]] ||
+    die 'Codex config left the owned regular-file boundary'
+}
+
+atomic_symlink() {
+  local target=$1 path=$2 temporary=$2.dgx-home-$$
+  path_is_absent "$temporary" || die "temporary symlink already exists: $temporary"
+  ln -s -- "$target" "$temporary"
+  mv -Tf -- "$temporary" "$path"
+  [[ -L "$path" && "$(readlink -- "$path")" == "$target" ]] ||
+    die "could not atomically select $target at $path"
+}
+
+restore_managed_update_link() {
+  local path=$1 old_target=$2 new_target=$3
+  if [[ -L "$path" && "$(readlink -- "$path")" == "$old_target" ]]; then
+    return
+  fi
+  if ! path_is_absent "$path"; then
+    [[ -L "$path" && "$(readlink -- "$path")" == "$new_target" ]] ||
+      die "refusing to replace drifted managed path during rollback: $path"
+    unlink -- "$path"
+  fi
+  ln -s -- "$old_target" "$path"
+}
+
+unlink_exact_update_link() {
+  local path=$1 expected_target=$2
+  path_is_absent "$path" && return
+  [[ -L "$path" && "$(readlink -- "$path")" == "$expected_target" ]] ||
+    die "refusing to remove unexpected update link: $path"
+  unlink -- "$path"
+}
+
+assert_inventory_exact() {
+  local inventory=$1 directory=$2 observed expected
+  observed="$(capture_symlink_inventory "$directory")"
+  expected="$(cat "$inventory")"
+  [[ "$observed" == "$expected" ]] ||
+    die "symlink inventory was not restored exactly: $directory"
+}
+
+restore_update_config() {
+  local snapshot=$1 config=${context[home]}/.codex/config.toml
+  local current_sha expected_sha before_sha
+  expected_sha=${context[expected_codex_config_sha256]}
+  before_sha="$(sha256sum "$snapshot/backup/codex_config" | awk '{print $1}')"
+
+  if path_is_absent "$config"; then
+    cp -p -- "$snapshot/backup/codex_config" "$config"
+    return
+  fi
+  [[ -f "$config" && ! -L "$config" && -O "$config" ]] ||
+    die 'refusing to replace a non-regular Codex config during rollback'
+  current_sha="$(sha256sum "$config" | awk '{print $1}')"
+  if [[ "$current_sha" == "$expected_sha" && "$current_sha" != "$before_sha" ]]; then
+    cp -p -- "$snapshot/backup/codex_config" "$config"
+  elif [[ "$current_sha" != "$before_sha" && "$current_sha" != "$expected_sha" ]]; then
+    warn 'Codex config changed after update; preserving the newer mutable file'
+  fi
+}
+
+rollback_update_snapshot() {
+  local snapshot=$1 home profiles gcroots unit current_units
+  require_unprivileged
+  load_snapshot "$snapshot"
+  [[ "${context[format]}" == 2 ]] || die 'snapshot is not a generation update'
+  home=${context[home]}
+  profiles=$home/.local/state/nix/profiles
+  gcroots=$home/.local/state/home-manager/gcroots
+  unit=${context[timer_unit]}
+
+  validate_update_transition_surface partial
+  disarm_timer "$unit"
+
+  restore_managed_update_link "$home/.local/bin/codex" \
+    "${context[old_home_files]}/.local/bin/codex" \
+    "${context[home_files]}/.local/bin/codex"
+  restore_managed_update_link "$home/.cache/.keep" \
+    "${context[old_home_files]}/.cache/.keep" \
+    "${context[home_files]}/.cache/.keep"
+  restore_managed_update_link "$home/.local/state/.keep" \
+    "${context[old_home_files]}/.local/state/.keep" \
+    "${context[home_files]}/.local/state/.keep"
+  restore_update_config "$snapshot"
+
+  atomic_symlink "${context[old_profile_selected]}" "$profiles/profile"
+  atomic_symlink "${context[old_home_manager_selected]}" "$profiles/home-manager"
+  atomic_symlink "${context[old_candidate]}" "$gcroots/current-home"
+  unlink_exact_update_link "$gcroots/new-home" "${context[candidate]}"
+  unlink_exact_update_link "$profiles/${context[new_profile_generation]}" \
+    "${context[expected_user_environment]}"
+  unlink_exact_update_link "$profiles/${context[new_home_manager_generation]}" \
+    "${context[candidate]}"
+
+  assert_inventory_exact "$snapshot/profiles.before.tsv" "$profiles"
+  assert_inventory_exact "$snapshot/gcroots.before.tsv" "$gcroots"
+  assert_exact_headless_live \
+    "${context[old_candidate]}" "${context[old_home_path]}" \
+    "${context[old_home_files]}" "${context[old_user_environment]}" \
+    "${context[old_home_manager_selected]}" "${context[old_profile_selected]}"
+  [[ "$(id -G)" == "${context[user_groups]}" ]] ||
+    die 'account group membership changed during Home update rollback'
+  current_units="$(capture_protected_units)"
+  [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
+    die 'a protected factory/access service restarted during Home update rollback'
+  assert_host_health
+  [[ -z "$repo_dir" ]] || assert_sparkle_root_state
+  printf 'Rollback completed.\n' >"$snapshot/ROLLED_BACK"
+  pass rollback 'previous exact headless Home generation restored; failed candidate history removed'
+}
+
+run_update_postflight() {
+  local snapshot=$1 home profiles current_config_sha current_units
+  load_snapshot "$snapshot"
+  [[ "${context[format]}" == 2 ]] || die 'snapshot is not a generation update'
+  home=${context[home]}
+  profiles=$home/.local/state/nix/profiles
+
+  validate_update_transition_surface complete
+  assert_exact_headless_live \
+    "${context[candidate]}" "${context[home_path]}" "${context[home_files]}" \
+    "${context[expected_user_environment]}" \
+    "${context[new_home_manager_generation]}" "${context[new_profile_generation]}"
+  current_config_sha="$(sha256sum "$home/.codex/config.toml" | awk '{print $1}')"
+  [[ "$current_config_sha" == "${context[expected_codex_config_sha256]}" ]] ||
+    die 'Codex config does not match the snapshot-derived update policy'
+  "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
+    --check "$home/.codex/config.toml" >/dev/null ||
+    die 'Codex permission policy check failed'
+  smoke_current_manifest_versions
+  [[ "$(id -G)" == "${context[user_groups]}" ]] ||
+    die 'account group membership changed during Home update'
+  current_units="$(capture_protected_units)"
+  [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
+    die 'a protected factory/access service restarted during Home update'
+  assert_host_health
+  assert_sparkle_root_state
+  pass postflight 'new exact headless Home generation is active; prior generation, root lane, services, and graphical boundary are unchanged'
+}
+
+run_update_preflight() {
+  require_unprivileged
+  require_repository
+  require_clean_repository
+
+  local candidate old_candidate declared_candidate dry_run
+  candidate="$(activation_candidate)"
+  old_candidate="$(readlink -e "$(home_directory)/.local/state/nix/profiles/home-manager" 2>/dev/null || true)"
+  declared_candidate="$(manifest_deployment_field currentCandidate)"
+  info live_candidate "$old_candidate"
+  info repository_candidate "$candidate"
+
+  [[ "$declared_candidate" == "$candidate" ]] ||
+    die 'deployment manifest currentCandidate differs from the evaluated Home configuration'
+  "$nix_bin" "${nix_args[@]}" build --no-link \
+    '.#checks.aarch64-linux.home-sparkle-01' \
+    '.#checks.aarch64-linux.profile-policy' \
+    '.#checks.aarch64-linux.codex-cli-policy' \
+    '.#checks.aarch64-linux.devbox-policy'
+  assert_profile_policy
+  assert_root_lane_unchanged
+  assert_recorded_headless_live
+  assert_host_health
+  assert_sparkle_root_state
+
+  if [[ "$candidate" == "$old_candidate" ]]; then
+    "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
+      --check "$(home_directory)/.codex/config.toml" >/dev/null ||
+      die 'Codex permission policy check failed'
+    smoke_current_manifest_versions
+    pass preflight 'live headless Home generation already matches the repository; no update is needed'
+    return
+  fi
+
+  assert_headless_candidate_structure "$candidate"
+  dry_run="$(DRY_RUN=1 VERBOSE=1 "$candidate/activate" 2>&1)" || {
+    printf '%s\n' "$dry_run" >&2
+    die 'Home Manager update dry run failed'
+  }
+  grep -F "Would reconcile Armen's non-secret Codex permission defaults" <<<"$dry_run" >/dev/null ||
+    die 'update dry run did not keep Codex reconciliation non-mutating'
+  ! grep -F 'Activating reloadSystemd' <<<"$dry_run" >/dev/null ||
+    die 'update dry run contains a user-systemd activation phase'
+  pass preflight 'distinct headless candidate is built; current generation, dry run, root lane, and service boundary are exact'
+}
+
+update_headless() {
+  run_update_preflight
+
+  local home old_candidate candidate snapshot unit activation_status
+  local postflight_status rollback_status
+  home="$(home_directory)"
+  old_candidate="$(readlink -e "$home/.local/state/nix/profiles/home-manager")"
+  candidate="$(activation_candidate)"
+  if [[ "$candidate" == "$old_candidate" ]]; then
+    pass update 'already current; no snapshot, profile generation, timer, or host state changed'
+    return
+  fi
+
+  create_update_snapshot "$old_candidate" "$candidate"
+  snapshot=$created_snapshot
+  load_snapshot "$snapshot"
+  unit=${context[timer_unit]}
+  info snapshot "$snapshot"
+  info scope 'user profile only; prior generation retained; no sudo, root role, service restart, desktop switch, or Tailscale migration'
+  arm_update_timer "$snapshot"
+
+  set +e
+  "$candidate/activate"
+  activation_status=$?
+  set -e
+  if [[ "$activation_status" -ne 0 ]]; then
+    warn "Home Manager update failed with status $activation_status; restoring the prior generation now"
+    set +e
+    rollback_update_snapshot "$snapshot"
+    rollback_status=$?
+    set -e
+    [[ "$rollback_status" -eq 0 ]] ||
+      die 'Home Manager update and its immediate rollback both failed; inspect the armed snapshot evidence'
+    exit "$activation_status"
+  fi
+
+  set +e
+  run_update_postflight "$snapshot"
+  postflight_status=$?
+  set -e
+  if [[ "$postflight_status" -ne 0 ]]; then
+    warn 'Home Manager update postflight failed; restoring the prior generation now'
+    set +e
+    rollback_update_snapshot "$snapshot"
+    rollback_status=$?
+    set -e
+    [[ "$rollback_status" -eq 0 ]] ||
+      die 'Home Manager update postflight and its immediate rollback both failed; inspect the snapshot evidence'
+    exit "$postflight_status"
+  fi
+
+  disarm_timer "$unit"
+  run_update_postflight "$snapshot"
+  printf 'Update retained.\n' >"$snapshot/RETAINED"
+  pass update 'new headless Home generation retained; prior generation kept and automatic rollback disarmed'
+  printf 'SNAPSHOT_STAMP=%s\n' "${context[stamp]}"
+  printf 'ROLLBACK=%s rollback-update %s\n' "$repo_dir/scripts/dgx-home" "${context[stamp]}"
+  printf 'RECORD_DEPLOYMENT=update the committed deployment evidence before the next Home update\n'
+}
+
 activate_headless() {
   run_preflight
 
@@ -760,6 +1462,10 @@ case "$action" in
     [[ "$#" -eq 1 ]] || { usage; exit 2; }
     activate_headless
     ;;
+  update-headless)
+    [[ "$#" -eq 1 ]] || { usage; exit 2; }
+    update_headless
+    ;;
   rollback)
     [[ "$#" -eq 2 ]] || { usage; exit 2; }
     [[ "$2" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || die 'snapshot stamp must be YYYYMMDDTHHMMSSZ'
@@ -767,9 +1473,20 @@ case "$action" in
     require_repository
     rollback_snapshot "$repo_dir/inventory/$(host_name)/private/home-manager-headless/$2"
     ;;
+  rollback-update)
+    [[ "$#" -eq 2 ]] || { usage; exit 2; }
+    [[ "$2" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || die 'snapshot stamp must be YYYYMMDDTHHMMSSZ'
+    require_unprivileged
+    require_repository
+    rollback_update_snapshot "$repo_dir/inventory/$(host_name)/private/home-manager-headless-update/$2"
+    ;;
   rollback-snapshot)
     [[ "$#" -eq 2 ]] || { usage; exit 2; }
     rollback_snapshot "$2"
+    ;;
+  rollback-update-snapshot)
+    [[ "$#" -eq 2 ]] || { usage; exit 2; }
+    rollback_update_snapshot "$2"
     ;;
   *)
     usage

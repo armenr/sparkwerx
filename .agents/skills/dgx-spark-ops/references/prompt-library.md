@@ -199,10 +199,10 @@ armed, and do not change any root service, desktop mode, or Tailscale ownership.
 ```
 
 ```text
-$dgx-spark-ops Design and disposable-test the next-generation Home update path.
-Build on scripts/dgx-home, use the current generation as the rollback target,
-reject raw home-manager switch, preserve mutable user data and the zero-unit
-headless boundary, and stop before a live generation change.
+$dgx-spark-ops Audit the guarded next-generation Home update path. Read
+docs/2026-09-03-home-headless-update-lifecycle.md, run its disposable rollback
+test, verify update-headless is a true no-op when current, reject raw
+home-manager switch, and do not create a live generation merely for the audit.
 ```
 
 ```text

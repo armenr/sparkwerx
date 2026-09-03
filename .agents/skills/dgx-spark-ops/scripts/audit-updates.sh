@@ -211,6 +211,7 @@ compare_branch_input() {
 audit_home_deployment() {
   local manifest declared_host declared_user declared_status declared_candidate
   local current_candidate live_candidate declared_environment live_environment
+  local declared_home_files home
   local status detail active_timers
   manifest="$(
     nix --extra-experimental-features "nix-command flakes" \
@@ -230,6 +231,7 @@ audit_home_deployment() {
   declared_candidate="$(jq -r '.deployments.sparkle01Home.observedCandidate // empty' <<<"$manifest")"
   current_candidate="$(jq -r '.deployments.sparkle01Home.currentCandidate // empty' <<<"$manifest")"
   declared_environment="$(jq -r '.deployments.sparkle01Home.observedUserEnvironment // empty' <<<"$manifest")"
+  declared_home_files="$(jq -r '.deployments.sparkle01Home.observedHomeFiles // empty' <<<"$manifest")"
 
   if [[ "$(hostname -s)" != "$declared_host" || "$(id -un)" != "$declared_user" ]]; then
     emit "HOME_PROFILE" "repository/Home Manager" "headless deployment" \
@@ -242,23 +244,35 @@ audit_home_deployment() {
 
   live_candidate="$(readlink -e "$HOME/.local/state/nix/profiles/home-manager" 2>/dev/null || true)"
   live_environment="$(readlink -e "$HOME/.local/state/nix/profiles/profile" 2>/dev/null || true)"
+  home=$HOME
   active_timers="$(
     systemctl --user list-units --state=active --no-legend --plain \
-      'dgx-home-headless-rollback-*.timer' 2>/dev/null |
+      'dgx-home-headless-rollback-*.timer' \
+      'dgx-home-headless-update-rollback-*.timer' 2>/dev/null |
       sed '/^[[:space:]]*$/d' || true
   )"
 
-  if [[ "$declared_status" == active-generation-one-retained &&
-        "$declared_candidate" == "$current_candidate" &&
+  if [[ "$declared_status" =~ ^active-generation-[a-z0-9-]+-retained$ &&
         "$live_candidate" == "$declared_candidate" &&
         "$live_environment" == "$declared_environment" &&
         -z "$active_timers" &&
+        -L "$home/.local/bin/codex" &&
+        "$(readlink -- "$home/.local/bin/codex")" == "$declared_home_files/.local/bin/codex" &&
+        -L "$home/.cache/.keep" &&
+        "$(readlink -- "$home/.cache/.keep")" == "$declared_home_files/.cache/.keep" &&
+        -L "$home/.local/state/.keep" &&
+        "$(readlink -- "$home/.local/state/.keep")" == "$declared_home_files/.local/state/.keep" &&
         ! -e "$HOME/.config/environment.d/10-home-manager.conf" &&
         ! -L "$HOME/.config/environment.d/10-home-manager.conf" &&
         ! -e "$HOME/.config/systemd/user/tray.target" &&
         ! -L "$HOME/.config/systemd/user/tray.target" ]]; then
-    status="CURRENT"
-    detail="Exact headless generation one and user environment match the deployment record; zero Home Manager user-systemd artifacts remain and no rollback timer is armed."
+    if [[ "$declared_candidate" == "$current_candidate" ]]; then
+      status="CURRENT"
+      detail="Exact retained headless generation and user environment match the deployment record and repository; zero Home Manager user-systemd artifacts remain and no rollback timer is armed."
+    else
+      status="UPDATE_AVAILABLE"
+      detail="The live generation remains exact against its retained deployment record, while the committed repository evaluates a distinct reviewed candidate; use the guarded update transaction after review."
+    fi
   else
     status="DRIFT"
     detail="Live Home profile, current candidate, user environment, headless unit boundary, or rollback state differs from the retained deployment record."

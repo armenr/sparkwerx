@@ -211,7 +211,9 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   fleet base plus Armen's Codex overlay and no Home Manager user-systemd units;
   GDM/host desktop state remains factory GNOME. Snapshot
   `20260903T120519Z` and `docs/2026-09-03-home-headless-host.md` are current
-  authority;
+  authority. Later reviewed dependency commits use guarded
+  `scripts/dgx-home update-headless`; its disposable rollback passed and its
+  current-candidate path is a mutation-free no-op;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
 - the pilot user is not currently a member of the Docker group;
 - Tailscale `1.102.3` was manually installed from Tailscale's official apt

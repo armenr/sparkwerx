@@ -304,7 +304,10 @@ visible launcher are now owned by Armen's active all-modes Nix overlay. Report
 the older standalone tree as retained rollback input, not the active launcher;
 never remove it during a read-only audit. The first Home activation, real
 rollback, and fresh reactivation passed through `scripts/dgx-home`; a future
-generation update needs a new guarded path rather than a raw switch.
+generation update uses `scripts/dgx-home update-headless`, never a raw switch.
+Report `UPDATE_AVAILABLE` only when the live candidate, user environment,
+managed links, zero-unit boundary, and unarmed rollback state still match the
+recorded deployment while the evaluated repository candidate differs.
 Tailscale is not in this category; it has its own optional fleet-access
 migration and update policy above.
 

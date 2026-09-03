@@ -109,6 +109,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.home-graphical \
   .#checks.aarch64-linux.home-hyprland \
   .#checks.aarch64-linux.home-hyprland-with-portal \
+  .#checks.aarch64-linux.home-update-rollback-fixture \
   .#checks.aarch64-linux.chromium-package \
   .#checks.aarch64-linux.chromium-policy \
   .#checks.aarch64-linux.codex-cli-package \
@@ -137,6 +138,7 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   --no-link
 
 ./scripts/test-dgx-home-rollback.sh
+./scripts/test-dgx-home-update-rollback.sh
 
 printf '%s\n' \
   "Root-canary activation/rollback test remains a separate reviewed gate:" \

@@ -379,6 +379,23 @@
         }
       );
 
+      # Disposable second-generation fixture for the user-profile rollback
+      # test. It preserves the exact headless package/file/service boundary and
+      # changes only an inert session-variable payload so the activation output
+      # is guaranteed to differ from the live candidate.
+      homeUpdateRollbackTestProfile = mkHome (
+        pilot
+        // {
+          profileModules = [
+            {
+              dgx.desktop.mode = lib.mkForce "headless";
+              dgx.desktop.hyprland.portal.enable = lib.mkForce false;
+              home.sessionVariables.DGX_HOME_UPDATE_ROLLBACK_TEST = "1";
+            }
+          ];
+        }
+      );
+
       graphicalProfile = mkHome (
         pilot
         // {
@@ -1276,7 +1293,10 @@
         assert personalGraphicalCandidatesAbsentFrom graphicalProfile;
         assert personalGraphicalCandidatesAbsentFrom hyprlandProfile;
         assert personalGraphicalCandidatesAbsentFrom hyprlandPortalProfile;
-        assert profileManifests.deployments.sparkle01Home.matchesCurrent;
+        # A reviewed dependency-update commit is allowed to make the desired
+        # candidate differ from the recorded live deployment. The guarded Home
+        # transaction, not flake evaluation, owns that later state transition.
+        assert lib.hasPrefix "/nix/store/" profileManifests.deployments.sparkle01Home.observedCandidate;
         assert !profileManifests.deployments.sparkle01Home.userSystemdEnabled;
         assert !profileManifests.deployments.sparkle01Home.rollbackArmed;
         assert profileManifests.deployments.sparkle01Home.realRollbackPassed;
@@ -2337,6 +2357,7 @@
         home-graphical = graphicalProfile.activationPackage;
         home-hyprland = hyprlandProfile.activationPackage;
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
+        home-update-rollback-fixture = homeUpdateRollbackTestProfile.activationPackage;
         lmstudio-package = lmstudioPackage;
         lmstudio-policy = lmstudioPolicyCheck;
         profile-policy = profilePolicyCheck;

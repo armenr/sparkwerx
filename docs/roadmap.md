@@ -123,16 +123,22 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Activate only the corrected exact base plus Armen's all-modes Codex layer
 - [x] Roll the real first generation back to exact pre-Home state, then repeat
       the guarded activation and retain it
+- [x] Implement the later-generation `update-headless` path with current-state
+      no-op behavior, rollback-before-mutation, and prior-generation retention
+- [x] Pass a disposable completed-update rollback without touching the live
+      profile
 
 The private snapshot, automatic rollback, exact postflight, disposable test,
 real rollback, and fresh reactivation all passed through `scripts/dgx-home`.
 Snapshot `20260903T120519Z` is the retained current activation authority; see
 the [host result](2026-09-03-home-headless-host.md).
+The [generation-update lifecycle](2026-09-03-home-headless-update-lifecycle.md)
+is now ready for the first future dependency change; no live update was needed.
 
 ## Phase 5: desktop-mode pilot
 
 - [x] Build-test pinned Hyprland on `aarch64-linux`
-- [ ] Review and build-test current Ghostty as the shared graphical terminal
+- [x] Review and build-test current Ghostty as the shared graphical terminal
 - [ ] Implement and inspect `headless` and factory `gnome` transitions first
 - [ ] Validate the NVIDIA userspace bridge for Hyprland
 - [ ] Review Hyprland's portal as an independent closure
