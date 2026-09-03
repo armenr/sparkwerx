@@ -24,6 +24,15 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Keep Armen's graphical apps in the named `armen` overlay. Do not add VS Code,
   NIM, or NVIDIA AI Enterprise; Chromium and Zed are the selected browser and
   editor.
+- Zed 1.18.0 and LM Studio 0.4.23-1 are exact official ARM64 packages with
+  passed closure-policy checks, but remain candidate-only and absent from every
+  Home profile. Read `docs/2026-09-03-zed-package.md` and
+  `docs/2026-09-03-lmstudio-package.md` before changing them. Keep
+  Zed's self-update disabled through its documented wrapper. Do not patch LM
+  Studio's bundled Deno `lms` binary: it must stay byte-identical and use the
+  factory loader. Its vendor Electron launcher falls back to `--no-sandbox`
+  because Ubuntu AppArmor blocks Bubblewrap's user namespace; never weaken the
+  host policy or activate the package without resolving that explicit gate.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
   `approval_policy = "never"`, `default_permissions = ":danger-full-access"`,
   automatic review/approval, and destructive/open-world app tools enabled.

@@ -418,6 +418,13 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - Keep ChatGPT, Chromium, both 1Password browser extensions, Zed, and LM Studio
   in Armen's graphical overlay. Keep Isaac and Omniverse robotics/simulation
   tooling in an independent workload role.
+- The exact current Zed and LM Studio ARM64 packages are built candidates, not
+  active profile members. Read `../../../docs/2026-09-03-zed-package.md` and
+  `../../../docs/2026-09-03-lmstudio-package.md` before updating or wiring
+  them. Preserve Zed's updater-disable wrapper and LM Studio's byte-identical
+  Deno CLI. Treat LM Studio's vendor Electron `--no-sandbox` fallback under the
+  factory AppArmor user-namespace restriction as an unresolved activation gate;
+  never weaken the host policy implicitly.
 - Keep Codex CLI in Armen's all-modes overlay. Update it only through
   `scripts/update-codex.sh`, keep `check_for_update_on_startup = false`, and
   preserve mutable auth/plugin/MCP/history state plus the old standalone tree

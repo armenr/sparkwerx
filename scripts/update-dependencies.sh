@@ -98,6 +98,8 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
 
 ./scripts/update-tailscale.sh --apply
 ./scripts/update-codex.sh --apply
+./scripts/update-lmstudio.sh --apply
+./scripts/update-zed.sh --apply
 
 "${nix_command[@]}" fmt
 ./scripts/check.sh
@@ -109,6 +111,10 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#checks.aarch64-linux.home-hyprland-with-portal \
   .#checks.aarch64-linux.codex-cli-package \
   .#checks.aarch64-linux.codex-cli-policy \
+  .#checks.aarch64-linux.lmstudio-package \
+  .#checks.aarch64-linux.lmstudio-policy \
+  .#checks.aarch64-linux.zed-editor-package \
+  .#checks.aarch64-linux.zed-editor-policy \
   .#checks.aarch64-linux.profile-policy \
   .#checks.aarch64-linux.root-manager-policy \
   .#checks.aarch64-linux.root-system-canary \
@@ -120,9 +126,11 @@ printf '%s\n' "Root lane remained byte-for-byte identity-stable."
   .#devbox \
   .#codex-cli \
   .#hyprland \
+  .#lmstudio \
   .#tailscale \
   .#tailscaled-unit \
   .#xdg-desktop-portal-hyprland \
+  .#zed-editor \
   --no-link
 
 printf '%s\n' \

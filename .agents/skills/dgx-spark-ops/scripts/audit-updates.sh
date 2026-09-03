@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# jq programs below intentionally keep their own `$node` variables literal.
+# shellcheck disable=SC2016
 set -uo pipefail
 
 usage() {
@@ -207,7 +209,7 @@ compare_branch_input() {
 }
 
 audit_selected_nix_packages() {
-  local manifest role pname component current candidate status source detail
+  local manifest component current candidate status source detail
   local tag location
   local -a nix_args
 
@@ -368,7 +370,7 @@ audit_selected_nix_packages() {
     "NIX_PACKAGE" "Armen candidate overlay" "Zed" \
     "$current" "$candidate" \
     "https://github.com/zed-industries/zed/releases" \
-    "The apps lane is already at branch head; pin the exact upstream release, inspect intervening security notes, and validate ARM64 Vulkan/Wayland/portal behavior before wiring it."
+    "Run scripts/update-zed.sh, verify the published ARM64 digest/tag commit, rebuild the package/policy, and validate factory-GNOME Vulkan/portal behavior before wiring it."
 
   current="$(package_version personalGraphicalCandidates lmstudio)"
   candidate=""
@@ -389,7 +391,7 @@ audit_selected_nix_packages() {
   emit_package_comparison \
     "NIX_PACKAGE" "Armen candidate overlay" "LM Studio desktop" \
     "$current" "$candidate" "https://lmstudio.ai/download" \
-    "The apps lane is already at branch head; add a narrow exact current-release package, preserve the lmstudio-only unfree allowlist, inspect the ARM64 closure/model paths, and validate GB10 acceleration before wiring it."
+    "Run scripts/update-lmstudio.sh, rebuild the exact vendor AppImage adapter/policy, preserve the lmstudio-only unfree allowlist, and revalidate its AppArmor/Electron sandbox boundary plus GB10 behavior before wiring it."
 
   current="$(package_version armenAllModes codex-cli)"
   candidate=""
@@ -1364,8 +1366,6 @@ if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
 
   hypr_node="$(root_input_node "hyprland")"
   if [[ -n "$hypr_node" ]]; then
-    hypr_owner="$(lock_value "$hypr_node" '.nodes[$node].locked.owner // .nodes[$node].original.owner')"
-    hypr_repo="$(lock_value "$hypr_node" '.nodes[$node].locked.repo // .nodes[$node].original.repo')"
     hypr_ref="$(lock_value "$hypr_node" '.nodes[$node].locked.ref // .nodes[$node].original.ref')"
     hypr_revision="$(lock_value "$hypr_node" '.nodes[$node].locked.rev')"
     hypr_current="${hypr_ref:-detached}@$(short_rev "$hypr_revision")"

@@ -71,6 +71,8 @@
 
       devboxPackage = appsPkgs.callPackage ./packages/devbox { };
       codexPackage = pkgs.callPackage ./packages/codex-cli { };
+      lmstudioPackage = appsPkgs.callPackage ./packages/lmstudio { };
+      zedPackage = pkgs.callPackage ./packages/zed-editor { };
 
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
@@ -434,8 +436,8 @@
 
       selectedPersonalGraphicalCandidates = [
         appsPkgs.chromium
-        appsPkgs.lmstudio
-        appsPkgs.zed-editor
+        lmstudioPackage
+        zedPackage
       ];
 
       expectedPersonalGraphicalCandidateNames = [
@@ -519,7 +521,11 @@
           armenAllModes = [
             (mkPackageRecord "official OpenAI stable ARM64 release bundle" codexPackage)
           ];
-          personalGraphicalCandidates = map (mkPackageRecord "nixpkgs-apps; selected but not installed") selectedPersonalGraphicalCandidates;
+          personalGraphicalCandidates = [
+            (mkPackageRecord "nixpkgs-apps; selected but not installed" appsPkgs.chromium)
+            (mkPackageRecord "official LM Studio stable ARM64 AppImage; built but not installed" lmstudioPackage)
+            (mkPackageRecord "official Zed stable ARM64 bundle; built but not installed" zedPackage)
+          ];
           hyprland = [ (mkPackageRecord "hyprland input" hyprlandPackage) ];
           hyprlandPortal = [
             (mkPackageRecord "hyprland input" hyprlandPortalPackage)
@@ -1200,6 +1206,8 @@
       appsRejectsVscode = !(builtins.tryEval appsPkgs.vscode.outPath).success;
       appsAllowsLmStudio = (builtins.tryEval appsPkgs.lmstudio.outPath).success;
       codexRelease = codexPackage.passthru.release;
+      lmstudioRelease = lmstudioPackage.passthru.release;
+      zedRelease = zedPackage.passthru.release;
 
       profilePolicyCheck =
         assert basePackageNames == expectedBasePackageNames;
@@ -1286,6 +1294,63 @@
           test -x ${codexPackage}/codex-resources/bwrap
           test "$(${codexPackage}/bin/codex --version)" = \
             "codex-cli ${codexRelease.version}"
+          touch "$out"
+        '';
+
+      lmstudioPolicyCheck =
+        assert lmstudioPackage.version == lmstudioRelease.version;
+        assert lmstudioRelease.architecture == "arm64";
+        assert lmstudioRelease.format == "AppImage";
+        assert lmstudioPackage.avoidsUserNamespaceWrapper;
+        assert lmstudioPackage.desktopUsesFactoryLinuxRuntime;
+        assert lmstudioPackage.lmsUsesFactoryGlibcLoader;
+        assert
+          lmstudioRelease.url
+          == "https://installers.lmstudio.ai/linux/arm64/${lmstudioRelease.version}/LM-Studio-${lmstudioRelease.version}-arm64.AppImage";
+        assert lib.getName lmstudioPackage == "lmstudio";
+        pkgs.runCommand "dgx-lmstudio-policy" { nativeBuildInputs = [ pkgs.binutils ]; } ''
+          test -x ${lmstudioPackage}/bin/lm-studio
+          test -x ${lmstudioPackage}/bin/lms
+          test -x ${lmstudioPackage}/libexec/lmstudio-AppRun
+          test -x ${lmstudioPackage}/libexec/lms-real
+          grep -F 'APPDIR=' ${lmstudioPackage}/bin/lm-studio
+          test "$(readelf -l ${lmstudioPackage}/libexec/lms-real | \
+            sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')" = \
+            /lib/ld-linux-aarch64.so.1
+          grep -F 'LD_LIBRARY_PATH' ${lmstudioPackage}/bin/lms
+          test -f ${lmstudioPackage}/share/applications/ai.elementlabs.lmstudio.desktop
+          grep -Fx 'Exec=lm-studio %U' \
+            ${lmstudioPackage}/share/applications/ai.elementlabs.lmstudio.desktop
+          test ! -e ${lmstudioPackage}/etc
+          test ! -e ${lmstudioPackage}/lib/systemd
+          test ! -e ${lmstudioPackage}/share/autostart
+          touch "$out"
+        '';
+
+      zedPolicyCheck =
+        assert zedPackage.version == zedRelease.version;
+        assert zedRelease.architecture == "aarch64";
+        assert zedRelease.asset == "zed-linux-aarch64.tar.gz";
+        assert zedRelease.releaseTag == "v${zedRelease.version}";
+        assert builtins.match "[0-9a-f]{40}" zedRelease.tagCommit != null;
+        assert builtins.match "[0-9a-f]{64}" zedRelease.upstreamSha256 != null;
+        assert zedPackage.usesFactoryLinuxRuntime;
+        assert lib.getName zedPackage == "zed-editor";
+        pkgs.runCommand "dgx-zed-policy" { nativeBuildInputs = [ pkgs.binutils ]; } ''
+          test -x ${zedPackage}/bin/zed
+          test -x ${zedPackage}/bin/.zed-unwrapped
+          test -x ${zedPackage}/libexec/zed-editor
+          test -f ${zedPackage}/share/applications/dev.zed.Zed.desktop
+          grep -F 'ZED_UPDATE_EXPLANATION' ${zedPackage}/bin/zed
+          test "$(readelf -l ${zedPackage}/bin/.zed-unwrapped | \
+            sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')" = \
+            /lib/ld-linux-aarch64.so.1
+          test "$(readelf -l ${zedPackage}/libexec/zed-editor | \
+            sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')" = \
+            /lib/ld-linux-aarch64.so.1
+          test ! -e ${zedPackage}/etc
+          test ! -e ${zedPackage}/lib/systemd
+          test ! -e ${zedPackage}/share/autostart
           touch "$out"
         '';
 
@@ -2177,6 +2242,7 @@
         codex-cli = codexPackage;
         devbox = devboxPackage;
         hyprland = hyprlandPackage;
+        lmstudio = lmstudioPackage;
         root-system-canary = rootCanary;
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
@@ -2184,6 +2250,7 @@
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
+        zed-editor = zedPackage;
       };
 
       checks.${system} = {
@@ -2197,6 +2264,8 @@
         home-graphical = graphicalProfile.activationPackage;
         home-hyprland = hyprlandProfile.activationPackage;
         home-hyprland-with-portal = hyprlandPortalProfile.activationPackage;
+        lmstudio-package = lmstudioPackage;
+        lmstudio-policy = lmstudioPolicyCheck;
         profile-policy = profilePolicyCheck;
         root-canary-container = rootCanaryContainerTest;
         root-canary-boot-persistence-transaction-container =
@@ -2213,6 +2282,8 @@
         tailscale-package = tailscalePackage;
         tailscale-policy = tailscalePolicyCheck;
         tailscaled-unit = tailscaleService.package;
+        zed-editor-package = zedPackage;
+        zed-editor-policy = zedPolicyCheck;
       };
 
       lib.dgxProfileManifests.${system} = profileManifests;

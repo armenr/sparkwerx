@@ -16,10 +16,11 @@ Pilot mapping:
 `armen -> n0b0dy@sparkle-01`
 
 The mapping and graphical/headless activity gate are implemented. The host
-declares the overlay selected. Codex CLI is its first packaged all-modes tool;
-graphical applications remain absent until each completes its own manifest and
-closure review. In the staged headless profile, graphical selection persists
-in Git while its computed activity is false and Codex remains present.
+declares the overlay selected. Codex CLI is its first packaged all-modes tool.
+Exact current Zed and LM Studio graphical candidates have completed package and
+closure review but remain absent from every profile until their real graphical
+gates pass. In the staged headless profile, graphical selection persists in Git
+while its computed activity is false and Codex remains present.
 
 Every future mapping must be explicit in that host's configuration. Creating
 another Unix user must not give that user Armen's applications, browser
@@ -32,9 +33,14 @@ extensions, settings, accounts, or secrets.
 | Chromium | Nix package in Armen's graphical overlay | Chromium, not Google Chrome; no autostart |
 | 1Password extension for Chromium | Declarative browser-extension submodule after pin/update review | Vault data, login state, and account secrets remain mutable and external |
 | 1Password extension for Firefox | Declarative browser-extension submodule after pin/update review | Firefox is currently factory/manual context; do not replace its profile |
-| Zed | Current pinned ARM64 Nix package or reviewed derivation | Needs Vulkan and desktop integration tests; settings may be declarative, credentials are not |
-| LM Studio desktop | Current pinned ARM64 package with one exact unfree exception | Model files and application state stay outside Nix; no server exposure by default |
+| Zed | Exact official stable 1.18.0 ARM64 bundle, built candidate-only | Needs factory-GNOME Vulkan/portal integration tests; self-update is disabled, settings may be declarative, credentials are not |
+| LM Studio desktop | Exact official 0.4.23-1 ARM64 AppImage, built candidate-only with one exact unfree exception | Resolve the vendor Electron no-sandbox fallback before activation; model files and application state stay outside Nix; no server exposure by default |
 | ChatGPT desktop | Reviewed pinned package derived from an official artifact if feasible | Existing Debian package is migration input; credentials and session state stay outside Nix |
+
+Current package evidence:
+
+- [Zed 1.18.0](2026-09-03-zed-package.md)
+- [LM Studio 0.4.23-1](2026-09-03-lmstudio-package.md)
 
 The graphical overlay is inactive in `headless` mode. Its selection persists in
 Git so returning to a graphical mode restores the intended package graph, but

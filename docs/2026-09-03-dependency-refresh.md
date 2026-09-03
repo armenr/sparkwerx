@@ -22,8 +22,11 @@ Zed 1.18.0, LM Studio 0.4.23-1, and Codex CLI 0.153.0 remain explicit upstream
 application updates requiring their narrow package/ownership work; they are
 not hidden by the fact that the Nixpkgs branches themselves are current.
 Codex was subsequently packaged and build-validated later the same day; see
-[the Codex package evidence](2026-09-03-codex-cli-package.md). Zed and LM
-Studio remain open.
+[the Codex package evidence](2026-09-03-codex-cli-package.md). Exact official
+ARM64 packages for Zed 1.18.0 and LM Studio 0.4.23-1 were subsequently pinned,
+built, and closure-reviewed as well. Their graphical validation/profile
+activation remains open; see the [Zed](2026-09-03-zed-package.md) and
+[LM Studio](2026-09-03-lmstudio-package.md) records.
 
 ## Safety and build result
 

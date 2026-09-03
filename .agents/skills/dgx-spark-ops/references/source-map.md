@@ -118,8 +118,12 @@ the same reviewed change.
 | Repository Devbox source/vendor pin | [packages/devbox/source.json](../../../../packages/devbox/source.json) |
 | Zed Linux/ARM64 requirements | https://zed.dev/docs/linux |
 | Zed releases | https://github.com/zed-industries/zed/releases |
+| Repository Zed pin and updater | [packages/zed-editor/source.json](../../../../packages/zed-editor/source.json), [scripts/update-zed.sh](../../../../scripts/update-zed.sh) |
+| Current Zed package evidence | [docs/2026-09-03-zed-package.md](../../../../docs/2026-09-03-zed-package.md) |
 | LM Studio desktop download/release | https://lmstudio.ai/download |
 | LM Studio/llmster on Spark | https://build.nvidia.com/spark/lm-studio |
+| Repository LM Studio pin and updater | [packages/lmstudio/source.json](../../../../packages/lmstudio/source.json), [scripts/update-lmstudio.sh](../../../../scripts/update-lmstudio.sh) |
+| Current LM Studio package evidence | [docs/2026-09-03-lmstudio-package.md](../../../../docs/2026-09-03-lmstudio-package.md) |
 | Chromium release dashboard | https://chromiumdash.appspot.com/releases?platform=Linux |
 | Isaac Sim/Lab on Spark | https://build.nvidia.com/spark/isaac |
 

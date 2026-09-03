@@ -103,6 +103,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   `./scripts/check.sh` are the canonical no-build profile audit;
 - Ghostty is current but its cache closure is roughly 1.1 GiB, so its build
   remains behind explicit graphical-role approval;
+- exact official Zed 1.18.0 and LM Studio 0.4.23-1 ARM64 packages passed their
+  candidate-only build/closure gates and remain absent from Home profiles. Zed
+  still needs factory Vulkan/portal validation. LM Studio's vendor launcher
+  falls back to Electron `--no-sandbox` because Ubuntu AppArmor blocks the
+  generic AppImage wrapper's user namespace; do not weaken host policy or
+  activate it without resolving that explicit gate;
 
 - DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
 - Nix was provisioned by the official NixOS `nix-installer` as a multi-user
@@ -111,11 +117,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
 - System Manager 1.1.0 is the selected root-manager candidate; its exact
-  five-path/three-service generation-two canary is retained active after the
-  first real reboot rollback and first restoration attempt's safe timed
-  rollback. Generations one and two are registered, generation two is selected
-  and upstream-rooted, and all three candidates are directly pilot-rooted.
-  Generation three's numbered link and `default.target` edge are absent. Its
+  six-path/three-service generation-three canary is retained active after the
+  successful retry-safe second restoration. Generations one, two, and three
+  are registered and directly pilot-rooted; generation three is selected,
+  upstream-rooted, live, and linked by its one reviewed `default.target` edge.
+  Recovery is absent and no rollback timer is armed. Its
   109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
   registration surfaces documented in `root/system-manager/README.md`;
@@ -226,16 +232,17 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
 - The exact System Manager container tests and retained host canary passed.
-  Preserve exact live generation two, its two numbered profile links, the
-  upstream generation-two root, all three direct pilot roots, the original
-  five-path/three-service activation surface, and absent boot/recovery edges.
+  Preserve exact live generation three, all three numbered profile links, the
+  upstream generation-three root, all three direct pilot roots, the exact
+  six-path/three-service activation surface, its one boot edge, and absent
+  recovery edges.
   Snapshots `20260902T110421Z`, `20260902T204546Z`, and every earlier live
   snapshot are spent; do not rerun their wrappers. Read the boot-persistence
   records and first-reboot result before touching this state. The persistent
-  recovery mechanism passed on the real host and is now clean/unarmed. Use only
-  the hash-pinned transiently guarded restoration path to return generation
-  three. Later arming, reboot, rollback, generation selection/removal, and
-  pilot-root retirement require separate authority.
+  recovery mechanism passed on the real host and is now clean/unarmed. The
+  completed restoration path is spent and should refuse this current state.
+  Later arming, reboot, rollback, restoration, generation selection/removal,
+  and pilot-root retirement require separate authority.
   Never let it own host Nix, users, wrappers, global PATH, any additional boot
   link, or factory services, or process global factory tmpfiles rules when its
   managed set is empty; preserve the exact-version patch, regression sentinel,

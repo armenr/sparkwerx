@@ -143,8 +143,12 @@ approval, graphical validation, activation approval, and rollback.
 
 - [ ] Wire and validate pinned Chromium plus the 1Password Chromium extension
 - [ ] Firefox 1Password extension without replacing the existing browser profile
-- [ ] Wire and validate the pinned current Zed candidate
-- [ ] Wire and validate the pinned current LM Studio candidate and exact unfree exception
+- [x] Pin, build, smoke-test, and closure-review current Zed 1.18.0 ARM64
+- [ ] Validate Zed under factory GNOME/Vulkan/portals, then wire and activate it
+- [x] Pin, build, CLI-smoke-test, and closure-review current LM Studio 0.4.23-1
+      ARM64 with the exact unfree exception
+- [ ] Resolve LM Studio's Electron sandbox caveat, validate factory-GNOME/GB10
+      and URL/update behavior, then wire and activate it
 - [ ] ChatGPT desktop package/provenance migration
 - [x] Declare and regression-test Armen's all-modes permissive Codex defaults
       without taking ownership of mutable auth/plugin/MCP/desktop config

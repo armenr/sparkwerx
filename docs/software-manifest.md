@@ -24,8 +24,10 @@ against official sources on 2026-09-03. Stable Nixpkgs is locked at current
 at its separately proven `nixpkgs-root` revision `a9e6d84f9c2f...`. The
 guarded update proved every root candidate, recovery bundle, policy, and test
 derivation stayed byte-for-byte exact before building all user profiles and
-selected package outputs with `--no-link`. Devbox 0.18.0 and Tailscale 1.102.3
-plus its inert unit tree were built and inspected. The
+selected package outputs with `--no-link`. Devbox 0.18.0, Tailscale 1.102.3
+plus its inert unit tree, Codex CLI 0.153.0, Zed 1.18.0, and LM Studio
+0.4.23-1 were built and inspected. Zed and LM Studio remain candidate-only and
+are absent from every Home Manager profile. The
 patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
 activation. The first disposable-container activation failed closed on upstream
@@ -115,8 +117,8 @@ rebuilt in Phase 1.
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
 | Shared graphical role | Ghostty | SELECTED terminal for every graphical mode | Stable pin `ghostty` 1.3.1 is current, free, and ARM64-available; its large GTK/GStreamer closure is quantified below | Decide whether the roughly 1.1 GiB Ghostty closure is acceptable, then validate GTK/GPU behavior; keep out of headless |
 | Armen graphical overlay | Chromium | SELECTED browser; CURRENT CANDIDATE | Current apps pin exposes official-current `chromium` 152.0.7977.75 on ARM64/free; not wired into the overlay | Review its closure, extension policy, and NVIDIA graphics behavior before activation |
-| Armen graphical overlay | Zed | SELECTED editor; UPDATE AVAILABLE | Current apps pin exposes `zed-editor` 1.17.2 on ARM64/free, while official stable is 1.18.0; the official v1.18.0 source flake exposes an ARM64 package; not wired | Pin and build the exact upstream release, then test ARM64 Vulkan/Wayland/portal behavior |
-| Armen graphical overlay | LM Studio desktop | SELECTED model manager; UPDATE AVAILABLE | Current apps pin exposes `lmstudio` 0.4.21-2 on ARM64/unfree; official Linux ARM64 and current Nixpkgs master expose 0.4.23-1; not wired | Add a narrow exact current-release source, preserve the one exact unfree exception, inspect closure/model paths, and validate GB10 acceleration |
+| Armen graphical overlay | Zed | CURRENT PIN; BUILD/POLICY PASSED; ACTIVATION OPEN | Official stable `v1.18.0` ARM64 bundle, published digest, and tag commit are pinned directly because the locked Nixpkgs package is 1.17.2. Its 6-path closure is 485.5 MiB; isolated version smoke test created no state; no service/autostart surface exists. It is not in a Home profile | Review [exact evidence](2026-09-03-zed-package.md), then test factory-GNOME Vulkan/NVIDIA and portal/MIME behavior before wiring and activation |
+| Armen graphical overlay | LM Studio desktop | CURRENT PIN; BUILD/POLICY PASSED; ACTIVATION OPEN | Official `0.4.23-1` Linux ARM64 AppImage is pinned directly because the locked apps package is 0.4.21-2. Its 9-path closure is 2.4 GiB; no service/autostart/API/model exists. The host-compatible launcher uses the vendor's no-sandbox fallback under Ubuntu's AppArmor user-namespace restriction. It is not in a Home profile | Review [exact evidence](2026-09-03-lmstudio-package.md); explicitly resolve the Electron sandbox caveat, then test factory-GNOME URL/MIME behavior and GB10 acceleration before wiring and activation |
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
@@ -161,6 +163,23 @@ Ghostty is the dominant new graphical cost. Its root alone reports roughly
 predominantly GTK, GStreamer, audio/video codecs, fonts, and graphics
 libraries. Evaluation found no Ghostty autostart, service, socket, or permission
 change.
+
+The exact official Zed 1.18.0 ARM64 bundle is built as a candidate-only
+6-path / 485.5 MiB closure. Its vendor binaries remain byte-for-byte intact and
+use the factory Ubuntu glibc plus NVIDIA Vulkan runtime; the wrapper only
+disables self-update through Zed's documented environment contract. The
+isolated version test created no state, and the output contains no service,
+socket, timer, or autostart. Factory-GNOME Vulkan and portal validation remain
+open. See the [package evidence](2026-09-03-zed-package.md).
+
+The exact official LM Studio 0.4.23-1 ARM64 AppImage is built as a
+candidate-only 9-path / 2.4 GiB closure. It intentionally bridges to the
+factory Ubuntu runtime because a Bubblewrap AppImage wrapper cannot create a
+user namespace under this host's AppArmor policy. The vendor launcher then
+falls back to Electron `--no-sandbox`; that explicit security/runtime caveat,
+its launch-time update check, URL-handler behavior, and GB10 acceleration must
+be resolved in the graphical gate. It declares no daemon, listener, model, or
+autostart. See the [package evidence](2026-09-03-lmstudio-package.md).
 
 The Devbox build fetched a Go/compiler build toolchain because upstream 0.18.0
 is not yet in the binary cache; those build-time paths are not its runtime
@@ -238,11 +257,11 @@ Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. The original isolated
 activation test registers no profile or GC root. Separately, the live host now
-has exact generations one and two registered, selects and upstream-roots live
-generation two, and directly pilot-roots all three candidates. Generation
-three's numbered link and reviewed boot edge are absent after the verified
-restoration rollback. The helper supplies
-temporary root-local
+has exact generations one, two, and three registered and directly pilot-rooted.
+Generation three is selected, upstream-rooted, live, and linked by its one
+reviewed declarative boot edge after the successful retry-safe restoration;
+the recovery surface is absent and no rollback timer is armed. The helper
+supplies temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
 2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but
@@ -281,8 +300,10 @@ not probe mutable host state. The
 is historical milestone evidence. The
 [boot-persistence test record](../root/system-manager/validation/2026-09-02-boot-persistence-transaction-container-test.md)
 proves that its disposable test left that then-live state unchanged. The
+historical
 [retained generation-three host record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md)
-is the current live-state authority.
+is superseded as current live-state authority by the
+[successful restoration record](../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md).
 
 The evaluation-only invariant suite is:
 
@@ -349,8 +370,10 @@ application launch may create mutable state that also needs explicit approval.
 - [Devbox releases](https://github.com/jetify-com/devbox/releases)
 - [Zed Linux and ARM64 requirements](https://zed.dev/docs/linux)
 - [Zed releases](https://github.com/zed-industries/zed/releases)
+- [Current Zed package evidence](2026-09-03-zed-package.md)
 - [LM Studio downloads and current release](https://lmstudio.ai/download)
 - [NVIDIA LM Studio/llmster Spark playbook](https://build.nvidia.com/spark/lm-studio)
+- [Current LM Studio package evidence](2026-09-03-lmstudio-package.md)
 - [NVIDIA Isaac Sim/Lab Spark playbook](https://build.nvidia.com/spark/isaac)
 - [Repository source map](../.agents/skills/dgx-spark-ops/references/source-map.md)
 - [System Manager canary runbook](../root/system-manager/README.md)

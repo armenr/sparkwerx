@@ -54,10 +54,11 @@ Do not use global `config.allowUnfree = true`. Use an exact
 free/unfree note exists only to make Nix evaluation and packaging behavior
 explicit; this project does not maintain a license registry.
 
-Current evidence says Chromium and Zed are free in locked Nixpkgs. LM Studio is
-unfree; the apps package set permits only the exact Nix package name
-`lmstudio`. The predicate installs nothing by itself. Any future ChatGPT
-package is evaluated separately.
+Current evidence says Chromium and the selected official Zed package are free.
+LM Studio is unfree; the apps package set permits only the exact Nix package
+name `lmstudio`, including the current direct vendor-artifact adapter. The
+predicate installs nothing by itself. Any future ChatGPT package is evaluated
+separately.
 
 ### D-004: compose independent layers
 
@@ -132,6 +133,13 @@ They are selected for packaging, inventory, and validation one at a time. They
 are not yet approved for installation or activation. No application is enabled
 for autostart by default.
 
+The current direct Zed 1.18.0 and LM Studio 0.4.23-1 ARM64 packages have passed
+their build and closure-policy gates but remain outside every Home profile.
+Zed still requires factory-GNOME Vulkan/portal validation. LM Studio additionally
+requires an explicit decision on its vendor Electron `--no-sandbox` fallback:
+Ubuntu AppArmor blocks the unprivileged user namespace used by the generic Nix
+AppImage wrapper, and this repository will not weaken that host policy silently.
+
 ### D-009: Isaac/Omniverse is a separate DGX workload
 
 **Status:** SELECTED
@@ -188,13 +196,14 @@ dependency updates exclude both that input and System Manager and must prove
 their complete root fingerprint unchanged before continuing. Advancing the
 root lane is a separate root-generation workflow, not a user-package refresh.
 
-The apps pin supplies current dev-shell Git/ripgrep and exposes the reviewed
-Zed, LM Studio, and Chromium candidates. Both current Nixpkgs branches still
-trail Devbox at 0.17.5, so the fleet base uses a narrow exact override for the
-current 0.18.0 source and Go vendor graph. Retire that adapter when stock catches
-up and passes the same ARM64 checks. Candidate presence does not add a personal
-application to Armen's overlay. Never replace the stable fleet package set
-wholesale with unstable.
+The apps pin supplies current dev-shell Git/ripgrep and Chromium plus the stock
+comparison packages for Zed and LM Studio. Exact official ARM64 adapters pin
+current Zed 1.18.0 and LM Studio 0.4.23-1 because the locked stock packages
+trail those releases. Both current Nixpkgs branches also trail Devbox at 0.17.5,
+so the fleet base uses a narrow exact override for the current 0.18.0 source and
+Go vendor graph. Retire each adapter when stock catches up and passes the same
+ARM64 checks. Candidate presence does not add a personal application to Armen's
+overlay. Never replace the stable fleet package set wholesale with unstable.
 
 ### D-013: Nix runtime updates are repository-reviewed root changes
 
@@ -502,8 +511,10 @@ input until the first Home Manager activation replaces only that launcher.
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
-- Complete one-at-a-time package wiring and validation for the pinned Chromium,
-  Zed, and LM Studio candidates.
+- Complete Chromium closure review, then wire and graphically validate the
+  pinned Chromium, Zed, and LM Studio candidates. Zed and LM Studio package/
+  policy builds are complete; their factory-GNOME GPU/portal/runtime gates
+  remain open.
 - Choose reproducible package/update paths for ChatGPT and both browser
   extensions.
 - Decide whether headless `llmster` is wanted as an independent serving
@@ -539,7 +550,9 @@ The repository-only policy alignment was completed and evaluated on
 - all four desktop enum values evaluate, Ghostty is shared-graphical only, and
   the Hyprland portal is independently gated;
 - `armen` maps explicitly to `n0b0dy@sparkle-01`, persists while headless, and
-  has no application packages wired yet; and
+  carries the current Codex package in every mode. Its graphical apps remain
+  absent from all profiles; exact current Zed and LM Studio candidates are
+  separately built and documented; and
 - evaluation invariants and dry-run plans cover headless, GNOME, Hyprland, and
   Hyprland-with-portal.
 
