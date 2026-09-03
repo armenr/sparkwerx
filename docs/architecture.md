@@ -155,8 +155,8 @@ applies the same singular choice to systemd and GDM. Headless then stops
 graphical services without removing the factory desktop packages and must
 retain Tailscale. Graphical modes activate their matching session and portal
 set plus the shared Ghostty terminal; Armen's personal graphical overlay
-composes above that shared role. The current pilot Home profile is staged
-headless while the actual host remains in factory GNOME. See the
+composes above that shared role. The current pilot Home profile is active as
+user-layer headless while the actual host remains in factory GNOME. See the
 [desktop-mode contract](desktop-modes.md).
 
 ## Hyprland pilot safety model
@@ -204,11 +204,11 @@ transactions, live pilots, disposable recovery lifecycle, real reboot
 rollback, and restoration all passed. Hash-pinned helpers deliberately contain
 no reboot action.
 Desktop-mode root control, Tailscale ownership migration, personal app
-packages, workload roles, and all live Home/desktop/workload activation remain
-deliberately inactive. The first minimal Home transaction is implemented and
-disposable-rollback-tested as `scripts/dgx-home`; its headless candidate emits
-no Home Manager user units. The separately gated pilot Nix runtime update to
-2.35.2 is complete. Devbox and Tailscale package/unit no-link builds do not
-authorize a raw `home-manager switch`, a systemd service link/restart, or
-another root-runtime change. Host mode switching and service changes require
-their own later approval.
+packages, workload roles, and all graphical/desktop/workload activation remain
+deliberately inactive. The first minimal Home transaction passed disposable
+and real rollback, then retained exact generation one; its headless profile
+emits no Home Manager user units. The separately gated pilot Nix runtime update
+to 2.35.2 is complete. Tailscale's package/unit no-link build and the active
+Home generation do not authorize a raw `home-manager switch`, a systemd service
+link/restart, or another root-runtime change. Host mode switching and service
+changes require their own later approval.

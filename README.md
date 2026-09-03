@@ -11,8 +11,9 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
 - Nix and the Nix daemon were already present before this repository was
   created.
 - Repository-only Phase 1 policy alignment is complete and evaluates on
-  `aarch64-linux`; no Home Manager configuration has been activated.
-- The exported pilot Home profile is staged as user-layer `headless`: its exact
+  `aarch64-linux`; the first guarded Home activation and real rollback test now
+  pass on the pilot.
+- The exported pilot Home profile is active as user-layer `headless`: its exact
   fleet base is `ncdu`, `lazydocker`, and current Devbox, with Armen's current
   Codex CLI layered above it plus Home Manager's intrinsic session-variable
   file. It emits no Home Manager user-systemd unit, including the otherwise
@@ -35,13 +36,13 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   Chromium needs an exact root sandbox role, and LM Studio retains an explicit
   vendor Electron sandbox caveat.
 - Armen's all-modes overlay now contains the current Codex CLI 0.153.0 official
-  ARM64 bundle and owns its future launcher plus permissive defaults. The
-  package is built but not activated; the visible standalone 0.152.0 launcher
-  remains migration input. Exact evidence is in the
+  ARM64 bundle and owns its active launcher plus permissive defaults. The
+  package and high-precedence launcher are active; the old standalone 0.152.0
+  release tree remains only as rollback input. Exact evidence is in the
   [Codex package record](docs/2026-09-03-codex-cli-package.md).
-- Devbox 0.18.0 and the official Tailscale 1.102.3 ARM64 package plus inert
-  systemd-unit tree were built with `--no-link` and SBOM-reviewed. They were not
-  installed into a profile or activated.
+- Devbox 0.18.0 is active in the Home profile. The official Tailscale 1.102.3
+  ARM64 package plus inert systemd-unit tree were built with `--no-link` and
+  SBOM-reviewed but have not replaced the live apt service.
 - Tailscale `1.102.3` and Tailscale SSH are currently working from a manual
   official apt installation. The repository now pins the same current stable
   release and declares the future unit, but has not replaced or restarted the
@@ -144,7 +145,9 @@ The human-reviewed size and package findings are in the
 
 ## Minimal Home profile
 
-The first headless Home activation has one short, guarded interface:
+The first headless Home activation has one short, guarded interface. On the
+already activated pilot, use `status`; `preflight` and `activate-headless` are
+deliberately first-generation-only commands for a pristine fleet host:
 
 ```bash
 ./scripts/dgx-home status
@@ -156,7 +159,8 @@ The activation command snapshots the exact prior user state, arms a ten-minute
 automatic rollback, applies only the four-package headless profile, verifies
 it, and disarms rollback automatically. It has no confirmation phrase, sudo,
 reboot, root role, desktop switch, or Tailscale change. See the
-[first-activation preflight](docs/2026-09-03-home-headless-preflight.md).
+[first-activation preflight](docs/2026-09-03-home-headless-preflight.md) and
+[successful pilot result](docs/2026-09-03-home-headless-host.md).
 
 ## Dependency updates
 
@@ -225,13 +229,13 @@ narrowly authorized pilot activation prompts.
 
 ## Deliberate hold point
 
-The guarded Nix 2.35.2 runtime rollout is complete. Devbox, Tailscale, and the
-three selected graphical application candidates have passed explicitly scoped
-no-link builds; that does not authorize a Home profile, Chromium sandbox role,
-Tailscale service migration, or desktop activation. Do not run
-`home-manager switch`; use only the guarded `scripts/dgx-home` transaction for
-the first profile. Do not install Hyprland into a system profile, replace the apt
-Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
+The guarded Nix 2.35.2 runtime and first headless Home rollout are complete.
+Tailscale and the three selected graphical application candidates have passed
+explicitly scoped no-link builds; that does not authorize a Chromium sandbox
+role, Tailscale service migration, or desktop activation. Do not run a raw
+`home-manager switch`; the next-generation update transaction still needs its
+own reviewed path. Do not install Hyprland into a system profile, replace the
+apt Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
 System Manager is currently exact registered/live/boot-linked generation three
 after the first real reboot's verified automatic rollback, the first
 restoration attempt's safe timed rollback, and the retry's two verified

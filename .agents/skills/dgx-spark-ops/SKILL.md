@@ -434,12 +434,14 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   `scripts/update-codex.sh`, keep `check_for_update_on_startup = false`, and
   preserve mutable auth/plugin/MCP/history state plus the old standalone tree
   until the declarative launcher is activated and verified.
-- Route the first minimal user-profile activation through
-  `../../../scripts/dgx-home`, after reading
-  `../../../docs/2026-09-03-home-headless-preflight.md`. The headless candidate
-  must contain no Home Manager user-systemd units. Do not bypass its private
-  snapshot, automatic rollback, exact postflight, or clean-commit check with a
-  raw activation command.
+- The first minimal user-profile activation completed through
+  `../../../scripts/dgx-home`. Read
+  `../../../docs/2026-09-03-home-headless-preflight.md` and
+  `../../../docs/2026-09-03-home-headless-host.md`. Real rollback and fresh
+  reactivation passed; snapshot `20260903T120519Z` is current authority. The
+  active headless generation contains no Home Manager user-systemd units. Do
+  not raw-switch it or reuse the first-generation action for an update; design
+  the guarded next-generation path first.
 - Do not add or recommend VS Code, Google Chrome, NIM, NVIDIA AI Enterprise, the
   1Password desktop app, or LM Link unless Armen explicitly changes the current
   non-selection.

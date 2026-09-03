@@ -585,6 +585,27 @@
           noSandboxFallbackAccepted = false;
         };
 
+        deployments.sparkle01Home = {
+          hostName = "sparkle-01";
+          userName = "n0b0dy";
+          mode = "headless";
+          status = "active-generation-one-retained";
+          snapshotCreatedAt = "2026-09-03T12:05:19Z";
+          retainedSnapshot = "20260903T120519Z";
+          realRollbackSnapshot = "20260903T120400Z";
+          observedCandidate = "/nix/store/naw1cln02ark00v6wxss5flijlh3nr57-home-manager-generation";
+          currentCandidate = baseProfile.activationPackage.outPath;
+          matchesCurrent =
+            baseProfile.activationPackage.outPath
+            == "/nix/store/naw1cln02ark00v6wxss5flijlh3nr57-home-manager-generation";
+          observedUserEnvironment = "/nix/store/6cdhd5n7m5agcrnr8pg6jxkpsadmfpba-user-environment";
+          observedHomeFiles = "/nix/store/cshkglrpyf9gzih2iyaccq0gwl87gcya-home-manager-files";
+          userSystemdEnabled = false;
+          rollbackArmed = false;
+          realRollbackPassed = true;
+          evidence = "docs/2026-09-03-home-headless-host.md";
+        };
+
         evaluatedProfiles = {
           headless = profileRecords baseProfile;
           gnome = profileRecords graphicalProfile;
@@ -1255,6 +1276,10 @@
         assert personalGraphicalCandidatesAbsentFrom graphicalProfile;
         assert personalGraphicalCandidatesAbsentFrom hyprlandProfile;
         assert personalGraphicalCandidatesAbsentFrom hyprlandPortalProfile;
+        assert profileManifests.deployments.sparkle01Home.matchesCurrent;
+        assert !profileManifests.deployments.sparkle01Home.userSystemdEnabled;
+        assert !profileManifests.deployments.sparkle01Home.rollbackArmed;
+        assert profileManifests.deployments.sparkle01Home.realRollbackPassed;
         assert graphicalPackageNames == expectedGraphicalPackageNames;
         assert !baseProfile.config.xdg.enable;
         assert !baseProfile.config.xdg.mime.enable;

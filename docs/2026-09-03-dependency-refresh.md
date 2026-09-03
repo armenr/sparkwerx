@@ -49,3 +49,9 @@ Devbox, Tailscale, Hyprland, portal, root canary, and policy outputs built with
 
 No Home Manager generation, application, root profile, systemd unit, service,
 desktop mode, or Tailscale binary was activated or replaced.
+
+Later the same day, the separately guarded minimal headless Home transaction
+activated only the reviewed base plus Armen's Codex overlay, passed real
+rollback, and retained a fresh generation. That later result does not change
+this refresh's no-activation boundary; see the
+[Home host record](2026-09-03-home-headless-host.md).

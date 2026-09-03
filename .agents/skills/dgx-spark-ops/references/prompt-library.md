@@ -192,10 +192,17 @@ and update invalidation. Preserve the current generation-three root state.
 ```
 
 ```text
-$dgx-spark-ops Audit the first minimal headless Home activation. Use only
-scripts/dgx-home, preserve the exact four-package profile and zero user-systemd
-unit boundary, verify the private snapshot and automatic rollback, and do not
-change any root service, desktop mode, or Tailscale ownership.
+$dgx-spark-ops Audit the active minimal headless Home generation. Verify it
+against docs/2026-09-03-home-headless-host.md, preserve the exact four-package
+profile and zero user-systemd unit boundary, confirm no rollback timer is
+armed, and do not change any root service, desktop mode, or Tailscale ownership.
+```
+
+```text
+$dgx-spark-ops Design and disposable-test the next-generation Home update path.
+Build on scripts/dgx-home, use the current generation as the rollback target,
+reject raw home-manager switch, preserve mutable user data and the zero-unit
+headless boundary, and stop before a live generation change.
 ```
 
 ```text

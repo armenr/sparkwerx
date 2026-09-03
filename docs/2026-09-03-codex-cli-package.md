@@ -4,7 +4,8 @@ Date: 2026-09-03 UTC
 
 Host: `sparkle-01`
 
-Result: current package and every-profile composition passed; activation open
+Result: current package and every-profile composition passed; Nix-managed
+launcher active in retained headless Home generation one
 
 ## Source and ownership
 
@@ -48,13 +49,15 @@ The package policy and permission-reconciler regression derivations passed.
 Codex is present in the evaluated headless, GNOME, Hyprland, and
 Hyprland-with-portal Home profiles. The profile policy proves it remains in
 Armen's named overlay rather than the three-package fleet base. Home Manager
-will own `~/.local/bin/codex`, which intentionally replaces only the current
+now owns `~/.local/bin/codex`, which intentionally replaced only the prior
 standalone launcher's symlink because that path precedes the Nix profile in the
 pilot's `PATH`.
 
-No Home profile or launcher was activated. The current standalone 0.152.0
-release tree remains untouched for rollback, and mutable authentication,
+The guarded headless Home transaction activated the launcher, proved a real
+rollback to standalone 0.152.0, then freshly activated and retained 0.153.0.
+The old standalone release tree remains untouched for rollback, and mutable authentication,
 plugins, MCP servers, project trust, desktop state, and history were neither
 read into the Nix store nor replaced. The narrow live reconciler did set
 `check_for_update_on_startup = false`; both the retained 0.152.0 binary and the
-packaged 0.153.0 binary accept the resulting config in strict mode.
+active 0.153.0 binary accept the resulting config in strict mode. See the
+[Home host result](2026-09-03-home-headless-host.md).

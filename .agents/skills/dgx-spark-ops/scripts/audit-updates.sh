@@ -208,6 +208,66 @@ compare_branch_input() {
     "$detail"
 }
 
+audit_home_deployment() {
+  local manifest declared_host declared_user declared_status declared_candidate
+  local current_candidate live_candidate declared_environment live_environment
+  local status detail active_timers
+  manifest="$(
+    nix --extra-experimental-features "nix-command flakes" \
+      eval --json --no-write-lock-file \
+      "$repo_flake_uri#lib.dgxProfileManifests.aarch64-linux" 2>/dev/null || true
+  )"
+  if [[ -z "$manifest" ]]; then
+    emit "HOME_PROFILE" "repository/Home Manager" "headless deployment" \
+      "UNKNOWN" "UNKNOWN" "UNKNOWN" "repo:flake.nix" \
+      "The deployment manifest could not be evaluated."
+    return
+  fi
+
+  declared_host="$(jq -r '.deployments.sparkle01Home.hostName // empty' <<<"$manifest")"
+  declared_user="$(jq -r '.deployments.sparkle01Home.userName // empty' <<<"$manifest")"
+  declared_status="$(jq -r '.deployments.sparkle01Home.status // empty' <<<"$manifest")"
+  declared_candidate="$(jq -r '.deployments.sparkle01Home.observedCandidate // empty' <<<"$manifest")"
+  current_candidate="$(jq -r '.deployments.sparkle01Home.currentCandidate // empty' <<<"$manifest")"
+  declared_environment="$(jq -r '.deployments.sparkle01Home.observedUserEnvironment // empty' <<<"$manifest")"
+
+  if [[ "$(hostname -s)" != "$declared_host" || "$(id -un)" != "$declared_user" ]]; then
+    emit "HOME_PROFILE" "repository/Home Manager" "headless deployment" \
+      "host=$(hostname -s);user=$(id -un)" \
+      "host=${declared_host:-UNKNOWN};user=${declared_user:-UNKNOWN}" "INFO" \
+      "repo:docs/2026-09-03-home-headless-host.md" \
+      "The recorded pilot deployment belongs to another host or user."
+    return
+  fi
+
+  live_candidate="$(readlink -e "$HOME/.local/state/nix/profiles/home-manager" 2>/dev/null || true)"
+  live_environment="$(readlink -e "$HOME/.local/state/nix/profiles/profile" 2>/dev/null || true)"
+  active_timers="$(
+    systemctl --user list-units --state=active --no-legend --plain \
+      'dgx-home-headless-rollback-*.timer' 2>/dev/null |
+      sed '/^[[:space:]]*$/d' || true
+  )"
+
+  if [[ "$declared_status" == active-generation-one-retained &&
+        "$declared_candidate" == "$current_candidate" &&
+        "$live_candidate" == "$declared_candidate" &&
+        "$live_environment" == "$declared_environment" &&
+        -z "$active_timers" &&
+        ! -e "$HOME/.config/environment.d/10-home-manager.conf" &&
+        ! -L "$HOME/.config/environment.d/10-home-manager.conf" &&
+        ! -e "$HOME/.config/systemd/user/tray.target" &&
+        ! -L "$HOME/.config/systemd/user/tray.target" ]]; then
+    status="CURRENT"
+    detail="Exact headless generation one and user environment match the deployment record; zero Home Manager user-systemd artifacts remain and no rollback timer is armed."
+  else
+    status="DRIFT"
+    detail="Live Home profile, current candidate, user environment, headless unit boundary, or rollback state differs from the retained deployment record."
+  fi
+  emit "HOME_PROFILE" "repository/Home Manager" "headless deployment" \
+    "${live_candidate:-ABSENT}" "${current_candidate:-UNKNOWN}" "$status" \
+    "repo:docs/2026-09-03-home-headless-host.md" "$detail"
+}
+
 audit_selected_nix_packages() {
   local manifest component current candidate status source detail
   local tag location
@@ -1315,6 +1375,7 @@ if [[ -r flake.lock ]] && command -v jq >/dev/null 2>&1; then
   compare_branch_input "home-manager" "Home Manager"
   compare_branch_input "system-manager" "System Manager"
   audit_root_integration
+  audit_home_deployment
 
   devbox_current="$(jq -r '.version // empty' packages/devbox/source.json 2>/dev/null || true)"
   if [[ -z "$devbox_current" ]]; then

@@ -28,7 +28,11 @@ selected package outputs with `--no-link`. Devbox 0.18.0, Tailscale 1.102.3
 plus its inert unit tree, Codex CLI 0.153.0, Chromium 152.0.7977.75, Zed
 1.18.0, and LM Studio 0.4.23-1 were built and inspected. All three graphical
 applications remain candidate-only and are absent from every Home Manager
-profile. The
+profile. The exact 52-path / 696.8 MiB headless Home generation was then
+activated, rolled back to the byte-exact pre-Home state, and freshly activated
+again through its guarded transaction. It is retained as generation one with
+no user-systemd units; see the
+[host result](2026-09-03-home-headless-host.md). The
 patched System Manager 1.1.0 inert
 root canary and closure policy were also built and inspected without host
 activation. The first disposable-container activation failed closed on upstream
@@ -108,10 +112,10 @@ rebuilt in Phase 1.
 
 | Layer | Item | Intent | Current evidence | Gate before build/install |
 | --- | --- | --- | --- | --- |
-| Fleet base | Exact role | REQUIRED | Implemented as exactly `ncdu`, `lazydocker`, and `devbox`; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Review the measured three-root closure and activation collision report |
-| Fleet base | ncdu | SELECTED | Stable pin `ncdu` 2.9.2 is current, free, and ARM64-available | Build only as part of an explicitly approved base build |
-| Fleet base | lazydocker | SELECTED | Stable pin `lazydocker` 0.25.2 is current, free, and ARM64-available; the module adds only a user package | Do not add Docker group membership, socket ACLs, a service, or autostart |
-| Fleet base | Devbox | SELECTED; BUILD-PASSED; LIVE MANUAL COPY NOT MIGRATED | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. Built ARM64 binary reports 0.18.0; 8-path runtime closure is 65.8 MiB NAR. The currently invoked `/usr/local/bin/devbox` is not dpkg- or Nix-profile-owned | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; replace the manual copy only through the guarded base-profile migration and retain the adapter until stock catches up |
+| Fleet base | Exact role | REQUIRED; ACTIVE | Exactly `ncdu`, `lazydocker`, and `devbox` are active through Home generation one; old `fd`, `jq`, and `ripgrep` remain dev-shell-only | Update only through a guarded next-generation Home transaction |
+| Fleet base | ncdu | CURRENT; ACTIVE | Stable pin `ncdu` 2.9.2 is current, free, ARM64-available, and visible from the Nix user profile | Keep in the exact fleet base unless deliberately removed |
+| Fleet base | lazydocker | CURRENT; ACTIVE | Stable pin `lazydocker` 0.25.2 is current and active; account groups/socket ACLs are unchanged, so it grants no Docker daemon permission | Do not add Docker group membership, socket ACLs, a service, or autostart |
+| Fleet base | Devbox | CURRENT; NIX-MANAGED ACTIVE | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. The active ARM64 binary resolves through `~/.nix-profile`; its 8-path runtime closure is 65.8 MiB NAR. The old `/usr/local/bin/devbox` copy remains on disk but no longer wins normal command resolution | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; retain the adapter until stock catches up and treat removal of the old copy as separate cleanup |
 | Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.6.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
 | Factory desktop | Ubuntu GNOME/GDM | Recovery and future `gnome` host mode | Factory-owned, installed, and still running | Never replace or remove during another desktop pilot |
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
@@ -124,7 +128,7 @@ rebuilt in Phase 1.
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
 | Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt `tailscale` 1.102.3 plus `tailscale-archive-keyring` remain live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. System Manager's reboot rollback is proven but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact optional-role ownership diff and apt package/source/keyring rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
-| Developer tools | Codex CLI + Armen permission policy | CURRENT NIX PACKAGE; BUILD-PASSED; LAUNCHER MIGRATION OPEN; PREFERENCES DECLARED | Armen's all-modes overlay pins OpenAI's official 0.153.0 ARM64 release bundle at SHA-256 `076b2b75...99be4`. The 278.2 MiB one-path closure contains `codex`, code-mode host, bundled ripgrep, sandbox helper, and package manifest; version, architecture, structure, updater, and strict-config checks pass. Home Manager will own the higher-precedence `~/.local/bin/codex` launcher and disables startup self-update while preserving auth/plugin/MCP/history state. The visible launcher is still retained standalone 0.152.0 because no Home profile has been activated | Activate the exact headless Home generation with collision snapshot and rollback; verify 0.153.0 plus existing login/config, then retain the standalone tree temporarily as rollback input |
+| Developer tools | Codex CLI + Armen permission policy | CURRENT; NIX-MANAGED ACTIVE | Armen's all-modes overlay pins OpenAI's official 0.153.0 ARM64 release bundle at SHA-256 `076b2b75...99be4`. The 278.2 MiB one-path closure contains `codex`, code-mode host, bundled ripgrep, sandbox helper, and package manifest. Home generation one owns the higher-precedence `~/.local/bin/codex` launcher and disables startup self-update while preserving auth/plugin/MCP/history state; real rollback and reactivation passed. The old standalone 0.152.0 tree is retained but no longer resolves | Continue auditing through `scripts/update-codex.sh`; keep the standalone tree temporarily as rollback input and remove it only through separate cleanup evidence |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
 | Root integration | System Manager | SELECTED; ALL SIX DISPOSABLE TESTS PASSED; FIRST REAL REBOOT/AUTOMATIC ROLLBACK VERIFIED; RETRY-SAFE RESTORATION PASSED; GENERATION THREE LIVE/REGISTERED/BOOT-LINKED; ALL THREE GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its private wrapper is verified Nix 2.35.2, and all six exact disposable derivations remain policy-pinned. The 13-subtest recovery design survived the separately authorized first real reboot. Restoration attempt one safely timed back after the old phrase was mistyped; attempt two used one Enter, passed two full postflights, and automatically retained exact generation three. `system-manager -> system-manager-3-link -> w8kn…` and `system-manager-current -> w8kn…`; all three numbered generations and direct pilot roots remain, and the one declarative boot edge is present. Current classifier is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; no recovery or rollback timer is armed, and the helper contains no reboot action | Preserve all three generations and direct roots while broader root ownership is still canary-only. Do not reuse spent snapshots/helpers, remove a generation/root, arm recovery, reboot, or add a real managed service without its current reviewed gate |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
@@ -141,15 +145,14 @@ profile or install them.
 
 ## Phase 1 evaluated profiles
 
-These are evaluated Home Manager package graphs, not activated host modes. The
-pilot's exported Home configuration is deliberately staged as user-layer
-`headless`, so its first candidate contains the exact CLI base. Factory
-GNOME/GDM remains untouched and running because no approved root desktop
-controller is active yet.
+These are Home Manager package graphs, not host desktop modes. The pilot's
+exported user-layer `headless` profile is now active as exact generation one.
+Factory GNOME/GDM remains untouched and running because no approved root
+desktop controller is active yet.
 
 | Profile | Effective direct Home Manager additions | Build validation | Realized closure |
 | --- | --- | --- | --- |
-| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, Armen's Codex CLI 0.153.0, intrinsic `hm-session-vars.sh`; no Home Manager user-systemd units | Build, non-mutating dry run, collision review, and disposable rollback passed; live activation open | 52-path / 696.8 MiB activation closure; installed home path is 643.2 MiB. See the [exact preflight](2026-09-03-home-headless-preflight.md) |
+| `headless` | `ncdu`, `lazydocker`, Devbox 0.18.0, Armen's Codex CLI 0.153.0, intrinsic `hm-session-vars.sh`; no Home Manager user-systemd units | ACTIVE generation one; two guarded activations plus disposable and real rollback passed | 52-path / 696.8 MiB activation closure; installed home path is 643.2 MiB. See the [host result](2026-09-03-home-headless-host.md) |
 | `gnome` | Headless graph, Ghostty, `shared-mime-info`, and two Home Manager MIME-directory sentinels | Build passed with `--no-link` | Realized generation closure: 1.7 GiB |
 | `hyprland` without portal | GNOME graph plus pinned Hyprland and Xwayland | Build passed with `--no-link` | Realized generation closure: 2.3 GiB |
 | `hyprland` with portal | Hyprland graph plus portal core, Hyprland backend, GTK fallback, and generated portal config | Build passed with `--no-link` | Realized generation closure: 3.5 GiB |

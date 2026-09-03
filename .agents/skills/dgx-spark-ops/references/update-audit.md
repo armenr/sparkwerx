@@ -299,13 +299,12 @@ Codex CLI, the ChatGPT Debian package, and the 1Password extension began as
 explicit manual installations. Firefox remains part of the factory/OS
 application substrate. Report their installed versions and ownership when
 available. ChatGPT and browser extensions are selected for Armen's future
-graphical overlay but are not Nix-managed yet. The current Codex package is now
-owned by Armen's all-modes Nix overlay; until Home Manager activation, report
-the visible older standalone launcher as migration input rather than treating
-the package build as a completed ownership transfer. Never remove the retained
-standalone tree during a read-only audit.
-The first activation must use `scripts/dgx-home`; direct activation bypasses
-its private snapshot, automatic rollback, collision check, and exact postflight.
+graphical overlay but are not Nix-managed yet. The current Codex package and
+visible launcher are now owned by Armen's active all-modes Nix overlay. Report
+the older standalone tree as retained rollback input, not the active launcher;
+never remove it during a read-only audit. The first Home activation, real
+rollback, and fresh reactivation passed through `scripts/dgx-home`; a future
+generation update needs a new guarded path rather than a raw switch.
 Tailscale is not in this category; it has its own optional fleet-access
 migration and update policy above.
 

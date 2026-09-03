@@ -19,8 +19,9 @@ The mapping and graphical/headless activity gate are implemented. The host
 declares the overlay selected. Codex CLI is its first packaged all-modes tool.
 Exact current Chromium, Zed, and LM Studio graphical candidates have completed
 package and closure review but remain absent from every profile until their
-real graphical gates pass. In the staged headless profile, graphical selection
-persists in Git while its computed activity is false and Codex remains present.
+real graphical gates pass. In the active headless generation, graphical
+selection persists in Git while its computed activity is false and Codex is
+present through its Nix-managed launcher.
 
 Every future mapping must be explicit in that host's configuration. Creating
 another Unix user must not give that user Armen's applications, browser
@@ -79,8 +80,8 @@ concern from mutable state: Armen's all-modes overlay now owns the current
 official ARM64 package and `~/.local/bin/codex` launcher, while login, plugins,
 MCP servers, project trust, preferences, and history remain mutable. Startup
 self-update is disabled because `scripts/update-codex.sh` owns release checks.
-The old standalone release tree remains untouched as rollback input until the
-first Home Manager activation is verified.
+The old standalone release tree remains untouched as temporary rollback input;
+the first Home activation, real rollback, and fresh reactivation are verified.
 
 ## Separate decisions that must stay separate
 

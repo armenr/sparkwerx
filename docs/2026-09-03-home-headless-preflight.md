@@ -4,8 +4,8 @@ Date: 2026-09-03 UTC
 
 Host: `sparkle-01`
 
-Result: exact profile, collision review, non-mutating dry run, and disposable
-rollback test passed; live activation remains open
+Result at preflight: exact profile, collision review, non-mutating dry run, and
+disposable rollback test passed
 
 ## Exact generation
 
@@ -81,7 +81,7 @@ test passed against a temporary profile, including exact launcher/config
 restoration. The transient timer interface was separately armed and disarmed
 without executing its service.
 
-## Remaining live gate
+## Subsequent live result
 
 No Home profile was activated while producing this record. Running
 `./scripts/dgx-home activate-headless` is the separately visible live user-state
@@ -95,3 +95,8 @@ tree. The user transaction now uses the separate ignored `private/` tree, and
 snapshot creation runs outside command substitution so its first error stops
 the workflow immediately. No Home profile or timer existed after that failed
 invocation.
+
+That live gate subsequently passed. The first successful activation was rolled
+back deliberately to exact pre-Home state; a fresh activation then retained
+generation one from snapshot `20260903T120519Z`. See the
+[host result](2026-09-03-home-headless-host.md) for current authority.

@@ -486,10 +486,10 @@ Its standalone updater is disabled because the repository's checksum-verifying
 Home Manager also invokes a narrow, idempotent reconciler that owns only these
 approval/permission and Nix-update keys and preserves the rest of mutable
 `~/.codex/config.toml`. It refuses symlinks and foreign-owned files. The live
-pilot config already has the permission settings and passes strict Codex
-parsing. The Nix package is build-validated but not yet activated; the visible
-0.152.0 standalone launcher and its release tree remain migration/rollback
-input until the first Home Manager activation replaces only that launcher.
+pilot config has the permission settings and passes strict Codex parsing. The
+Nix package and higher-precedence launcher are active through retained Home
+generation one; the 0.152.0 standalone release tree remains rollback input but
+no longer wins command resolution.
 
 ## Explicit non-selections
 
@@ -559,20 +559,20 @@ The repository-only policy alignment was completed and evaluated on
 - evaluation invariants and dry-run plans cover headless, GNOME, Hyprland, and
   Hyprland-with-portal.
 
-The exported pilot Home profile remains staged as user-layer `headless` for the
-future exact-base activation. This does not change the running factory GNOME
-host. The Tailscale package/unit and Devbox outputs are realized only in the Nix
-store; Home Manager was not activated, the apt Tailscale daemon remains active,
-and GDM/desktop state were not changed. The separately approved root Nix
+The exported pilot Home profile is active as retained user-layer `headless`
+generation one. This did not change the running factory GNOME host. Devbox is
+now active through the Nix user profile; the Tailscale package/unit remains
+candidate-only, the apt Tailscale daemon remains active, and GDM/desktop state
+was not changed. The separately approved root Nix
 runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
 Tailscale-continuity checks. The software manifest remains the
 application/service/desktop install and activation gate.
 
-The first headless activation now uses `scripts/dgx-home`: a clean-commit,
+The first headless activation used `scripts/dgx-home`: a clean-commit,
 private-snapshot transaction with a ten-minute automatic user rollback and no
 typed confirmation phrase. Headless disables Home Manager's user-systemd layer,
 removing its generic `tray.target`, environment file, and reload phase. The
-exact 52-path candidate, collision audit, dry run, and disposable rollback pass
-are recorded in
-[the 2026-09-03 preflight](2026-09-03-home-headless-preflight.md). Live
-activation remains a distinct action.
+exact 52-path candidate, collision audit, dry run, disposable rollback, real
+rollback, and fresh retained reactivation are recorded in the
+[preflight](2026-09-03-home-headless-preflight.md) and
+[host result](2026-09-03-home-headless-host.md).

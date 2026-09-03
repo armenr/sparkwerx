@@ -25,11 +25,11 @@ and `kde`; it is absent from the active `headless` profile. Installed desktop
 packages may coexist on disk; that costs disk space, not idle RAM. The selected
 mode controls what runs after root integration exists.
 
-During the repository-only Phase 1 checkpoint, the exported pilot Home profile
-is deliberately staged as user-layer `headless`. That makes the eventual first
-Home Manager activation an exact-base candidate. The actual machine remains in
-factory GNOME: no code in the current Home Manager layer disables GDM, changes
-the default target, or claims the host has already switched.
+The exported pilot Home profile is now active as retained user-layer
+`headless` generation one after guarded activation, real rollback, and fresh
+reactivation. The actual host remains in factory GNOME: no code in the current
+Home Manager layer disables GDM or changes the default target. User-profile
+composition and the future host desktop-mode controller remain separate.
 
 ## What headless means
 

@@ -36,11 +36,14 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   factory loader. Its vendor Electron launcher falls back to `--no-sandbox`
   because Ubuntu AppArmor blocks Bubblewrap's user namespace; never weaken the
   host policy or activate the package without resolving that explicit gate.
-- The first headless Home activation must go through `scripts/dgx-home`; read
-  `docs/2026-09-03-home-headless-preflight.md` first. Do not invoke the raw
-  activation package or `home-manager switch`. Headless deliberately disables
-  Home Manager's user-systemd layer, and a successful transaction must preserve
-  that zero-unit boundary while automatically disarming its rollback timer.
+- The first headless Home activation completed through `scripts/dgx-home`; read
+  `docs/2026-09-03-home-headless-preflight.md` and
+  `docs/2026-09-03-home-headless-host.md`. The real rollback and fresh
+  reactivation passed, and snapshot `20260903T120519Z` is current authority. Do
+  not invoke the raw activation package or `home-manager switch`. Headless
+  deliberately disables Home Manager's user-systemd layer; preserve that
+  zero-unit boundary. `activate-headless` is now only for another pristine host,
+  not for updating this active generation.
   User snapshots belong under `inventory/<host>/private/`; `raw/` is the
   root-owned System Manager evidence tree and must not be repurposed.
 - Keep Armen's Codex defaults maximally permissive in every desktop mode:
@@ -50,10 +53,10 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   the fleet base; disable its startup self-update because the repository owns
   version updates. Reconcile only those keys; preserve mutable auth, plugins,
   MCP servers, project trust, desktop preferences, and history. Keep the old
-  standalone release tree until the Nix launcher migration is activated and
-  verified.
-- Keep Hyprland opt-in and do not activate Home Manager or change GDM unless the
-  user explicitly approves that exact activation.
+  standalone release tree until its now-completed Nix launcher migration has
+  been exercised long enough for separately reviewed cleanup.
+- Keep Hyprland opt-in and do not change the active Home generation or GDM
+  unless the exact transition has its reviewed rollback path.
 - Never expose secrets or place mutable model/application data in the Nix store.
 - Treat the existing apt-installed Tailscale as migration input, not a permanent
   exception. Read the skill's Tailscale reference before changing its package,

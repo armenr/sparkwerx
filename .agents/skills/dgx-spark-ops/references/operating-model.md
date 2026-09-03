@@ -206,10 +206,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - the built-in `nix upgrade-nix` target is a manually maintained literal store
   path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
-- no Home Manager profile or GDM Hyprland session has been activated. The
-  exact first headless Home candidate, clean collision report, non-mutating dry
-  run, and disposable rollback test passed; use only `scripts/dgx-home` for
-  that first live user-profile transaction;
+- exact headless Home generation one is active after two guarded activations
+  and a successful real rollback to pre-Home state. It contains the three-tool
+  fleet base plus Armen's Codex overlay and no Home Manager user-systemd units;
+  GDM/host desktop state remains factory GNOME. Snapshot
+  `20260903T120519Z` and `docs/2026-09-03-home-headless-host.md` are current
+  authority;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
 - the pilot user is not currently a member of the Docker group;
 - Tailscale `1.102.3` was manually installed from Tailscale's official apt

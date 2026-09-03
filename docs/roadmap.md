@@ -119,14 +119,15 @@ the measured software manifest; evaluation did not authorize realization.
       report; suppress Home Manager's generic user-systemd artifacts in headless
 - [x] Confirm `lazydocker` adds no Docker permission and Devbox does not alter
       Nix ownership
-- [ ] Back up or adopt any files Home Manager would own
-- [ ] Activate only the corrected exact base
-- [ ] Confirm rollback to the previous Home Manager generation
+- [x] Back up/adopt the exact managed paths in a private snapshot
+- [x] Activate only the corrected exact base plus Armen's all-modes Codex layer
+- [x] Roll the real first generation back to exact pre-Home state, then repeat
+      the guarded activation and retain it
 
-The private snapshot, automatic rollback, exact postflight, and disposable
-first-generation rollback test are implemented in `scripts/dgx-home`. The last
-three boxes remain open until the live transaction creates its snapshot,
-retains generation one, and proves the real rollback path.
+The private snapshot, automatic rollback, exact postflight, disposable test,
+real rollback, and fresh reactivation all passed through `scripts/dgx-home`.
+Snapshot `20260903T120519Z` is the retained current activation authority; see
+the [host result](2026-09-03-home-headless-host.md).
 
 ## Phase 5: desktop-mode pilot
 
