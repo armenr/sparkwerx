@@ -16,7 +16,7 @@ nix_bin=/nix/var/nix/profiles/default/bin/nix
 nix_args=(--extra-experimental-features "nix-command flakes")
 
 usage() {
-  printf 'Usage: %s <plan | bootstrap> [HOSTNAME]\n' "$(basename "$0")" >&2
+  printf 'Usage: %s <plan | bootstrap | apply> [HOSTNAME]\n' "$(basename "$0")" >&2
 }
 
 die() {
@@ -232,15 +232,94 @@ plan_host() {
       emit HOLD tailscale_apply 'selected but Nix-managed migration/enrollment is not yet apply-ready'
     fi
   fi
-  if [[ "$desktop_mode" != headless || "$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")" != not-implemented ]]; then
-    emit HOLD desktop_apply 'root desktop controller is not yet apply-ready'
+  if [[ "$desktop_mode" == headless && "$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")" == not-implemented ]]; then
+    emit HOLD desktop_apply 'user composition is headless, but factory GNOME remains active until the root desktop controller is proven'
   else
-    emit INFO desktop_apply 'user composition is headless; factory GNOME remains the unchanged host mode'
+    emit HOLD desktop_apply 'root desktop controller is not yet apply-ready'
   fi
   [[ "$isaac_enabled" == false ]] || emit HOLD workload_apply 'Isaac/Omniverse workload is not yet apply-ready'
 
   emit PASS plan 'no package build/install, profile, service, enrollment, desktop, or reboot action occurred; evaluation may fetch missing locked flake sources'
   printf 'PLAN_STATUS=PARTIAL_READY\n'
+}
+
+apply_host() {
+  local target_host=$1 actual_host actual_user declared_user declared_home
+  local desktop_mode host_controller tailscale_selected tailscale_owner
+  local isaac_enabled llmster_enabled home_profile home_action
+  local partial=false
+
+  validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
+  actual_host="$(hostname -s)"
+  actual_user="$(id -un)"
+  declared_user="$(json_value "$fleet_file" "hosts.$target_host.users.armen.unixName")"
+  declared_home="$(json_value "$fleet_file" "hosts.$target_host.users.armen.homeDirectory")"
+  desktop_mode="$(json_value "$fleet_file" "hosts.$target_host.desktop.mode")"
+  host_controller="$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")"
+  tailscale_selected="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.selected")"
+  tailscale_owner="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.ownership")"
+  isaac_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.isaacOmniverse.enabled")"
+  llmster_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.lmstudioDaemon.enabled")"
+
+  [[ "$target_host" == "$actual_host" ]] ||
+    die "apply can target only the local host ($actual_host)"
+  [[ "$actual_user" == "$declared_user" ]] ||
+    die "current user is $actual_user, expected $declared_user"
+  [[ "$HOME" == "$declared_home" ]] ||
+    die "HOME is $HOME, expected $declared_home"
+  [[ "$(uname -m)" == aarch64 ]] || die 'apply supports only aarch64 hosts'
+  [[ -z "$(git -C "$repo_dir" status --porcelain=v1)" ]] ||
+    die 'repository must be clean so apply binds one committed design'
+
+  # The currently proven Home lifecycle is deliberately headless-only. Refuse
+  # before bootstrap or profile mutation if a graphical user composition or an
+  # enabled workload asks this front door to cross an unimplemented boundary.
+  [[ "$desktop_mode" == headless ]] ||
+    die "desktop mode $desktop_mode has no guarded Home apply lifecycle yet"
+  [[ "$host_controller" == not-implemented ]] ||
+    die "host desktop controller $host_controller has no guarded apply lifecycle yet"
+  [[ "$isaac_enabled" == false && "$llmster_enabled" == false ]] ||
+    die 'an enabled workload has no guarded apply lifecycle yet'
+  if [[ "$tailscale_selected" == true && "$tailscale_owner" != migration-pending-apt ]]; then
+    die "selected Tailscale ownership $tailscale_owner has no guarded migration lifecycle yet"
+  fi
+
+  printf '# DGX guarded staged apply\n'
+  printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  emit INFO target "$target_host"
+  emit INFO contract 'converge only proven Nix/bootstrap and headless Home transactions; leave gated root roles untouched'
+  plan_host "$target_host"
+
+  "$repo_dir/scripts/bootstrap-nix.sh" "$target_host"
+  [[ -x "$nix_bin" ]] || die 'Nix bootstrap returned without the required runtime'
+  emit PASS apply_nix 'exact bootstrap/runtime transaction converged'
+
+  home_profile=$declared_home/.local/state/nix/profiles/home-manager
+  if [[ -L "$home_profile" ]]; then
+    home_action=update-headless
+  elif [[ ! -e "$home_profile" ]]; then
+    home_action=activate-headless
+  else
+    die "Home Manager profile is a non-symlink: $home_profile"
+  fi
+  emit INFO home_action "$home_action"
+  "$repo_dir/scripts/dgx-home" "$home_action"
+  emit PASS apply_home 'exact headless Home transaction converged'
+
+  if [[ "$tailscale_selected" == true ]]; then
+    emit HOLD apply_tailscale "ownership=$tailscale_owner;apt daemon and mutable identity were not changed"
+    partial=true
+  fi
+  emit HOLD apply_desktop 'host controller is not implemented; factory GNOME/GDM was not changed'
+  partial=true
+
+  if [[ "$partial" == true ]]; then
+    emit PASS apply 'all currently proven layers converged; every unproven role remained untouched'
+    printf 'APPLY_STATUS=PARTIAL\n'
+  else
+    emit PASS apply 'all declared layers converged'
+    printf 'APPLY_STATUS=COMPLETE\n'
+  fi
 }
 
 [[ "$#" -le 2 ]] || {
@@ -253,6 +332,9 @@ case "${1:-}" in
     ;;
   bootstrap)
     exec "$repo_dir/scripts/bootstrap-nix.sh" "${2:-$(hostname -s)}"
+    ;;
+  apply)
+    apply_host "${2:-$(hostname -s)}"
     ;;
   *)
     usage
