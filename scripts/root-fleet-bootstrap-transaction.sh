@@ -164,7 +164,15 @@ assert_live_candidate() {
   for unit in dgx-setup-canary.service sysinit-reactivation.target system-manager.target; do
     expected="$(candidate_service_path "$candidate" "$unit")" || return 1
     live="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
-    [[ "$live" == "$expected" ]] || fail "live unit does not match candidate: $unit" || return 1
+    # systemd normally records the stable /etc/systemd/system path as its
+    # FragmentPath even though that path is a System Manager symlink into the
+    # immutable Nix store. Compare resolved payloads so both path forms prove
+    # the same exact candidate without confusing the link with its target.
+    [[ -n "$live" &&
+      "$(resolved_link "$live")" == "$(resolved_link "$expected")" ]] ||
+      fail "loaded unit payload does not match candidate: $unit (expected=$expected observed=${live:-ABSENT})" || return 1
+    [[ "$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)" == no ]] ||
+      fail "managed unit needs daemon reload: $unit" || return 1
   done
   systemctl is-active --quiet system-manager.target ||
     fail "system-manager.target is not active" || return 1
@@ -185,8 +193,12 @@ assert_live_candidate() {
 
   if candidate_tailscale_selected "$candidate"; then
     expected="$(candidate_service_path "$candidate" tailscaled.service)" || return 1
-    [[ "$(systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true)" == "$expected" ]] ||
-      fail "running tailscaled.service is not Nix-managed" || return 1
+    live="$(systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true)"
+    [[ -n "$live" &&
+      "$(resolved_link "$live")" == "$(resolved_link "$expected")" ]] ||
+      fail "running tailscaled.service payload is not Nix-managed (expected=$expected observed=${live:-ABSENT})" || return 1
+    [[ "$(systemctl show tailscaled.service -p NeedDaemonReload --value 2>/dev/null || true)" == no ]] ||
+      fail "managed unit needs daemon reload: tailscaled.service" || return 1
     systemctl is-active --quiet tailscaled.service ||
       fail "Nix-managed tailscaled.service is not active" || return 1
   fi
