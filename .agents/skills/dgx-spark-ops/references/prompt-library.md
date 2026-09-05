@@ -152,6 +152,15 @@ any build, install, service change, or apt removal.
 ```
 
 ```text
+$dgx-spark-ops Execute the approved Tailscale migration on sparkle-01 through
+./scripts/dgx-tailscale. Require a clean exact commit, the current disposable
+lifecycle PASS, independent local console, rollback armed before the restart,
+same-boot AWAITING_REBOOT, one separately authorized reboot, a fresh Tailscale
+SSH connection, and postboot AWAITING_CONFIRMATION before confirm. Keep the apt
+package and mutable identity; do not infer reboot authority or remove apt.
+```
+
+```text
 $dgx-spark-ops Evaluate <tool or workload> for this fleet. First honor the
 decision register's selected scope and explicit non-selections. Decide what Nix
 should own and what should use a container or pinned vendor source build, using

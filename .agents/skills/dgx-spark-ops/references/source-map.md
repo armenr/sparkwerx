@@ -160,6 +160,11 @@ unless the decision register changes.
 | Tailscale SSH behavior and limitations | https://tailscale.com/docs/features/tailscale-ssh |
 | Security best practices | https://tailscale.com/docs/reference/best-practices/security |
 | Upstream source and developer flake caveat | https://github.com/tailscale/tailscale/blob/main/flake.nix |
+| Repository package and unit policy | [Tailscale operations reference](tailscale.md) |
+| Guarded live migration operator | [scripts/dgx-tailscale](../../../../scripts/dgx-tailscale) |
+| Exact migration transaction | [scripts/root-tailscale-migration-transaction.sh](../../../../scripts/root-tailscale-migration-transaction.sh) |
+| Persistent rollback bundle | [root/tailscale/migration-bundle.nix](../../../../root/tailscale/migration-bundle.nix) |
+| Current disposable migration proof | [root/tailscale/validation/2026-09-05-migration-lifecycle-container-test.md](../../../../root/tailscale/validation/2026-09-05-migration-lifecycle-container-test.md) |
 
 Use `tailscale version --json --upstream --track stable` as a machine-readable
 official availability check, then confirm meaningful changes in the changelog

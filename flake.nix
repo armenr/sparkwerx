@@ -266,6 +266,15 @@
       rootRebootRecoverySnapshotProgram = ./scripts/snapshot-root-reboot-recovery.sh;
       reviewedRootRebootRecoverySnapshotSha256 = "89a2ec821eb58169510c208965e546ad8311521f6534bc090d7d9799b8ebf0c4";
       rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
+      rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
+      rootTailscaleMigrationBundle = import ./root/tailscale/migration-bundle.nix {
+        pkgs = rootPkgs;
+        transactionProgram = rootTailscaleMigrationTransactionProgram;
+        generationOne = rootCanary;
+        generationTwo = rootCanaryRegistrationTestGeneration;
+        generationThree = rootCanaryBootPersistenceGeneration;
+        generationFour = rootTailscaleMigrationGeneration;
+      };
       reviewedRootRebootRecoveryPilotSha256 = "09770fd391efae16c205ef06e5bcba8bbc9de970103af79b53164aab395e8f4a";
       rootRebootRecoveryOperatorProgram = ./scripts/dgx-recovery;
       reviewedRootRebootRecoveryOperatorSha256 = "a7da45053e625f1653f6bc0d4830073ddc272cd03b80bce9db53badee37dd885";
@@ -1574,8 +1583,36 @@
             "$units/tailscaled.service"
           grep -F 'EnvironmentFile=-/etc/dgx-setup/tailscaled.env' \
             "$units/tailscaled.service"
+          test -x ${rootTailscaleMigrationBundle}/bin/dgx-root-tailscale-migration
+          grep -F 'OnActiveSec=10min' \
+            ${rootTailscaleMigrationBundle}/lib/systemd/system/dgx-tailscale-migration-rollback.timer
+          grep -F 'ConditionPathExists=/var/lib/dgx-setup/tailscale-migration/armed' \
+            ${rootTailscaleMigrationBundle}/lib/systemd/system/dgx-tailscale-migration-rollback.timer
+          grep -F '${rootCanaryBootPersistenceGeneration}' \
+            ${rootTailscaleMigrationBundle}/bin/dgx-root-tailscale-migration
+          grep -F '${rootTailscaleMigrationGeneration}' \
+            ${rootTailscaleMigrationBundle}/bin/dgx-root-tailscale-migration
+          grep -F 'MIGRATION_STATUS=AWAITING_REBOOT' \
+            ${./scripts/dgx-tailscale}
+          grep -F 'one guarded reboot is required before confirmation' \
+            ${./scripts/dgx-tailscale}
           touch "$out"
         '';
+
+      tailscaleMigrationShellCheck =
+        rootPkgs.runCommand "dgx-tailscale-migration-shellcheck"
+          {
+            nativeBuildInputs = [ rootPkgs.shellcheck ];
+          }
+          ''
+            shellcheck ${./scripts/dgx-tailscale}
+            # This transaction intentionally names the exact common path set
+            # next to its unit set; the assertions below consume the paths
+            # individually rather than iterating that documentation array.
+            shellcheck --exclude=SC2034 \
+              ${rootTailscaleMigrationTransactionProgram}
+            touch "$out"
+          '';
 
       devboxPolicyCheck =
         assert devboxPackage.version == devboxPackage.passthru.release.version;
@@ -2423,6 +2460,8 @@
           rootManagerOverlays
           rootCanary
           rootCanaryBootPersistenceGeneration
+          rootCanaryRegistrationTestGeneration
+          rootTailscaleMigrationTransactionProgram
           system-manager
           ;
       };
@@ -2648,6 +2687,7 @@
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
         root-system-tailscale-migration = rootTailscaleMigrationGeneration;
+        root-tailscale-migration-bundle = rootTailscaleMigrationBundle;
         root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
         tailscaled-unit = tailscaleService.package;
@@ -2687,6 +2727,7 @@
         root-system-canary = rootCanary;
         root-system-tailscale-migration = rootTailscaleMigrationGeneration;
         tailscale-package = tailscalePackage;
+        tailscale-migration-shellcheck = tailscaleMigrationShellCheck;
         tailscale-policy = tailscalePolicyCheck;
         tailscale-unit-lifecycle-container = tailscaleUnitLifecycleContainerTest;
         tailscaled-unit = tailscaleService.package;

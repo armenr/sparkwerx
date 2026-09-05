@@ -1,0 +1,788 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+host_name="$(hostname -s)"
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+state_dir=/var/lib/dgx-setup/tailscale-migration
+state_context=$state_dir/context
+profile_dir=/nix/var/nix/profiles/system-manager-profiles
+candidate_root=/nix/var/nix/gcroots/dgx-setup-tailscale-migration-pilot
+rollback_root=/nix/var/nix/gcroots/dgx-setup-tailscale-migration-rollback
+rollback_service=dgx-tailscale-migration-rollback.service
+rollback_timer=dgx-tailscale-migration-rollback.timer
+apply_service=dgx-tailscale-migration-apply.service
+rollback_service_path=/etc/systemd/system/$rollback_service
+rollback_timer_path=/etc/systemd/system/$rollback_timer
+rollback_wants_path=/etc/systemd/system/timers.target.wants/$rollback_timer
+managed_unit=/etc/systemd/system/tailscaled.service
+managed_wants=/etc/systemd/system/system-manager.target.wants/tailscaled.service
+vendor_unit=/usr/lib/systemd/system/tailscaled.service
+vendor_wants=/etc/systemd/system/multi-user.target.wants/tailscaled.service
+tailscale_state=/var/lib/tailscale/tailscaled.state
+snapshot_root=$repo_dir/inventory/$host_name/raw/tailscale-migration
+
+protected_units=(
+  gdm.service
+  docker.service
+  dgx-dashboard.service
+  dgx-dashboard-admin.service
+  nvidia-persistenced.service
+)
+
+NIX_USER_CONF_FILES=/dev/null
+export NIX_USER_CONF_FILES
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/dgx-tailscale plan|migrate|status|confirm|rollback|cleanup-rolled-back
+
+  plan                Read-only host and candidate summary
+  migrate             Test, snapshot, arm rollback, and launch handoff (no reboot)
+  status              Report the in-flight or retained migration state
+  confirm             Retain only after the required guarded reboot
+  rollback            Ask systemd to restore generation three and the apt unit
+  cleanup-rolled-back Remove guard residue after verified automatic rollback
+EOF
+}
+
+info() {
+  printf 'INFO|%s|%s\n' "$1" "$2"
+}
+
+pass() {
+  printf 'PASS|%s|%s\n' "$1" "$2"
+}
+
+die() {
+  printf 'FAIL|dgx_tailscale|%s\n' "$1" >&2
+  exit 1
+}
+
+path_exists() {
+  [[ -e "$1" || -L "$1" ]]
+}
+
+require_root() {
+  if [[ "$EUID" -ne 0 ]]; then
+    exec sudo -- "$repo_dir/scripts/dgx-tailscale" "$@"
+  fi
+}
+
+require_commands() {
+  local command_name
+
+  for command_name in \
+    awk cmp date dpkg-query find git grep hostname install jq ln mktemp \
+    nvidia-smi readlink rm sed sha256sum sort stat systemctl systemd-analyze \
+    systemd-run tailscale timeout touch uname; do
+    command -v "$command_name" >/dev/null 2>&1 ||
+      die "required command is unavailable: $command_name"
+  done
+  [[ -x "$nix_bin" ]] || die "root-profile Nix is unavailable at $nix_bin"
+}
+
+eval_output() {
+  "$nix_bin" \
+    --extra-experimental-features "nix-command flakes" \
+    eval --raw --no-write-lock-file "$1"
+}
+
+context_value() {
+  local key="$1"
+  local file="${2:-$state_context}"
+
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$file"
+}
+
+assert_store_path() {
+  local value="$1"
+  local suffix="$2"
+
+  [[ "$value" =~ ^/nix/store/[a-z0-9]{32}-${suffix}$ ]] ||
+    die "invalid recorded store path: $value"
+  [[ -e "$value" ]] || die "recorded store path is unavailable: $value"
+}
+
+load_context() {
+  local snapshot_complete current_commit current_controller_hash
+  local current_transaction_hash
+
+  path_exists "$state_context" || die "no Tailscale migration is in flight"
+  [[ -d "$state_dir" && ! -L "$state_dir" &&
+    "$(stat -c %u:%a -- "$state_dir")" == 0:700 ]] ||
+    die "migration state directory ownership or mode changed"
+  [[ -f "$state_context" && ! -L "$state_context" ]] ||
+    die "migration context is not a regular file"
+  [[ "$(stat -c %u:%a -- "$state_context")" == 0:600 ]] ||
+    die "migration context ownership or mode changed"
+
+  context_snapshot="$(context_value snapshot)"
+  context_host="$(context_value host)"
+  context_bundle="$(context_value bundle)"
+  context_generation_one="$(context_value generation_one)"
+  context_generation_two="$(context_value generation_two)"
+  context_generation_three="$(context_value generation_three)"
+  context_generation_four="$(context_value generation_four)"
+  context_tailscale_package="$(context_value tailscale_package)"
+  context_identity_sha256="$(context_value identity_sha256)"
+  context_origin_boot_id="$(context_value origin_boot_id)"
+  context_repo_commit="$(context_value repo_commit)"
+  context_controller_sha256="$(context_value controller_sha256)"
+  context_transaction_sha256="$(context_value transaction_sha256)"
+
+  [[ "$context_host" == "$host_name" ]] ||
+    die "migration context belongs to $context_host, not $host_name"
+  [[ "$context_repo_commit" =~ ^[a-f0-9]{40}$ ]] ||
+    die "invalid recorded repository commit"
+  [[ "$context_controller_sha256" =~ ^[a-f0-9]{64}$ &&
+    "$context_transaction_sha256" =~ ^[a-f0-9]{64}$ ]] ||
+    die "invalid recorded helper digest"
+  [[ "$context_origin_boot_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] ||
+    die "invalid recorded origin boot ID"
+  current_commit="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)"
+  [[ "$current_commit" == "$context_repo_commit" ]] ||
+    die "repository commit changed during the migration"
+  [[ -z "$(git -C "$repo_dir" status --porcelain=v1 2>/dev/null)" ]] ||
+    die "repository became dirty during the migration"
+  current_controller_hash="$(
+    sha256sum "$repo_dir/scripts/dgx-tailscale" | awk '{print $1}'
+  )"
+  current_transaction_hash="$(
+    sha256sum "$repo_dir/scripts/root-tailscale-migration-transaction.sh" |
+      awk '{print $1}'
+  )"
+  [[ "$current_controller_hash" == "$context_controller_sha256" ]] ||
+    die "migration controller changed after the snapshot"
+  [[ "$current_transaction_hash" == "$context_transaction_sha256" ]] ||
+    die "migration transaction changed after the snapshot"
+
+  case "$context_snapshot" in
+    "$snapshot_root"/*) ;;
+    *) die "recorded snapshot is outside $snapshot_root" ;;
+  esac
+  [[ -d "$context_snapshot" && ! -L "$context_snapshot" ]] ||
+    die "recorded migration snapshot is unavailable"
+  [[ "$(stat -c %u:%a -- "$context_snapshot")" == 0:700 ]] ||
+    die "snapshot ownership or mode changed"
+  (cd "$context_snapshot" && sha256sum -c SHA256SUMS >/dev/null) ||
+    die "snapshot checksum validation failed"
+  snapshot_complete="$(<"$context_snapshot/SNAPSHOT_COMPLETE")"
+  [[ "$snapshot_complete" == "Snapshot creation completed." ]] ||
+    die "snapshot is incomplete"
+
+  assert_store_path "$context_bundle" dgx-tailscale-migration
+  assert_store_path "$context_generation_one" system-manager
+  assert_store_path "$context_generation_two" system-manager
+  assert_store_path "$context_generation_three" system-manager
+  assert_store_path "$context_generation_four" system-manager
+  [[ "$context_tailscale_package" =~ ^/nix/store/[a-z0-9]{32}-tailscale-[0-9] ]] ||
+    die "invalid recorded Tailscale package"
+  [[ "$context_identity_sha256" =~ ^[a-f0-9]{64}$ ]] ||
+    die "invalid recorded node-identity digest"
+}
+
+assert_nix_runtime() {
+  local socket_load socket_active socket_substate socket_reload
+
+  socket_load="$(systemctl show nix-daemon.socket -p LoadState --value 2>/dev/null || true)"
+  socket_active="$(systemctl show nix-daemon.socket -p ActiveState --value 2>/dev/null || true)"
+  socket_substate="$(systemctl show nix-daemon.socket -p SubState --value 2>/dev/null || true)"
+  socket_reload="$(systemctl show nix-daemon.socket -p NeedDaemonReload --value 2>/dev/null || true)"
+  [[ "$socket_load" == loaded && "$socket_active" == active &&
+    ("$socket_substate" == listening || "$socket_substate" == running) &&
+    "$socket_reload" == no ]] || die "Nix daemon socket is not healthy"
+}
+
+assert_machine_health() {
+  local system_state failed_units gpu_state
+
+  system_state="$(systemctl is-system-running 2>/dev/null || true)"
+  [[ "$system_state" == running ]] ||
+    die "systemd state is ${system_state:-UNKNOWN}, not running"
+  failed_units="$(
+    systemctl --failed --no-legend --plain 2>/dev/null |
+      sed '/^[[:space:]]*$/d' || true
+  )"
+  [[ -z "$failed_units" ]] || die "systemd reports failed units"
+  gpu_state="$(
+    nvidia-smi \
+      --query-gpu=name,driver_version,pstate,temperature.gpu \
+      --format=csv,noheader 2>/dev/null || true
+  )"
+  [[ -n "$gpu_state" ]] || die "nvidia-smi health query failed"
+  assert_nix_runtime
+  pass health "systemd=running;failed_units=0;gpu=$gpu_state"
+}
+
+capture_protected_units() {
+  local destination="$1"
+
+  systemctl show "${protected_units[@]}" \
+    -p Id -p LoadState -p ActiveState -p SubState -p Result \
+    -p MainPID -p ActiveEnterTimestampMonotonic -p FragmentPath \
+    -p NeedDaemonReload >"$destination"
+}
+
+capture_protected_fragments() {
+  local destination="$1"
+  local unit fragment load_state active_state reload
+
+  : >"$destination"
+  for unit in "${protected_units[@]}"; do
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active_state="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    [[ -n "$fragment" && "$load_state" == loaded &&
+      "$active_state" == active && "$reload" == no ]] ||
+      die "protected unit is not healthy before migration: $unit"
+    printf '%s|%s\n' "$unit" "$fragment" >>"$destination"
+  done
+}
+
+assert_protected_units() {
+  local baseline="$1"
+  local current
+
+  current="$(mktemp)" || die "could not allocate protected-unit comparison"
+  capture_protected_units "$current"
+  if ! cmp -s -- "$baseline" "$current"; then
+    rm -f -- "$current"
+    die "a protected factory service changed after the snapshot"
+  fi
+  rm -f -- "$current"
+  pass protected_units "five factory services remain active and unrestarted"
+}
+
+assert_protected_units_postboot() {
+  local baseline="$1"
+  local unit expected_fragment load_state active_state fragment reload
+
+  while IFS='|' read -r unit expected_fragment; do
+    [[ -n "$unit" && -n "$expected_fragment" ]] ||
+      die "invalid protected-unit fragment baseline"
+    load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active_state="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    [[ "$load_state" == loaded && "$active_state" == active &&
+      "$fragment" == "$expected_fragment" && "$reload" == no ]] ||
+      die "protected unit failed post-reboot continuity: $unit"
+  done <"$baseline"
+  pass protected_units "five factory services are active from their original fragments after reboot"
+}
+
+current_boot_id() {
+  local boot_id
+
+  boot_id="$(< /proc/sys/kernel/random/boot_id)"
+  [[ "$boot_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] ||
+    die "kernel boot ID is unavailable or invalid"
+  printf '%s\n' "$boot_id"
+}
+
+assert_protected_continuity() {
+  if [[ "$(current_boot_id)" == "$context_origin_boot_id" ]]; then
+    assert_protected_units "$context_snapshot/protected-services.before.txt"
+  else
+    assert_protected_units_postboot \
+      "$context_snapshot/protected-services.fragments.before.tsv"
+  fi
+}
+
+check_tailscale_health() {
+  local package="$1"
+  local expected_identity="${2:-}"
+  local status_json prefs_json backend online want_running run_ssh identity
+
+  status_json="$(timeout 15s "$package/bin/tailscale" status --json 2>/dev/null || true)"
+  prefs_json="$(timeout 15s "$package/bin/tailscale" debug prefs 2>/dev/null || true)"
+  jq -e . >/dev/null 2>&1 <<<"$status_json" ||
+    die "Tailscale status did not return valid JSON"
+  jq -e . >/dev/null 2>&1 <<<"$prefs_json" ||
+    die "Tailscale preferences did not return valid JSON"
+
+  backend="$(jq -r '.BackendState // "UNKNOWN"' <<<"$status_json")"
+  online="$(
+    jq -r 'if .Self.Online == null then "UNKNOWN" else (.Self.Online | tostring) end' \
+      <<<"$status_json"
+  )"
+  want_running="$(
+    jq -r 'if .WantRunning == null then "UNKNOWN" else (.WantRunning | tostring) end' \
+      <<<"$prefs_json"
+  )"
+  run_ssh="$(
+    jq -r 'if .RunSSH == null then "UNKNOWN" else (.RunSSH | tostring) end' \
+      <<<"$prefs_json"
+  )"
+  identity="$(jq -er '.Self.ID' <<<"$status_json" 2>/dev/null || true)"
+  [[ -n "$identity" ]] || die "Tailscale self identity is unavailable"
+  TAILSCALE_IDENTITY_SHA256="$(printf '%s' "$identity" | sha256sum | awk '{print $1}')"
+
+  [[ "$backend" == Running && "$online" == true &&
+    "$want_running" == true && "$run_ssh" == true ]] ||
+    die "Tailscale health failed: backend=$backend;online=$online;WantRunning=$want_running;RunSSH=$run_ssh"
+  if [[ -n "$expected_identity" &&
+    "$TAILSCALE_IDENTITY_SHA256" != "$expected_identity" ]]; then
+    die "Tailscale node identity changed"
+  fi
+  pass tailscale "backend=$backend;online=$online;WantRunning=$want_running;RunSSH=$run_ssh;identity=unchanged"
+}
+
+assert_initial_root_state() {
+  local observed
+
+  observed="$(
+    "$repo_dir/scripts/audit-root-canary-state.sh" \
+      "$generation_three" registered-third-boot \
+      "$generation_one" "$generation_two" 2>/dev/null || true
+  )"
+  [[ "$observed" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]] ||
+    die "expected exact live generation three; observed ${observed:-UNKNOWN}"
+}
+
+assert_vendor_boundary() {
+  local fragment
+
+  systemctl is-active --quiet tailscaled.service ||
+    die "vendor tailscaled.service is not active"
+  fragment="$(systemctl show tailscaled.service -p FragmentPath --value)"
+  [[ "$fragment" == "$vendor_unit" ]] ||
+    die "Tailscale is not loaded from the vendor unit: $fragment"
+  [[ "$(systemctl show tailscaled.service -p NeedDaemonReload --value)" == no ]] ||
+    die "vendor tailscaled.service needs daemon reload"
+  [[ -L "$vendor_wants" && "$(readlink -f -- "$vendor_wants")" == "$vendor_unit" ]] ||
+    die "vendor Tailscale boot link is missing or changed"
+  [[ -f "$tailscale_state" && "$(stat -c %u:%a -- "$tailscale_state")" == 0:600 ]] ||
+    die "mutable Tailscale state ownership or mode is unexpected"
+  for path in "$managed_unit" "$managed_wants"; do
+    ! path_exists "$path" || die "Nix Tailscale ownership path already exists: $path"
+  done
+}
+
+load_repo_outputs() {
+  cd "$repo_dir" || die "repository is unavailable"
+  generation_one="$(eval_output .#packages.aarch64-linux.root-system-canary.outPath)" ||
+    die "could not evaluate generation one"
+  generation_two="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-two.outPath)" ||
+    die "could not evaluate generation two"
+  generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-three-boot.outPath)" ||
+    die "could not evaluate generation three"
+  generation_four="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" ||
+    die "could not evaluate generation four"
+  migration_bundle="$(eval_output .#packages.aarch64-linux.root-tailscale-migration-bundle.outPath)" ||
+    die "could not evaluate migration bundle"
+  tailscale_package="$(eval_output .#packages.aarch64-linux.tailscale.outPath)" ||
+    die "could not evaluate Tailscale package"
+  lifecycle_test="$(eval_output .#checks.aarch64-linux.tailscale-unit-lifecycle-container.outPath)" ||
+    die "could not evaluate lifecycle test"
+}
+
+assert_package_boundary() {
+  local desired_version installed_version nix_version
+
+  desired_version="$(jq -er '.version' "$repo_dir/packages/tailscale/source.json")" ||
+    die "repository Tailscale version is unavailable"
+  installed_version="$(dpkg-query -W -f='${Version}' tailscale 2>/dev/null || true)"
+  nix_version="$("$tailscale_package/bin/tailscale" version 2>/dev/null | sed -n '1p')"
+  [[ "$installed_version" == "$desired_version" ]] ||
+    die "apt Tailscale $installed_version differs from reviewed $desired_version"
+  [[ "$nix_version" == "$desired_version" ]] ||
+    die "Nix Tailscale $nix_version differs from reviewed $desired_version"
+  cmp -s /usr/bin/tailscale "$tailscale_package/bin/tailscale" ||
+    die "apt and Nix tailscale clients are not byte-identical"
+  cmp -s /usr/sbin/tailscaled "$tailscale_package/bin/tailscaled" ||
+    die "apt and Nix tailscaled daemons are not byte-identical"
+  pass package "apt and Nix binaries are byte-identical Tailscale $desired_version"
+}
+
+assert_no_guard_surface() {
+  local path unit load_state
+
+  for path in \
+    "$state_dir" "$candidate_root" "$rollback_root" \
+    "$rollback_service_path" "$rollback_timer_path" "$rollback_wants_path"; do
+    ! path_exists "$path" || die "migration guard path already exists: $path"
+  done
+  [[ ! -e "$profile_dir/system-manager-4-link" &&
+    ! -L "$profile_dir/system-manager-4-link" ]] ||
+    die "System Manager generation-four profile already exists"
+  for unit in "$rollback_service" "$rollback_timer" "$apply_service"; do
+    load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    [[ -z "$load_state" || "$load_state" == not-found ]] ||
+      die "migration unit is already loaded: $unit ($load_state)"
+  done
+}
+
+create_snapshot() {
+  local stamp controller_hash transaction_hash origin_boot_id
+
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  snapshot="$snapshot_root/$stamp"
+  umask 077
+  install -d -m 0700 "$snapshot" || die "could not create private snapshot"
+  controller_hash="$(sha256sum "$repo_dir/scripts/dgx-tailscale" | awk '{print $1}')"
+  transaction_hash="$(sha256sum "$repo_dir/scripts/root-tailscale-migration-transaction.sh" | awk '{print $1}')"
+  origin_boot_id="$(current_boot_id)"
+
+  {
+    printf 'schema=1\n'
+    printf 'timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'host=%s\n' "$host_name"
+    printf 'snapshot=%s\n' "$snapshot"
+    printf 'repo_commit=%s\n' "$repo_commit"
+    printf 'controller_sha256=%s\n' "$controller_hash"
+    printf 'transaction_sha256=%s\n' "$transaction_hash"
+    printf 'generation_one=%s\n' "$generation_one"
+    printf 'generation_two=%s\n' "$generation_two"
+    printf 'generation_three=%s\n' "$generation_three"
+    printf 'generation_four=%s\n' "$generation_four"
+    printf 'bundle=%s\n' "$migration_bundle"
+    printf 'tailscale_package=%s\n' "$tailscale_package"
+    printf 'lifecycle_test=%s\n' "$lifecycle_test"
+    printf 'identity_sha256=%s\n' "$TAILSCALE_IDENTITY_SHA256"
+    printf 'origin_boot_id=%s\n' "$origin_boot_id"
+  } >"$snapshot/context"
+
+  capture_protected_units "$snapshot/protected-services.before.txt"
+  capture_protected_fragments \
+    "$snapshot/protected-services.fragments.before.tsv"
+  systemctl show tailscaled.service \
+    -p LoadState -p ActiveState -p SubState -p Result -p MainPID \
+    -p ActiveEnterTimestampMonotonic -p FragmentPath -p NeedDaemonReload \
+    >"$snapshot/tailscaled.before.txt"
+  stat -c 'path=%n owner=%u group=%g mode=%a type=%F' \
+    /var/lib/tailscale "$tailscale_state" \
+    >"$snapshot/tailscale-state-metadata.before.txt"
+  find /nix/var/nix/profiles/system-manager-profiles \
+    -mindepth 1 -maxdepth 1 -printf '%f|%l\n' | sort \
+    >"$snapshot/system-manager-profile.before.txt"
+  printf '%s|%s\n' "$vendor_wants" "$(readlink -- "$vendor_wants")" \
+    >"$snapshot/vendor-boot-link.before.txt"
+  sha256sum /etc/nix/nix.conf /etc/passwd /etc/group /etc/shadow \
+    >"$snapshot/protected-files.before.sha256"
+  install -m 0700 "$repo_dir/scripts/dgx-tailscale" "$snapshot/dgx-tailscale"
+  install -m 0700 \
+    "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+    "$snapshot/root-tailscale-migration-transaction.sh"
+
+  (
+    cd "$snapshot" || exit 1
+    sha256sum \
+      context dgx-tailscale protected-files.before.sha256 \
+      protected-services.before.txt protected-services.fragments.before.tsv \
+      root-tailscale-migration-transaction.sh \
+      system-manager-profile.before.txt tailscaled.before.txt \
+      tailscale-state-metadata.before.txt vendor-boot-link.before.txt \
+      >SHA256SUMS
+  ) || die "could not seal snapshot checksums"
+  printf 'Snapshot creation completed.\n' >"$snapshot/SNAPSHOT_COMPLETE"
+  chmod 0600 "$snapshot"/*
+  chmod 0700 "$snapshot/dgx-tailscale" \
+    "$snapshot/root-tailscale-migration-transaction.sh"
+  pass snapshot "$snapshot"
+}
+
+validate_guard_link() {
+  local path="$1"
+  local target="$2"
+
+  if path_exists "$path"; then
+    [[ -L "$path" && "$(readlink -- "$path")" == "$target" ]] ||
+      die "refusing unexpected migration guard path: $path"
+  fi
+}
+
+cleanup_guard_surface() {
+  local remove_candidate="${1:-false}"
+
+  systemctl stop "$rollback_timer" 2>/dev/null || true
+  [[ "$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)" != active ]] ||
+    die "rollback service is active; refusing concurrent cleanup"
+
+  validate_guard_link "$rollback_wants_path" "../$rollback_timer"
+  validate_guard_link "$rollback_timer_path" \
+    "$context_bundle/lib/systemd/system/$rollback_timer"
+  validate_guard_link "$rollback_service_path" \
+    "$context_bundle/lib/systemd/system/$rollback_service"
+  validate_guard_link "$rollback_root" "$context_bundle"
+  validate_guard_link "$candidate_root" "$context_generation_four"
+
+  rm -f -- "$rollback_wants_path" "$rollback_timer_path" \
+    "$rollback_service_path" "$rollback_root"
+  if [[ "$remove_candidate" == true ]]; then
+    rm -f -- "$candidate_root"
+  fi
+  rm -f -- \
+    "$state_dir/armed" "$state_dir/applying" "$state_dir/migrated" \
+    "$state_dir/rolled-back" "$state_context"
+  if [[ -d "$state_dir" ]]; then
+    [[ -z "$(find "$state_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+      die "unknown files remain in migration state directory"
+    rmdir -- "$state_dir" || die "could not remove empty migration state directory"
+  fi
+  systemctl daemon-reload || die "systemd daemon reload failed during cleanup"
+}
+
+install_guard() {
+  install -d -m 0700 "$state_dir" || return 1
+  install -m 0600 "$snapshot/context" "$state_context" || return 1
+  touch "$state_dir/armed" || return 1
+  ln -s -- "$generation_four" "$candidate_root" || return 1
+  ln -s -- "$migration_bundle" "$rollback_root" || return 1
+  ln -s -- \
+    "$migration_bundle/lib/systemd/system/$rollback_service" \
+    "$rollback_service_path" || return 1
+  ln -s -- \
+    "$migration_bundle/lib/systemd/system/$rollback_timer" \
+    "$rollback_timer_path" || return 1
+  install -d -m 0755 /etc/systemd/system/timers.target.wants || return 1
+  ln -s -- "../$rollback_timer" "$rollback_wants_path" || return 1
+  systemctl daemon-reload || return 1
+  "$migration_bundle/bin/dgx-root-tailscale-migration" verify-before || return 1
+  systemctl start "$rollback_timer" || return 1
+  systemctl is-active --quiet "$rollback_timer" || return 1
+  systemctl is-enabled --quiet "$rollback_timer" || return 1
+}
+
+record_result() {
+  local result="$1"
+
+  printf '%s|timestamp_utc=%s\n' "$result" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >"$context_snapshot/RESULT"
+  chmod 0600 "$context_snapshot/RESULT"
+}
+
+plan_action() {
+  require_commands
+  load_repo_outputs
+  info host "$host_name"
+  info current_generation "$generation_three"
+  info candidate_generation "$generation_four"
+  info tailscale_package "$tailscale_package"
+  info migration_bundle "$migration_bundle"
+  if path_exists "$state_context"; then
+    info state "migration guard exists; run status"
+  else
+    info state "no migration guard"
+  fi
+  systemctl show tailscaled.service \
+    -p ActiveState -p SubState -p MainPID -p FragmentPath -p NeedDaemonReload \
+    --no-pager
+}
+
+migrate_action() {
+  local status
+
+  require_commands
+  [[ "$host_name" == sparkle-01 ]] ||
+    die "the current generation-four pilot is declared only for sparkle-01"
+  [[ "$(uname -m)" == aarch64 ]] || die "the pilot requires aarch64"
+  cd "$repo_dir" || die "repository is unavailable"
+  [[ -z "$(git status --porcelain=v1)" ]] ||
+    die "repository must be clean before migration"
+  repo_commit="$(git rev-parse HEAD)" || die "repository commit is unavailable"
+
+  load_repo_outputs
+  assert_no_guard_surface
+  assert_initial_root_state
+  assert_machine_health
+  assert_vendor_boundary
+  assert_package_boundary
+  check_tailscale_health "$tailscale_package"
+
+  info disposable_test "running exact transaction, reboot, and rollback lifecycle"
+  "$repo_dir/scripts/test-tailscale-unit-lifecycle.sh" ||
+    die "disposable Tailscale lifecycle test failed"
+  [[ -e "$lifecycle_test" ]] || die "passed lifecycle output is unavailable"
+  [[ "$(git rev-parse HEAD)" == "$repo_commit" &&
+    -z "$(git status --porcelain=v1)" ]] ||
+    die "repository changed while the disposable lifecycle test ran"
+  systemd-analyze verify \
+    "$migration_bundle/lib/systemd/system/$rollback_service" \
+    "$migration_bundle/lib/systemd/system/$rollback_timer" ||
+    die "migration rollback units failed verification"
+
+  create_snapshot
+  context_snapshot="$snapshot"
+  context_bundle="$migration_bundle"
+  context_generation_four="$generation_four"
+
+  if ! install_guard; then
+    cleanup_guard_surface true || true
+    die "rollback guard installation failed; no migration was launched"
+  fi
+  assert_protected_units "$snapshot/protected-services.before.txt"
+  pass rollback "persistent ten-minute generation-three/vendor rollback is armed"
+
+  if systemd-run \
+    --unit="$apply_service" \
+    --collect --no-block \
+    --property=TimeoutStartSec=5min \
+    "$migration_bundle/bin/dgx-root-tailscale-migration" apply-guarded; then
+    status=0
+  else
+    status=$?
+  fi
+  ((status == 0)) || {
+    cleanup_guard_surface true || true
+    die "detached migration worker could not be launched"
+  }
+  printf '%s\n' \
+    'MIGRATION_LAUNCHED: tailscaled will restart in about three seconds.' \
+    'A Tailscale SSH session may disconnect; the detached worker will continue.' \
+    'Reconnect, then run:' \
+    "  cd $repo_dir && ./scripts/dgx-tailscale status" \
+    'Healthy same-boot status is AWAITING_REBOOT. This operator never reboots.' \
+    'After separately authorizing and performing one reboot, reconnect and run status again.' \
+    'Only if post-reboot status is AWAITING_CONFIRMATION, run:' \
+    "  cd $repo_dir && ./scripts/dgx-tailscale confirm" \
+    'Without confirmation, the persistent timer restores generation three and the apt unit.'
+}
+
+status_action() {
+  local timer_state apply_state
+
+  require_commands
+  if ! path_exists "$state_context"; then
+    load_repo_outputs
+    if path_exists "$candidate_root" &&
+      "$migration_bundle/bin/dgx-root-tailscale-migration" verify-after >/dev/null 2>&1; then
+      check_tailscale_health "$tailscale_package"
+      printf 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED\n'
+      return
+    fi
+    assert_initial_root_state
+    assert_vendor_boundary
+    check_tailscale_health "$tailscale_package"
+    printf 'MIGRATION_STATUS=NOT_STARTED_OR_ROLLED_BACK\n'
+    return
+  fi
+
+  load_context
+  timer_state="$(systemctl show "$rollback_timer" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  info rollback_timer "${timer_state:-not-found}"
+  info apply_worker "${apply_state:-not-found}"
+  systemctl list-timers "$rollback_timer" --no-pager --no-legend 2>/dev/null || true
+
+  if path_exists "$state_dir/migrated"; then
+    "$context_bundle/bin/dgx-root-tailscale-migration" verify-after ||
+      die "migration marker exists but generation four does not verify"
+    check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+    assert_machine_health
+    assert_protected_continuity
+    if [[ "$(current_boot_id)" == "$context_origin_boot_id" ]]; then
+      printf 'MIGRATION_STATUS=AWAITING_REBOOT\n'
+    else
+      printf 'MIGRATION_STATUS=AWAITING_CONFIRMATION\n'
+    fi
+  elif path_exists "$state_dir/rolled-back"; then
+    "$context_bundle/bin/dgx-root-tailscale-migration" verify-before ||
+      die "rollback marker exists but generation three does not verify"
+    check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+    assert_machine_health
+    assert_protected_continuity
+    printf 'MIGRATION_STATUS=ROLLED_BACK_CLEANUP_PENDING\n'
+  elif path_exists "$state_dir/applying"; then
+    printf 'MIGRATION_STATUS=APPLYING\n'
+  elif path_exists "$state_dir/armed"; then
+    printf 'MIGRATION_STATUS=ARMED_WAITING_FOR_WORKER\n'
+  else
+    die "migration context exists without a recognized state marker"
+  fi
+}
+
+confirm_action() {
+  require_commands
+  load_context
+  path_exists "$state_dir/migrated" ||
+    die "migration is not ready to confirm; run status"
+  path_exists "$state_dir/armed" || die "rollback is not armed as expected"
+  [[ "$(current_boot_id)" != "$context_origin_boot_id" ]] ||
+    die "one guarded reboot is required before confirmation"
+  "$context_bundle/bin/dgx-root-tailscale-migration" verify-after ||
+    die "generation four does not verify"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  assert_machine_health
+  assert_protected_units_postboot \
+    "$context_snapshot/protected-services.fragments.before.tsv"
+
+  systemctl stop "$rollback_timer" || die "could not stop rollback timer"
+  [[ "$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)" != active ]] ||
+    die "rollback service has already started"
+  cleanup_guard_surface false
+  "$context_bundle/bin/dgx-root-tailscale-migration" verify-after ||
+    die "generation four changed during guard cleanup"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  record_result CONFIRMED
+
+  pass confirmation "generation four retained; Nix owns running Tailscale"
+  printf '%s\n' \
+    "SNAPSHOT=$context_snapshot" \
+    'APT_FALLBACK_RETAINED: no apt package or repository was removed.' \
+    'REBOOT_VERIFIED: confirmation ran after a separately performed guarded reboot.'
+}
+
+rollback_action() {
+  require_commands
+  load_context
+  path_exists "$state_dir/armed" || die "rollback is not armed"
+  systemctl start --no-block "$rollback_service" ||
+    die "could not launch the persistent rollback service"
+  printf '%s\n' \
+    'ROLLBACK_LAUNCHED: systemd is restoring generation three and the apt unit.' \
+    'The current Tailscale SSH session may disconnect.' \
+    "Reconnect, then run: cd $repo_dir && ./scripts/dgx-tailscale status"
+}
+
+cleanup_rolled_back_action() {
+  require_commands
+  load_context
+  path_exists "$state_dir/rolled-back" ||
+    die "no verified rolled-back marker exists"
+  "$context_bundle/bin/dgx-root-tailscale-migration" verify-before ||
+    die "generation three/vendor state does not verify"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  assert_machine_health
+  assert_protected_continuity
+  cleanup_guard_surface false
+  record_result ROLLED_BACK
+  pass cleanup "rollback guard removed; generation-four pilot root retained"
+  printf 'SNAPSHOT=%s\n' "$context_snapshot"
+}
+
+action="${1:-}"
+case "$action" in
+  -h | --help | help | "")
+    usage
+    ;;
+  plan)
+    plan_action
+    ;;
+  migrate)
+    require_root "$@"
+    migrate_action
+    ;;
+  status)
+    require_root "$@"
+    status_action
+    ;;
+  confirm)
+    require_root "$@"
+    confirm_action
+    ;;
+  rollback)
+    require_root "$@"
+    rollback_action
+    ;;
+  cleanup-rolled-back)
+    require_root "$@"
+    cleanup_rolled_back_action
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

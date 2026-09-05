@@ -417,6 +417,17 @@ session. A daemon restart terminates that session. Package migration or
 activation requires independently verified console/recovery access and the
 rollback guard defined in the reference.
 
+The exact disposable handoff, injected-failure rollback, candidate/vendor
+reboots, and persistent unconfirmed-reboot rollback now pass. For an explicitly
+authorized live migration, use `./scripts/dgx-tailscale`; do not reconstruct
+the low-level System Manager commands. Run `plan` first. `migrate` requires a
+clean exact commit, reruns the lifecycle test, snapshots private host evidence,
+arms rollback before mutation, and launches the expected disconnect in a
+detached worker. It never reboots. Require same-boot `AWAITING_REBOOT`, then a
+separately authorized reboot, fresh Tailscale connection, postboot
+`AWAITING_CONFIRMATION`, and `confirm`. Do not confirm on the origin boot or
+remove apt ownership during this transaction.
+
 ### Add or change an AI workload
 
 Read [references/workload-map.md](references/workload-map.md),
@@ -540,7 +551,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - The apt-installed Tailscale package is temporary migration input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
   identity, containerize the host access plane, or remove apt ownership before
-  the Nix-managed service has been validated.
+  the Nix-managed service has passed the guarded live reboot and reconnect.
+- Preserve the exact `scripts/dgx-tailscale` operator, its private snapshot,
+  generation-three/vendor rollback roots, persistent timer, original boot-ID
+  gate, and clean commit/helper hashes throughout an in-flight migration.
 - Keep `tailscaled.service` available from `multi-user.target`; headless mode
   must not disable the fleet access plane.
 

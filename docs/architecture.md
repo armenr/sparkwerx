@@ -155,6 +155,13 @@ exactly pinned, no-link built, and SBOM-reviewed. Locked stable/apps packages
 remain older. The live apt service is deliberately unchanged until the root
 manager, recovery, rollback, reboot, and reconnect gates pass.
 
+The exact migration transaction and persistent rollback bundle now pass a
+disposable lifecycle covering failure after registration, Nix takeover, Nix
+reboot, explicit vendor rollback, vendor reboot, and automatic rollback after
+an unconfirmed candidate reboot. `scripts/dgx-tailscale` is the only reviewed
+live entry point. It retains apt, reuses the existing mutable identity, requires
+one real guarded reboot, and cannot confirm on the origin boot.
+
 The service must remain wanted by `multi-user.target` in headless mode. Its
 package, unit, and Tailscale SSH desired state are declarative; node identity
 under `/var/lib/tailscale`, enrollment secrets, and tailnet access policy are

@@ -45,8 +45,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   SBOM-reviewed but have not replaced the live apt service.
 - Tailscale `1.102.3` and Tailscale SSH are currently working from a manual
   official apt installation. The repository now pins the same current stable
-  release and declares the future unit, but has not replaced or restarted the
-  live apt daemon.
+  release and declares the future unit. The exact handoff, injected-failure
+  rollback, candidate/vendor reboots, and persistent unconfirmed-reboot
+  rollback pass in a disposable container. `scripts/dgx-tailscale` is the
+  guarded live operator, but it has not replaced or restarted the live apt
+  daemon yet.
 - Nix 2.35.2 is active in the machine-wide default profile and the restarted
   daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
   remains at its expected provisioning version, 2.35.1. The default
@@ -301,11 +304,13 @@ narrowly authorized pilot activation prompts.
 
 The guarded Nix 2.35.2 runtime and first headless Home rollout are complete.
 Tailscale and the three selected graphical application candidates have passed
-explicitly scoped no-link builds; that does not authorize a Chromium sandbox
-role, Tailscale service migration, or desktop activation. Do not run a raw
+their scoped build gates; Tailscale also passed its complete disposable
+migration/rollback/reboot lifecycle. That does not authorize a Chromium sandbox
+role, live Tailscale service migration, or desktop activation. Do not run a raw
 `home-manager switch`; use `scripts/dgx-home update-headless` for reviewed
 later-generation changes. Do not install Hyprland into a system profile, replace the
-apt Tailscale unit, change GDM/systemd for a desktop, or activate a portal yet.
+apt Tailscale unit outside `scripts/dgx-tailscale`, change GDM/systemd for a
+desktop, or activate a portal yet.
 System Manager is currently exact registered/live/boot-linked generation three
 after the first real reboot's verified automatic rollback, the first
 restoration attempt's safe timed rollback, and the retry's two verified

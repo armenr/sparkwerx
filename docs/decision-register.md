@@ -170,9 +170,13 @@ dependency of the fleet base or every machine. The dedicated Tailscale
 reference controls this work.
 
 The repository now pins and build-validates the official current-stable 1.102.3
-ARM64 artifact plus a separately generated inert unit tree. That closes the
-package/SBOM gate, not the ownership migration gate: apt remains live and no
-daemon reload/restart or systemd link is authorized.
+ARM64 artifact plus the root unit. Its exact apt-to-Nix transaction,
+injected-failure rollback, candidate/vendor reboots, and persistent
+unconfirmed-reboot rollback pass in a disposable container. The guarded live
+operator requires a clean commit, private snapshot, console recovery, rollback
+before mutation, a separately authorized real reboot, and a fresh connection
+before confirmation. Apt remains live; this evidence does not itself authorize
+the daemon restart or systemd ownership change.
 
 ### D-011: Nix and containers are complementary
 

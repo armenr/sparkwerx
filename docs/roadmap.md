@@ -121,8 +121,11 @@ the measured software manifest; evaluation did not authorize realization.
 
 - [x] Review the exact current-stable Tailscale ARM64 package and closure
 - [x] Build and validate the Tailscale package/unit without activation
-- [ ] Migrate from apt only with independent recovery, a timed rollback,
-      preserved `/var/lib/tailscale` state, and a reboot/reconnect test
+- [x] Build and pass the exact apt-to-Nix transaction, injected-failure
+      rollback, candidate/vendor reboot, and persistent timed-rollback lifecycle
+- [ ] Run the guarded live handoff and require preserved `/var/lib/tailscale`
+      identity, a separately authorized reboot, and a fresh SSH reconnect before
+      confirmation
 - [ ] Remove the Tailscale apt package/source only after Nix ownership is proven
 
 ## Phase 4: minimal Home Manager activation

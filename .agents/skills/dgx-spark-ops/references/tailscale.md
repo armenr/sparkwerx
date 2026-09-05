@@ -131,26 +131,48 @@ Before an update or the initial apt-to-Nix migration:
    by logs.
 6. Verify physical console or another independent recovery path. Arm an
    automatic rollback/restart guard before cutting over.
-7. Activate on `sparkle-01` only. Expect the current Tailscale SSH connection to
-   terminate when `tailscaled` restarts; reconnect and validate backend running,
-   node online, and Tailscale SSH enabled.
-8. Keep the previous package and root configuration generation until remote
+7. Activate on `sparkle-01` only through `scripts/dgx-tailscale migrate`. Expect
+   the current Tailscale SSH connection to terminate when `tailscaled` restarts;
+   the detached worker and persistent rollback continue independently.
+8. Reconnect and run `scripts/dgx-tailscale status`. Healthy same-boot state is
+   `AWAITING_REBOOT`, not a completed migration. Separately authorize and
+   perform one reboot while the rollback remains armed, reconnect again, and
+   require `AWAITING_CONFIRMATION` before running `confirm`.
+9. Keep the previous package and root configuration generation until remote
    access, reboot, and headless-mode tests pass.
 
 For the one-time migration, do not remove the apt package or repository first.
-Build and validate the Nix package and unit, cut over using the same mutable
-state, and remove apt ownership only after the Nix-managed daemon has survived a
-reboot and a fresh Tailscale SSH connection. Exact cutover commands depend on
-the approved root manager and belong in a separately reviewed runbook.
+The reviewed operator is now the runbook:
+
+```bash
+./scripts/dgx-tailscale plan
+./scripts/dgx-tailscale migrate
+# Reconnect after the deliberate restart.
+./scripts/dgx-tailscale status
+# Separately authorize and perform one reboot; this script has no reboot action.
+./scripts/dgx-tailscale status
+./scripts/dgx-tailscale confirm
+```
+
+The command itself is the action boundary; the operator uses no fragile exact
+confirmation phrases. `migrate` refuses a dirty repository, reruns the exact
+disposable lifecycle, validates byte-identical apt/Nix binaries, snapshots only
+sanitized metadata plus protected-file hashes, roots both rollback closures,
+and arms the timer before launching the detached handoff. `confirm` refuses the
+original boot. `rollback` restores generation three and the apt unit;
+`cleanup-rolled-back` removes only a verified guard after rollback. Remove apt
+ownership only after the Nix-managed daemon has survived the guarded reboot and
+a fresh Tailscale SSH connection.
 
 The current pre-migration proof is
 `scripts/test-tailscale-unit-lifecycle.sh`. It runs the apt-shaped vendor unit,
-generation-three preservation, generation-four takeover with one explicit
-restart, a candidate reboot, exact generation-three rollback, and a vendor
-reboot entirely inside a disposable container. It also refuses to run unless
-the real host remains on exact generation three with the vendor Tailscale unit,
-and compares the host daemon PID/start time before and after. Passing this test
-does not authorize the live restart.
+generation-three preservation, injected post-registration failure, generation-
+four takeover with one explicit restart, a candidate reboot, exact generation-
+three rollback, a vendor reboot, and persistent unconfirmed-reboot rollback
+entirely inside a disposable container. It also refuses to run unless the real
+host remains on exact generation three with the vendor Tailscale unit, and
+compares the host daemon PID/start time before and after. Passing this test does
+not authorize the live restart.
 
 ## Headless and rollback invariants
 
@@ -178,5 +200,8 @@ does not authorize the live restart.
 - Repository System Manager role: `modules/system/tailscale.nix`
 - Disposable ownership test: `root/tailscale/unit-lifecycle-test.nix`
 - Root-only safe test wrapper: `scripts/test-tailscale-unit-lifecycle.sh`
+- Guarded live operator: `scripts/dgx-tailscale`
+- Exact migration transaction: `scripts/root-tailscale-migration-transaction.sh`
+- Persistent rollback bundle: `root/tailscale/migration-bundle.nix`
 - Latest recorded result:
-  `root/tailscale/validation/2026-09-03-unit-lifecycle-container-test.md`
+  `root/tailscale/validation/2026-09-05-migration-lifecycle-container-test.md`

@@ -25,9 +25,10 @@ into `tailscale-online.target` only after its boot-order requirement is
 reviewed; ordinary headless reachability does not need it.
 
 The generation-four candidate is not live yet. Its disposable container test
-has passed the complete vendor-to-Nix handoff, candidate reboot, rollback to
-the vendor unit, and vendor reboot while preserving the same mutable identity
-file. Run it with:
+has passed the complete vendor-to-Nix handoff, injected-failure rollback,
+candidate reboot, rollback to the vendor unit, vendor reboot, and persistent
+unconfirmed-reboot rollback while preserving the same mutable identity file.
+Run it with:
 
 ```bash
 sudo ./scripts/test-tailscale-unit-lifecycle.sh
@@ -35,11 +36,31 @@ sudo ./scripts/test-tailscale-unit-lifecycle.sh
 
 The wrapper also proves the real host's retained generation and running vendor
 Tailscale process are identical before and after the disposable test. See the
-[recorded result](validation/2026-09-03-unit-lifecycle-container-test.md).
+[current recorded result](validation/2026-09-05-migration-lifecycle-container-test.md).
 
-Do not activate generation four or remove apt ownership until the live
-migration transaction has a persistent timed rollback and independent local
-console access has been verified. The deliberate daemon restart will terminate
-the current Tailscale SSH connection. Follow
+The reviewed live operator is `scripts/dgx-tailscale`. `plan` is read-only.
+`migrate` reruns the exact disposable test, creates a private snapshot, arms a
+persistent ten-minute rollback, and launches the daemon handoff in a detached
+systemd worker. It never reboots the host. After the intentional SSH disconnect,
+`status` must first report `AWAITING_REBOOT`; after a separately authorized
+reboot and fresh connection it can report `AWAITING_CONFIRMATION`. Only then
+does `confirm` remove the rollback guard. There are no phrase-matching prompts.
+
+```bash
+./scripts/dgx-tailscale plan
+./scripts/dgx-tailscale migrate
+# Reconnect, inspect status, separately authorize and perform one reboot.
+./scripts/dgx-tailscale status
+./scripts/dgx-tailscale confirm
+```
+
+Use `rollback` while the guard is armed. If the timer already restored the apt
+unit, use `cleanup-rolled-back` only after `status` reports the verified rollback.
+Neither path removes the apt package, its repository, or mutable node state.
+
+Do not run `migrate` until independent local console access has been verified.
+The deliberate daemon restart will terminate the current Tailscale SSH
+connection. Do not remove apt ownership until the live migration and guarded
+reboot have been confirmed. Follow
 [`tailscale.md`](../../.agents/skills/dgx-spark-ops/references/tailscale.md) for
 the migration and validation gates.
