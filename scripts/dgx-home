@@ -1343,11 +1343,31 @@ unlink_exact_update_link() {
 }
 
 assert_inventory_exact() {
-  local inventory=$1 directory=$2 observed expected
-  observed="$(capture_symlink_inventory "$directory")"
-  expected="$(cat "$inventory")"
-  [[ "$observed" == "$expected" ]] ||
-    die "symlink inventory was not restored exactly: $directory"
+  local inventory=$1 directory=$2 name target entry
+  local -A expected_targets=()
+
+  # Inventory order is not state. Compare the exact name -> raw-target map so
+  # locale/collation differences between the snapshot process and a later
+  # timer-driven rollback cannot create a false failure.
+  while IFS=$'\t' read -r name target; do
+    [[ -n "$name" && -z "${expected_targets[$name]+set}" ]] ||
+      die "invalid or duplicate entry in $inventory"
+    expected_targets[$name]=$target
+  done <"$inventory"
+
+  while IFS= read -r entry; do
+    [[ -L "$entry" ]] || die "unexpected non-symlink inventory entry: $entry"
+    name=${entry##*/}
+    [[ -n "${expected_targets[$name]+set}" ]] ||
+      die "unexpected symlink after rollback: $entry"
+    target="$(readlink -- "$entry")"
+    [[ "$target" == "${expected_targets[$name]}" ]] ||
+      die "restored symlink target differs: $entry"
+    unset 'expected_targets[$name]'
+  done < <(find "$directory" -mindepth 1 -maxdepth 1 -print)
+
+  [[ "${#expected_targets[@]}" -eq 0 ]] ||
+    die "snapshot symlink is missing after rollback: $directory/${!expected_targets[*]}"
 }
 
 restore_update_config() {
