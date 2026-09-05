@@ -1428,7 +1428,7 @@
               hostPostflight = "clean";
             };
           guardedHeadlessTransaction = {
-            status = "transaction-primitive-designed-disposable-test-awaiting";
+            status = "transaction-primitive-passed-live-operator-awaiting";
             program = {
               repositoryPath = "scripts/root-desktop-mode-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
@@ -1449,12 +1449,32 @@
               implemented = false;
               requiresPersistentRollbackBeforeMutation = true;
             };
-            isolatedTest = {
-              flakeCheck = "desktop-headless-transaction-container";
-              result = "awaiting-root-local-run";
-              subtestCount = 12;
-              hostMutation = false;
-            };
+            isolatedTest =
+              let
+                observedDrvPath = "/nix/store/z6nh3w3lv0rqk743b4v6b197q99hrgx3-container-test-dgx-desktop-headless-transaction.drv";
+                observedOutputPath = "/nix/store/i82zf8kndgzxszcdmnlncyma2sbb5aj6-container-test-dgx-desktop-headless-transaction";
+              in
+              {
+                flakeCheck = "desktop-headless-transaction-container";
+                verifiedAt = "2026-09-05T11:55:21Z";
+                repositoryCommit = "71bd7c409909b9be514321ac99a030cf2d536651";
+                result = "passed";
+                inherit observedDrvPath observedOutputPath;
+                outputHash = "sha256:1aabbxcajx50vz49ak43ha0i7hivri6vr9q23ggl9x6crain9aa1";
+                outputSriHash = "sha256-Qalko8rM9ETfGwKnvE3MO8ITgYKDTJXI36B0qVhfS6k=";
+                currentDrvPath = desktopHeadlessTransactionContainerTest.drvPath;
+                currentOutputPath = desktopHeadlessTransactionContainerTest.outPath;
+                matchesCurrent =
+                  desktopHeadlessTransactionContainerTest.drvPath == observedDrvPath
+                  && desktopHeadlessTransactionContainerTest.outPath == observedOutputPath;
+                subtestCount = 12;
+                provesInjectedFailureRollback = true;
+                provesExactHeadlessSwitch = true;
+                provesIdempotentFactoryRollback = true;
+                provesTailscaleProcessContinuity = true;
+                hostMutation = false;
+                hostPostflight = "clean";
+              };
           };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
@@ -1909,7 +1929,7 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.status
-          == "transaction-primitive-designed-disposable-test-awaiting";
+          == "transaction-primitive-passed-live-operator-awaiting";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
           == reviewedRootDesktopModeTransactionSha256;
@@ -1929,7 +1949,21 @@
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.result == "passed";
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.matchesCurrent;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesInjectedFailureRollback;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesExactHeadlessSwitch;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesIdempotentFactoryRollback;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesTailscaleProcessContinuity;
         assert !rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.hostMutation;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.hostPostflight
+          == "clean";
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;

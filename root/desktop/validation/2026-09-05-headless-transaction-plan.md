@@ -47,6 +47,10 @@ The wrapper checks exact live generation four before and after the container
 build and compares protected service identity. All mutation occurs in the
 container.
 
+The exact 12-subtest derivation passed from commit `71bd7c4` with clean
+live-host postflight. See the
+[result](2026-09-05-headless-transaction-container-test.md).
+
 ## Still required before any live switch
 
 The transaction primitive is not itself the live operator. A later short
