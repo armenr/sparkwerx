@@ -162,7 +162,7 @@ assert_headless_candidate_structure() {
   expected=(.cache/.keep .local/bin/codex .local/state/.keep)
   [[ "${leaves[*]}" == "${expected[*]}" ]] ||
     die "managed home files differ from the exact three-file boundary: ${leaves[*]}"
-  ! rg -q '^_iNote .*reloadSystemd' "$candidate/activate" ||
+  ! grep -q '^_iNote .*reloadSystemd' "$candidate/activate" ||
     die 'headless activation unexpectedly contains Home Manager systemd reload'
 }
 
