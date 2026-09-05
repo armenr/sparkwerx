@@ -217,6 +217,7 @@ assert_root_lane_unchanged() {
 .#root-system-canary-generation-two	/nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager
 .#root-system-canary-generation-three-boot	/nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager
 .#root-system-tailscale-migration	/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager
+.#root-system-desktop-headless	/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager
 .#root-reboot-recovery	/nix/store/wpikhcgj77ws90j4ivdp3498mlmffyax-dgx-root-reboot-recovery
 EOF
 }
@@ -224,41 +225,138 @@ EOF
 assert_sparkle_root_state() {
   [[ "$(host_name)" == sparkle-01 ]] || return 0
 
-  local observed
-  observed="$("$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
-    verify-after-public \
-    /nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager \
-    /nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager \
-    /nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager \
-    /nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager \
-    2>/dev/null || true)"
-  [[ "$observed" == \
-    'PASS|generation_four|generation four is selected, live, boot-linked, and owns running Tailscale' ]] ||
-    die "root lane is not the confirmed Nix-managed generation-four state"
+  local generation_four generation_five desktop_plan tailscale_plan
+  local unit_source unit_tree marker_source canary_source path unit
+  generation_four=/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager
+  generation_five=/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager
+
+  desktop_plan="$("$repo_dir/scripts/dgx-desktop" plan 2>&1)" ||
+    die 'could not inspect the retained headless controller'
+  grep -Fx "INFO|live_generation|$generation_five" <<<"$desktop_plan" >/dev/null &&
+    grep -Fx "INFO|headless_generation|$generation_five" <<<"$desktop_plan" >/dev/null &&
+    grep -Fx "INFO|candidate_retention|$generation_five" <<<"$desktop_plan" >/dev/null &&
+    grep -Fx 'INFO|guard|absent' <<<"$desktop_plan" >/dev/null &&
+    grep -Fx 'INFO|current_default|default.target' <<<"$desktop_plan" >/dev/null ||
+    die 'root lane is not exact retained generation-five headless state'
+
+  tailscale_plan="$("$repo_dir/scripts/dgx-tailscale" plan 2>&1)" ||
+    die 'could not inspect retained Nix-managed Tailscale'
+  grep -Fx \
+    "PASS|ownership|confirmed-nix-managed;generation=$generation_five;inherited-from=$generation_four;desktop=headless" \
+    <<<"$tailscale_plan" >/dev/null ||
+    die 'generation five does not retain exact Nix-managed Tailscale ownership'
+
+  unit_source="$(jq -er '.entries["systemd/system"].source' \
+    "$generation_five/etcFiles/etcFiles.json")" ||
+    die 'generation-five unit source is unavailable'
+  unit_tree="$(readlink -f -- "$unit_source/systemd/system")"
+  marker_source="$(jq -er '.entries["dgx-setup/desktop-mode"].source' \
+    "$generation_five/etcFiles/etcFiles.json")" ||
+    die 'generation-five desktop marker source is unavailable'
+  canary_source="$(jq -er '.entries["dgx-setup/canary"].source' \
+    "$generation_five/etcFiles/etcFiles.json")" ||
+    die 'generation-five canary source is unavailable'
+
+  [[ "$(readlink -f -- /etc/dgx-setup/desktop-mode)" == \
+    "$(readlink -f -- "$marker_source/dgx-setup/desktop-mode")" ]] ||
+    die 'live desktop marker differs from generation five'
+  [[ "$(readlink -f -- /etc/dgx-setup/canary)" == \
+    "$(readlink -f -- "$canary_source/dgx-setup/canary")" ]] ||
+    die 'live canary differs from generation five'
+  for path in default.target dgx-headless.target dgx-gnome.target; do
+    [[ "$(readlink -f -- "/etc/systemd/system/$path")" == \
+      "$(readlink -f -- "$unit_tree/$path")" ]] ||
+      die "live desktop unit differs from generation five: $path"
+  done
+  for unit in dgx-setup-canary.service sysinit-reactivation.target \
+    system-manager.target tailscaled.service; do
+    [[ "$(readlink -f -- "/etc/systemd/system/$unit")" == \
+      "$(readlink -f -- "$unit_tree/$unit")" ]] ||
+      die "live managed unit differs from generation five: $unit"
+    [[ "$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)" == no ]] ||
+      die "managed unit needs daemon reload: $unit"
+  done
+  for unit in dgx-headless.target system-manager.target dgx-setup-canary.service tailscaled.service; do
+    systemctl is-active --quiet "$unit" || die "required headless unit is inactive: $unit"
+  done
+  for unit in dgx-gnome.target graphical.target gdm.service dgx-dashboard.service; do
+    ! systemctl is-active --quiet "$unit" || die "graphical unit is active in headless mode: $unit"
+  done
+  grep -Fx 'desktop-controller-generation=5' /etc/dgx-setup/canary >/dev/null &&
+    grep -Fx 'desktop-mode=headless' /etc/dgx-setup/canary >/dev/null &&
+    grep -Fx 'mode=headless' /etc/dgx-setup/desktop-mode >/dev/null ||
+    die 'generation-five headless markers are incomplete'
+  jq -e '
+    .version == 1 and
+    (.fileTree.backedUpFiles == []) and
+    ((.fileTree.files | sort) == [
+      "/etc/dgx-setup/canary",
+      "/etc/dgx-setup/desktop-mode",
+      "/etc/systemd/system/default.target",
+      "/etc/systemd/system/default.target.wants/system-manager.target",
+      "/etc/systemd/system/dgx-gnome.target",
+      "/etc/systemd/system/dgx-headless.target",
+      "/etc/systemd/system/dgx-setup-canary.service",
+      "/etc/systemd/system/sysinit-reactivation.target",
+      "/etc/systemd/system/system-manager.target",
+      "/etc/systemd/system/system-manager.target.wants/dgx-setup-canary.service",
+      "/etc/systemd/system/system-manager.target.wants/tailscaled.service",
+      "/etc/systemd/system/tailscaled.service"
+    ]) and
+    ((.services | keys | sort) == [
+      "dgx-setup-canary.service",
+      "sysinit-reactivation.target",
+      "system-manager.target",
+      "tailscaled.service"
+    ])
+  ' /var/lib/system-manager/state/system-manager-state.json >/dev/null ||
+    die 'System Manager state is not exact headless generation five'
 }
 
-protected_units=(
+active_protected_units=(
   tailscaled.service
-  gdm.service
   docker.service
-  dgx-dashboard.service
   dgx-dashboard-admin.service
   nvidia-persistenced.service
 )
+inactive_protected_units=(
+  gdm.service
+  dgx-dashboard.service
+)
 
 capture_protected_units() {
-  local unit load active fragment pid started
-  for unit in "${protected_units[@]}"; do
+  local unit load active substate result fragment pid started reload
+  for unit in "${active_protected_units[@]}"; do
     load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
     active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
+    result="$(systemctl show "$unit" -p Result --value 2>/dev/null || true)"
     fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
     pid="$(systemctl show "$unit" -p MainPID --value 2>/dev/null || true)"
     started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
     [[ "$load" == loaded && "$active" == active ]] ||
       die "$unit is not loaded and active"
-    [[ -n "$fragment" && "$pid" =~ ^[1-9][0-9]*$ && "$started" =~ ^[1-9][0-9]*$ ]] ||
+    [[ "$substate" == running && "$result" == success && -n "$fragment" &&
+      "$pid" =~ ^[1-9][0-9]*$ && "$started" =~ ^[1-9][0-9]*$ && "$reload" == no ]] ||
       die "$unit lacks an exact running-process identity"
-    printf '%s\t%s\t%s\t%s\n' "$unit" "$fragment" "$pid" "$started"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$unit" "$load" "$active" "$substate" "$fragment" "$pid" "$started" "$reload"
+  done
+  for unit in "${inactive_protected_units[@]}"; do
+    load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
+    result="$(systemctl show "$unit" -p Result --value 2>/dev/null || true)"
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    pid="$(systemctl show "$unit" -p MainPID --value 2>/dev/null || true)"
+    started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    [[ "$load" == loaded && "$active" == inactive && "$substate" == dead &&
+      "$result" == success && -n "$fragment" && "$pid" == 0 && "$reload" == no ]] ||
+      die "$unit is not exactly loaded and inactive for headless mode"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$unit" "$load" "$active" "$substate" "$fragment" "$pid" "$started" "$reload"
   done
 }
 

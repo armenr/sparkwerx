@@ -18,22 +18,41 @@ fail() {
 }
 
 capture_protected_units() {
-  local unit load active fragment pid started
+  local unit load active substate result fragment pid started reload
   for unit in \
     tailscaled.service \
-    gdm.service \
     docker.service \
-    dgx-dashboard.service \
     dgx-dashboard-admin.service \
     nvidia-persistenced.service; do
     load="$(systemctl show "$unit" -p LoadState --value)"
     active="$(systemctl show "$unit" -p ActiveState --value)"
+    substate="$(systemctl show "$unit" -p SubState --value)"
+    result="$(systemctl show "$unit" -p Result --value)"
     fragment="$(systemctl show "$unit" -p FragmentPath --value)"
     pid="$(systemctl show "$unit" -p MainPID --value)"
     started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value)"
-    [[ "$load" == loaded && "$active" == active ]] ||
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value)"
+    [[ "$load" == loaded && "$active" == active && "$substate" == running &&
+      "$result" == success && -n "$fragment" && "$pid" =~ ^[1-9][0-9]*$ &&
+      "$started" =~ ^[1-9][0-9]*$ && "$reload" == no ]] ||
       fail "$unit is not active for the disposable test"
-    printf '%s\t%s\t%s\t%s\n' "$unit" "$fragment" "$pid" "$started"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$unit" "$load" "$active" "$substate" "$fragment" "$pid" "$started" "$reload"
+  done
+  for unit in gdm.service dgx-dashboard.service; do
+    load="$(systemctl show "$unit" -p LoadState --value)"
+    active="$(systemctl show "$unit" -p ActiveState --value)"
+    substate="$(systemctl show "$unit" -p SubState --value)"
+    result="$(systemctl show "$unit" -p Result --value)"
+    fragment="$(systemctl show "$unit" -p FragmentPath --value)"
+    pid="$(systemctl show "$unit" -p MainPID --value)"
+    started="$(systemctl show "$unit" -p ActiveEnterTimestampMonotonic --value)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value)"
+    [[ "$load" == loaded && "$active" == inactive && "$substate" == dead &&
+      "$result" == success && -n "$fragment" && "$pid" == 0 && "$reload" == no ]] ||
+      fail "$unit is not inactive for the headless disposable test"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$unit" "$load" "$active" "$substate" "$fragment" "$pid" "$started" "$reload"
   done
 }
 
