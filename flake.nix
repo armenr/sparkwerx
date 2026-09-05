@@ -1385,7 +1385,7 @@
         };
 
         desktopController = {
-          status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
+          status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
           selectedFleetMode = sparkleHost.desktop.mode;
           liveHostMode = "factory-gnome";
           hostControllerActivated = false;
@@ -1440,15 +1440,16 @@
           };
           disposableLifecycleTest =
             let
-              observedDrvPath = "/nix/store/qv3v6lglnqigqa60qs3zg4x5qkcy6hsw-container-test-dgx-desktop-mode-lifecycle.drv";
-              observedOutputPath = "/nix/store/58ca2p4a20hfsvy5is4dzk0g5zs60rqg-container-test-dgx-desktop-mode-lifecycle";
+              observedDrvPath = "/nix/store/yzzf9h9lwd9jj2c54y6xhr4f7b2njppj-container-test-dgx-desktop-mode-lifecycle.drv";
+              observedOutputPath = "/nix/store/p0dnfn942gkn0wr5qc8hji26hfv75g8v-container-test-dgx-desktop-mode-lifecycle";
             in
             {
-              verifiedAt = "2026-09-05T11:23:31Z";
-              result = "superseded-awaiting-dashboard-aware-rerun";
+              verifiedAt = "2026-09-05T15:06:48Z";
+              repositoryCommit = "abb852d320a01192236d862336bf60c31943714a";
+              result = "passed";
               inherit observedDrvPath observedOutputPath;
-              outputHash = "sha256:109yz2sydf0zp6sqwsqsv9pw53f7lkm0qq7dksd3vw1bys4riypv";
-              outputSriHash = "sha256-+/qYifYr8D2anu1gDOqkx43Cb9oaa461uR+45rX4PoE=";
+              outputHash = "sha256:0dp619ngf19kfyxfnbgfj0rxwql8g0gahdlml80jyag6i0hfacsj";
+              outputSriHash = "sha256-UjPlIIjmKS8BopU2qB54iGLeM5DuLeu6dzMF92wK5jY=";
               currentDrvPath = desktopModeLifecycleContainerTest.drvPath;
               currentOutputPath = desktopModeLifecycleContainerTest.outPath;
               matchesCurrent =
@@ -1462,9 +1463,10 @@
               provesTailscaleContinuity = true;
               hostMutation = false;
               hostPostflight = "clean";
+              evidence = "root/desktop/validation/2026-09-05-dashboard-aware-stack.md";
             };
           guardedHeadlessTransaction = {
-            status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
+            status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
             program = {
               repositoryPath = "scripts/root-desktop-mode-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
@@ -1490,7 +1492,7 @@
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
-              status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
+              status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
               implemented = true;
               repositoryPath = "scripts/dgx-desktop";
               sha256 = builtins.hashFile "sha256" rootDesktopSwitchOperatorProgram;
@@ -1513,17 +1515,17 @@
               performsReboot = false;
               isolatedLifecycle =
                 let
-                  observedDrvPath = "/nix/store/2pjvrigr248rx344kigkh0w5cqkgqyvn-container-test-dgx-desktop-switch-lifecycle.drv";
-                  observedOutputPath = "/nix/store/lizh586mhdqg9jn8kpd40ip9c0wzw86h-container-test-dgx-desktop-switch-lifecycle";
+                  observedDrvPath = "/nix/store/b0j7shxdp46vpx0c3mdms2h7xsn3ixxn-container-test-dgx-desktop-switch-lifecycle.drv";
+                  observedOutputPath = "/nix/store/1j73dimx6ayy774ikxr1az47l6a0igz3-container-test-dgx-desktop-switch-lifecycle";
                 in
                 {
                   flakeCheck = "desktop-switch-lifecycle-container";
-                  verifiedAt = "2026-09-05T12:35:10Z";
-                  repositoryCommit = "8ab5dd86e72322489dee41a7bedfafde38529276";
-                  result = "superseded-awaiting-dashboard-aware-rerun";
+                  verifiedAt = "2026-09-05T15:07:51Z";
+                  repositoryCommit = "abb852d320a01192236d862336bf60c31943714a";
+                  result = "passed";
                   inherit observedDrvPath observedOutputPath;
-                  outputHash = "sha256:0mxnvzdxr9f083f1cc0alsa01pq38y0jbfd2daaszprx2j2qx7zq";
-                  outputSriHash = "sha256-+J+OhRQ936+VaqK5JYFHA98AlKYKMBbcQMCl3Nvftlc=";
+                  outputHash = "sha256:04pv3z73j1gzal2mmcl9mjiii8kkryzn672awhri7scd1byjbc9x";
+                  outputSriHash = "sha256-PbEl/QqN6RMz5EocY7/Pc6IYo6yJsloFVf8FOc4f+xI=";
                   currentDrvPath = desktopSwitchLifecycleContainerTest.drvPath;
                   currentOutputPath = desktopSwitchLifecycleContainerTest.outPath;
                   matchesCurrent =
@@ -1539,21 +1541,22 @@
                   provesCandidateRootRetention = true;
                   hostMutation = false;
                   hostPostflight = "clean";
+                  evidence = "root/desktop/validation/2026-09-05-dashboard-aware-stack.md";
                 };
             };
             isolatedTest =
               let
-                observedDrvPath = "/nix/store/z6nh3w3lv0rqk743b4v6b197q99hrgx3-container-test-dgx-desktop-headless-transaction.drv";
-                observedOutputPath = "/nix/store/i82zf8kndgzxszcdmnlncyma2sbb5aj6-container-test-dgx-desktop-headless-transaction";
+                observedDrvPath = "/nix/store/76x1xcqidxq7s6fn0wsj2d18gq31d5vg-container-test-dgx-desktop-headless-transaction.drv";
+                observedOutputPath = "/nix/store/bcby3i7d1ncj14plw4w4sw4x0aj9ni6f-container-test-dgx-desktop-headless-transaction";
               in
               {
                 flakeCheck = "desktop-headless-transaction-container";
-                verifiedAt = "2026-09-05T11:55:21Z";
-                repositoryCommit = "71bd7c409909b9be514321ac99a030cf2d536651";
-                result = "superseded-awaiting-dashboard-aware-rerun";
+                verifiedAt = "2026-09-05T15:06:18Z";
+                repositoryCommit = "abb852d320a01192236d862336bf60c31943714a";
+                result = "passed";
                 inherit observedDrvPath observedOutputPath;
-                outputHash = "sha256:1aabbxcajx50vz49ak43ha0i7hivri6vr9q23ggl9x6crain9aa1";
-                outputSriHash = "sha256-Qalko8rM9ETfGwKnvE3MO8ITgYKDTJXI36B0qVhfS6k=";
+                outputHash = "sha256:0wdfyi65qkc26p98f1byiq9254pdsys5s5vnn6sny2r4s85q24k5";
+                outputSriHash = "sha256-ZRKBC9IkC2+1sXYXXbTX7ZIiEo5+BYfSNYJNXEz0rnE=";
                 currentDrvPath = desktopHeadlessTransactionContainerTest.drvPath;
                 currentOutputPath = desktopHeadlessTransactionContainerTest.outPath;
                 matchesCurrent =
@@ -1566,6 +1569,7 @@
                 provesTailscaleProcessContinuity = true;
                 hostMutation = false;
                 hostPostflight = "clean";
+                evidence = "root/desktop/validation/2026-09-05-dashboard-aware-stack.md";
               };
           };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
@@ -2039,7 +2043,7 @@
         assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
         assert
           rootManagerManifest.desktopController.status
-          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
+          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
         assert rootManagerManifest.desktopController.selectedFleetMode == "headless";
         assert rootManagerManifest.desktopController.liveHostMode == "factory-gnome";
         assert !rootManagerManifest.desktopController.hostControllerActivated;
@@ -2080,10 +2084,8 @@
         assert rootManagerManifest.desktopController.firstLiveAttempt.rollbackRestoredGeneration == 4;
         assert rootManagerManifest.desktopController.firstLiveAttempt.rollbackRestoredFactoryGnome;
         assert !rootManagerManifest.desktopController.firstLiveAttempt.hostRebootPerformed;
-        assert
-          rootManagerManifest.desktopController.disposableLifecycleTest.result
-          == "superseded-awaiting-dashboard-aware-rerun";
-        assert !rootManagerManifest.desktopController.disposableLifecycleTest.matchesCurrent;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.result == "passed";
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.matchesCurrent;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.subtestCount == 10;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.disposableRestarts == 3;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.provesHeadlessPersistence;
@@ -2094,7 +2096,7 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.status
-          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
+          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
           == reviewedRootDesktopModeTransactionSha256;
@@ -2126,7 +2128,7 @@
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.status
-          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
+          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.implemented;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.sha256
@@ -2151,9 +2153,9 @@
           !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.performsReboot;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.result
-          == "superseded-awaiting-dashboard-aware-rerun";
+          == "passed";
         assert
-          !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.matchesCurrent;
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.matchesCurrent;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.subtestCount
           == 7;
@@ -2180,10 +2182,8 @@
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
         assert
-          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.result
-          == "superseded-awaiting-dashboard-aware-rerun";
-        assert
-          !rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.matchesCurrent;
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.result == "passed";
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.matchesCurrent;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesInjectedFailureRollback;
         assert

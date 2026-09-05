@@ -106,5 +106,8 @@ then exposed the complementary named-target transition: directly isolating
 target now non-fatally wants the existing Dashboard GUI service. The complete
 two-way contract is therefore: headless conflicts with the GUI, while GNOME
 wants it. Nix still owns neither vendor unit nor package. This second finding
-also occurred only inside the disposable container; another live attempt
-remains blocked pending a complete combined PASS and exact evidence record.
+also occurred only inside the disposable container. The final corrected
+combined run passed and is recorded in the
+[Dashboard-aware stack validation](2026-09-05-dashboard-aware-stack.md), so
+the test/evidence block is cleared. A live retry still requires separate
+authorization and the guarded operator.

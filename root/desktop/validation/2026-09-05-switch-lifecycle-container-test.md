@@ -5,6 +5,8 @@
 > relationship. Preserve this as historical evidence; require a corrected
 > Dashboard-aware rerun after the
 > [host attempt](2026-09-05-host-attempt-1.md).
+> That corrected rerun has now passed; use the
+> [current Dashboard-aware stack record](2026-09-05-dashboard-aware-stack.md).
 
 ## Result
 

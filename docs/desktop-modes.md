@@ -9,9 +9,11 @@ The enum, Home Manager composition, root-level `headless` and factory-`gnome`
 candidates, and guarded switch operator are implemented. The first live switch
 reached headless safely and then rolled back because it exposed a missing DGX
 Dashboard fixture in the disposable tests. The host is back on exact generation
-four and factory GNOME. Current desktop evidence is deliberately fail-closed
-until the Dashboard-aware test suite passes. See the
-[candidate record](2026-09-05-desktop-controller-candidates.md).
+four and factory GNOME. The corrected Dashboard-aware transaction, mode,
+guarded-switch, and post-Tailscale integration stack now passes with exact
+current evidence. The guarded operator is eligible for a separately authorized
+retry. See the [candidate record](2026-09-05-desktop-controller-candidates.md)
+and [current validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
 
 ## Mode behavior
 
@@ -120,8 +122,8 @@ not authorize the switch.
 
 ## Implementation hold points
 
-- Pass and record the Dashboard-aware transaction, mode, guarded-switch, and
-  post-Tailscale integration suite before another live switch.
+- Preserve the passed Dashboard-aware transaction, mode, guarded-switch, and
+  post-Tailscale integration evidence for any live retry.
 - Keep host-level systemd/GDM ownership separate from Home Manager.
 - Review Ghostty's measured graphical closure before building it, then validate
   it under factory GNOME and each approved Wayland mode.

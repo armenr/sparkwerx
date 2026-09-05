@@ -108,16 +108,18 @@ Tailscale intact, then failed closed because `dgx-dashboard.service` was
 correctly stopped with the GUI but incorrectly treated as a mode-independent
 same-PID service. Persistent rollback and exact cleanup restored generation
 four/factory GNOME without a reboot. The earlier desktop test results are
-superseded until their corrected factory-Dashboard fixtures pass. Read
+superseded. The corrected Dashboard-aware transaction, three-reboot mode,
+persistent rollback, and post-Tailscale integration stack now passes against
+exact commit `abb852d320a01192236d862336bf60c31943714a`, making the guarded
+operator eligible for a separately authorized live retry. Read
 [`docs/2026-09-05-desktop-controller-candidates.md`](../../../docs/2026-09-05-desktop-controller-candidates.md)
 and the exact host result
 [`root/desktop` host-attempt record](../../../root/desktop/validation/2026-09-05-host-attempt-1.md),
-then the historical
-[`root/desktop` switch validation record](../../../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md)
+then the
+[`Dashboard-aware validation record`](../../../root/desktop/validation/2026-09-05-dashboard-aware-stack.md)
 before testing or changing that role. Use only `./scripts/dgx-desktop`; never
 activate a raw candidate or call `systemctl isolate` directly on the host. Do
-not retry the live switch until `./scripts/test-desktop-stack-integration.sh`
-passes and exact current evidence is recorded.
+not infer live-switch or reboot authority from the passing tests.
 After changing this integration, run
 `./scripts/test-post-tailscale-integration.sh` as the declared user; it keeps
 the destructive-looking lifecycle entirely inside a disposable container and
@@ -193,22 +195,25 @@ recovery surface. Read
 as recovery authority. The retry-safe second restoration subsequently retained
 exact generation three after two full automatic postflights. Read
 `../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md`
-as current full live-state authority. The inactive preflight/activation,
+as historical pre-migration authority. The later guarded Tailscale migration
+retained exact generation four after a real reboot; read
+`../../../root/tailscale/validation/2026-09-05-host-attempt-2.md` as current
+live-state authority. The inactive preflight/activation,
 absent-prestate first-registration, pre-switch, boot-persistence, and
 restoration snapshot/wrapper helpers are now all inapplicable; do not run them
-and misclassify their expected refusal as drift. Audit the exact active
-six-path/three-service generation-three boundary, all three numbered profiles
-and pilot roots, the selected/upstream generation-three root, its one
-declarative boot edge, and absent recovery edges directly. Keep another reboot,
-deactivation, generation cleanup, pilot-root retirement, and broader ownership
-behind separate plans and authorization.
+and misclassify their expected refusal as drift. Audit current root state with
+`../../../scripts/dgx-tailscale status`; require
+`MIGRATION_STATUS=CONFIRMED_NIX_OWNED`, exact generation four selected/live/
+boot-linked, the Nix-owned unit, unchanged identity and SSH, four registered
+generations and direct roots, and absent recovery/migration guards. Keep
+another reboot, deactivation, generation cleanup, pilot-root retirement, apt
+fallback removal, and broader ownership behind separate plans and
+authorization.
 
-Use `../../../scripts/audit-root-canary-state.sh` with the exact evaluated
-generation-three candidate, `registered-third-boot`, exact generation one as
-the third argument, and exact generation two as the fourth. Require
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; any
-`DRIFT|...` result is a stop condition. For restoration, generation switching,
-registration rollback, or later-generation work, also read the
+The generation-three `audit-root-canary-state.sh ... registered-third-boot`
+classifier remains historical recovery input, not the current host classifier.
+For restoration, generation switching, registration rollback, or
+later-generation work, also read the
 [registration lifecycle plan](../../../root/system-manager/validation/2026-09-01-registration-test-plan.md).
 The plan's `sudo ./scripts/test-root-registration.sh` command is a distinct
 root-assisted disposable-container gate. Its exact derivation passed on

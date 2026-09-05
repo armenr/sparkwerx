@@ -542,8 +542,8 @@ ordinary `plan`, `apply`, or dependency updates. The current authority is
 
 ### D-018: desktop modes use thin targets and never own factory GDM
 
-**Status:** ACCEPTED; FIRST LIVE ATTEMPT SAFELY ROLLED BACK; DASHBOARD-AWARE
-DISPOSABLE REVALIDATION REQUIRED
+**Status:** ACCEPTED; DASHBOARD-AWARE DISPOSABLE REVALIDATION PASSED; GUARDED
+LIVE RETRY READY FOR SEPARATE AUTHORIZATION
 
 The first root desktop controller supports only `headless` and factory `gnome`.
 It adds two mutually exclusive, isolatable systemd targets. The headless target
@@ -603,11 +603,14 @@ was the only expected process difference; no reboot occurred. See the
 [first host-attempt record](../root/desktop/validation/2026-09-05-host-attempt-1.md).
 
 The original disposable proofs are superseded because their fixtures omitted
-the factory Dashboard's `default.target` relationship. Another live pilot is
-eligible only after the Dashboard-aware transaction, mode, and guarded-switch
-lifecycles are recorded current and passed. The candidate record and historical
-proofs remain useful context, but they grant no live retry authority:
+the factory Dashboard's `default.target` relationship. The Dashboard-aware
+transaction, mode, guarded-switch, and post-Tailscale integration lifecycles
+now pass against exact commit `abb852d320a01192236d862336bf60c31943714a` and
+are recorded as current. This makes the guarded operator eligible for a
+separately authorized live retry; it does not itself authorize that switch or
+a reboot. The candidate record and historical proofs remain useful context:
 [desktop-controller candidates](2026-09-05-desktop-controller-candidates.md),
+[current Dashboard-aware stack](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md),
 [historical switch lifecycle](../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
 
 ## Explicit non-selections

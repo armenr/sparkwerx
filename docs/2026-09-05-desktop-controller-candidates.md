@@ -2,8 +2,9 @@
 
 ## Result
 
-**CANDIDATES REMAIN VALID; PRIOR DESKTOP LIFECYCLE PROOFS ARE SUPERSEDED
-PENDING A DASHBOARD-AWARE RERUN. FIRST LIVE ATTEMPT ROLLED BACK CLEANLY.**
+**CURRENT DASHBOARD-AWARE CANDIDATES AND ALL DISPOSABLE LIFECYCLES PASS. FIRST
+LIVE ATTEMPT ROLLED BACK CLEANLY; A GUARDED RETRY IS READY FOR SEPARATE
+AUTHORIZATION.**
 
 The first root desktop-controller implementation adds only two thin systemd
 targets, one selected `default.target` dispatcher, and one non-secret mode
@@ -16,6 +17,10 @@ then failed closed on an incomplete service classification. Persistent rollback
 returned the host to factory GNOME with exact generation four; no reboot was
 performed. See the
 [host-attempt record](../root/desktop/validation/2026-09-05-host-attempt-1.md).
+The corrected two-way Dashboard boundary then passed the complete transaction,
+three-reboot mode, persistent rollback, and post-Tailscale integration stack.
+See the
+[current validation record](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
 
 ## Host facts that shape the design
 
@@ -133,7 +138,8 @@ managed immutable unit tree but outside System Manager's active-service map.
 This makes declaration and removal persistence-only operations and leaves all
 runtime target transitions to the future guarded desktop operator.
 
-The fourth run, from repository commit `e80dec6979663dcffd80834294dd0405e744e3f9`,
+The historical fourth run, from repository commit
+`e80dec6979663dcffd80834294dd0405e744e3f9`,
 passed all ten lifecycle subtests at `2026-09-05T11:23:31Z`. It exercised three
 disposable reboots and proved headless persistence, GNOME persistence, both
 runtime directions, controller removal, factory fallback, unchanged
@@ -163,11 +169,18 @@ does not traverse `default.target.wants`. The GNOME target now has a non-fatal
 the intended mode boundary without replacing, masking, or packaging the
 factory service. Both findings occurred only inside disposable containers.
 
-## Next gate
+The final run from repository commit
+`abb852d320a01192236d862336bf60c31943714a` passed all three corrected desktop
+lifecycles and the required post-Tailscale live no-op integration. Its exact
+derivations, outputs, hashes, candidates, and authority boundary are recorded
+in the
+[Dashboard-aware stack validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
+
+## Current gate result and next host boundary
 
 The old guarded lifecycle remains useful historical evidence, but it omitted a
-factory Dashboard fixture and is no longer sufficient authority. The corrected
-tests must prove all of the following before another host attempt:
+factory Dashboard fixture and is not current authority. The corrected suite
+now proves all of the following:
 
 - `dgx-dashboard.service` stops with GDM in headless mode and starts with
   factory GNOME, including same-boot rollback and reboot recovery;
@@ -185,8 +198,7 @@ atomically selects the corrected candidate at the normal pilot root. A fresh
 Spark with no historical candidate skips this rollover entirely, and does not
 need the old output in its Nix store.
 
-Run the one-command regression through
-`./scripts/test-desktop-stack-integration.sh`. Exact current derivations and
-hashes must then be recorded before `scripts/dgx-desktop` becomes eligible for
-a separately authorized retry. The test does not authorize a host switch or
-reboot.
+The regression and exact evidence gate are complete. `scripts/dgx-desktop` is
+now eligible for a separately authorized live retry. The proof does not itself
+authorize a switch or reboot; the host remains on exact generation four with
+factory GNOME until the guarded operator is explicitly invoked.
