@@ -212,11 +212,55 @@
         ];
       };
 
+      # First host desktop-controller candidates. Both preserve exact
+      # generation-four Tailscale ownership and the boot edge. Their only new
+      # root surface is the pair of thin DGX mode targets, the selected
+      # default.target alias, and a non-secret mode marker. Building either
+      # candidate does not switch a target, stop GDM, or change the live host.
+      mkRootDesktopModeGeneration =
+        mode:
+        system-manager.lib.makeSystemConfig {
+          overlays = rootManagerOverlays;
+          modules = [
+            ./hosts/sparkle-01/system.nix
+            {
+              dgx.root = {
+                bootPersistence.enable = true;
+                tailscale = {
+                  enable = true;
+                  package = tailscalePackage;
+                  sshDesired = true;
+                };
+                desktop = {
+                  enable = true;
+                  inherit mode;
+                };
+              };
+              environment.etc."dgx-setup/canary".text = rootLib.mkForce ''
+                schema=1
+                host=sparkle-01
+                owner=DGX-setup
+                purpose=system-manager activation and rollback canary
+                registration-test-generation=2
+                boot-persistence-generation=3
+                tailscale-migration-generation=4
+                desktop-controller-generation=5
+                desktop-mode=${mode}
+              '';
+            }
+          ];
+        };
+
+      rootDesktopHeadlessGeneration = mkRootDesktopModeGeneration "headless";
+      rootDesktopGnomeGeneration = mkRootDesktopModeGeneration "gnome";
+
       systemManagerPackage = rootPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
       rootCanaryBootPersistenceConfig = rootCanaryBootPersistenceGeneration.config;
       rootTailscaleMigrationConfig = rootTailscaleMigrationGeneration.config;
+      rootDesktopHeadlessConfig = rootDesktopHeadlessGeneration.config;
+      rootDesktopGnomeConfig = rootDesktopGnomeGeneration.config;
       rootCanaryServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.services
       );
@@ -228,6 +272,12 @@
       );
       rootTailscaleMigrationServiceNames = lib.sort builtins.lessThan (
         builtins.attrNames rootTailscaleMigrationConfig.build.services
+      );
+      rootDesktopHeadlessServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootDesktopHeadlessConfig.build.services
+      );
+      rootDesktopGnomeServiceNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootDesktopGnomeConfig.build.services
       );
       rootCanaryEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootCanaryConfig.build.etc.entries
@@ -241,10 +291,18 @@
       rootTailscaleMigrationEtcNames = lib.sort builtins.lessThan (
         builtins.attrNames rootTailscaleMigrationConfig.build.etc.entries
       );
+      rootDesktopHeadlessEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootDesktopHeadlessConfig.build.etc.entries
+      );
+      rootDesktopGnomeEtcNames = lib.sort builtins.lessThan (
+        builtins.attrNames rootDesktopGnomeConfig.build.etc.entries
+      );
       rootCanaryPackageNames = packageNames rootCanaryConfig.environment.systemPackages;
       rootCanaryRegistrationTestPackageNames = packageNames rootCanaryRegistrationTestConfig.environment.systemPackages;
       rootCanaryBootPersistencePackageNames = packageNames rootCanaryBootPersistenceConfig.environment.systemPackages;
       rootTailscaleMigrationPackageNames = packageNames rootTailscaleMigrationConfig.environment.systemPackages;
+      rootDesktopHeadlessPackageNames = packageNames rootDesktopHeadlessConfig.environment.systemPackages;
+      rootDesktopGnomePackageNames = packageNames rootDesktopGnomeConfig.environment.systemPackages;
       rootCanaryClosureInfo = rootPkgs.closureInfo {
         rootPaths = [ rootCanary ];
       };
@@ -374,8 +432,22 @@
         "tailscaled.service"
       ];
 
+      expectedRootDesktopServiceNames = lib.sort builtins.lessThan (
+        expectedRootTailscaleMigrationServiceNames
+        ++ [
+          "dgx-gnome.target"
+          "dgx-headless.target"
+        ]
+      );
+
       expectedRootCanaryEtcNames = [
         "dgx-setup/canary"
+        "systemd/system"
+      ];
+
+      expectedRootDesktopEtcNames = [
+        "dgx-setup/canary"
+        "dgx-setup/desktop-mode"
         "systemd/system"
       ];
 
@@ -1305,6 +1377,43 @@
           };
         };
 
+        desktopController = {
+          status = "candidates-built-lifecycle-test-awaiting";
+          selectedFleetMode = sparkleHost.desktop.mode;
+          liveHostMode = "factory-gnome";
+          hostControllerActivated = false;
+          supportedModes = [
+            "headless"
+            "gnome"
+          ];
+          candidates = {
+            headless = rootDesktopHeadlessGeneration.outPath;
+            gnome = rootDesktopGnomeGeneration.outPath;
+            rollback = rootTailscaleMigrationGeneration.outPath;
+          };
+          managedPaths = [
+            "/etc/dgx-setup/desktop-mode"
+            "/etc/systemd/system/default.target"
+            "/etc/systemd/system/dgx-gnome.target"
+            "/etc/systemd/system/dgx-headless.target"
+          ];
+          orchestrationTargets = {
+            headless = "dgx-headless.target";
+            gnome = "dgx-gnome.target";
+          };
+          preservesSystemManagerTarget = true;
+          preservesTailscale = true;
+          ownsFactoryGdm = false;
+          ownsFactoryDesktopPackages = false;
+          performsRuntimeSwitchDuringActivation = false;
+          disposableLifecycleTest = {
+            check = desktopModeLifecycleContainerTest.drvPath;
+            result = "not-yet-run";
+            hostMutation = false;
+          };
+          evidence = "docs/2026-09-05-desktop-controller-candidates.md";
+        };
+
         pilotRetention = {
           path = rootCanaryPilotGcRoot;
           # The repository evaluation does not create this root. The retained
@@ -1627,6 +1736,81 @@
           touch "$out"
         '';
 
+      desktopControllerPolicyCheck =
+        assert rootDesktopHeadlessConfig.dgx.root.bootPersistence.enable;
+        assert rootDesktopHeadlessConfig.dgx.root.tailscale.enable;
+        assert rootDesktopHeadlessConfig.dgx.root.desktop.enable;
+        assert rootDesktopHeadlessConfig.dgx.root.desktop.mode == "headless";
+        assert rootDesktopGnomeConfig.dgx.root.bootPersistence.enable;
+        assert rootDesktopGnomeConfig.dgx.root.tailscale.enable;
+        assert rootDesktopGnomeConfig.dgx.root.desktop.enable;
+        assert rootDesktopGnomeConfig.dgx.root.desktop.mode == "gnome";
+        assert rootDesktopHeadlessServiceNames == expectedRootDesktopServiceNames;
+        assert rootDesktopGnomeServiceNames == expectedRootDesktopServiceNames;
+        assert rootDesktopHeadlessEtcNames == expectedRootDesktopEtcNames;
+        assert rootDesktopGnomeEtcNames == expectedRootDesktopEtcNames;
+        assert rootDesktopHeadlessPackageNames == [ ];
+        assert rootDesktopGnomePackageNames == [ ];
+        assert rootDesktopHeadlessGeneration.outPath != rootTailscaleMigrationGeneration.outPath;
+        assert rootDesktopGnomeGeneration.outPath != rootTailscaleMigrationGeneration.outPath;
+        assert rootDesktopHeadlessGeneration.outPath != rootDesktopGnomeGeneration.outPath;
+        assert
+          rootDesktopHeadlessConfig.systemd.targets.dgx-headless.requires == [
+            "multi-user.target"
+            "system-manager.target"
+          ];
+        assert
+          rootDesktopGnomeConfig.systemd.targets.dgx-gnome.requires == [
+            "graphical.target"
+            "system-manager.target"
+          ];
+        assert
+          rootDesktopHeadlessConfig.systemd.targets.dgx-headless.conflicts == [
+            "dgx-gnome.target"
+            "graphical.target"
+          ];
+        assert rootDesktopGnomeConfig.systemd.targets.dgx-gnome.conflicts == [ "dgx-headless.target" ];
+        assert rootDesktopHeadlessConfig.systemd.targets.dgx-headless.unitConfig.AllowIsolate;
+        assert rootDesktopHeadlessConfig.systemd.targets.dgx-gnome.unitConfig.AllowIsolate;
+        assert !(builtins.hasAttr "gdm.service" rootDesktopHeadlessConfig.systemd.units);
+        assert !(builtins.hasAttr "gdm.service" rootDesktopGnomeConfig.systemd.units);
+        assert !(builtins.hasAttr "display-manager.service" rootDesktopHeadlessConfig.systemd.units);
+        assert !(builtins.hasAttr "display-manager.service" rootDesktopGnomeConfig.systemd.units);
+        rootPkgs.runCommand "dgx-desktop-controller-policy" { } ''
+          headless_units="$(${rootPkgs.coreutils}/bin/readlink -f -- \
+            ${rootDesktopHeadlessConfig.build.etc.staticEnv}/systemd/system)"
+          gnome_units="$(${rootPkgs.coreutils}/bin/readlink -f -- \
+            ${rootDesktopGnomeConfig.build.etc.staticEnv}/systemd/system)"
+
+          test -L "$headless_units/default.target"
+          test -L "$gnome_units/default.target"
+          test "$(${rootPkgs.coreutils}/bin/readlink -f -- \
+            "$headless_units/default.target")" = \
+            "$(${rootPkgs.coreutils}/bin/readlink -f -- \
+              '${rootDesktopHeadlessConfig.systemd.units."dgx-headless.target".unit}/dgx-headless.target')"
+          test "$(${rootPkgs.coreutils}/bin/readlink -f -- \
+            "$gnome_units/default.target")" = \
+            "$(${rootPkgs.coreutils}/bin/readlink -f -- \
+              '${rootDesktopGnomeConfig.systemd.units."dgx-gnome.target".unit}/dgx-gnome.target')"
+
+          grep -Fx 'Requires=multi-user.target system-manager.target' \
+            "$headless_units/dgx-headless.target"
+          grep -Fx 'Conflicts=dgx-gnome.target graphical.target' \
+            "$headless_units/dgx-headless.target"
+          grep -Fx 'AllowIsolate=true' "$headless_units/dgx-headless.target"
+          grep -Fx 'Requires=graphical.target system-manager.target' \
+            "$gnome_units/dgx-gnome.target"
+          grep -Fx 'Conflicts=dgx-headless.target' \
+            "$gnome_units/dgx-gnome.target"
+          grep -Fx 'AllowIsolate=true' "$gnome_units/dgx-gnome.target"
+
+          test ! -e "$headless_units/gdm.service"
+          test ! -e "$headless_units/display-manager.service"
+          test ! -e "$gnome_units/gdm.service"
+          test ! -e "$gnome_units/display-manager.service"
+          touch "$out"
+        '';
+
       tailscaleMigrationShellCheck =
         rootPkgs.runCommand "dgx-tailscale-migration-shellcheck"
           {
@@ -1639,6 +1823,7 @@
               ${./scripts/dgx-tailscale} \
               ${./scripts/test-dgx-setup-apply.sh} \
               ${./scripts/test-dgx-setup-plan.sh} \
+              ${./scripts/test-desktop-mode-lifecycle.sh} \
               ${./scripts/test-post-tailscale-integration.sh} \
               ${./scripts/test-tailscale-unit-lifecycle.sh} \
               ${./.agents/skills/dgx-spark-ops/scripts/audit-updates.sh}
@@ -1668,6 +1853,22 @@
         assert rootManagerManifest.foundationNixpkgs.policy == "frozen-live-root-lane";
         assert rootManagerManifest.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
         assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
+        assert rootManagerManifest.desktopController.status == "candidates-built-lifecycle-test-awaiting";
+        assert rootManagerManifest.desktopController.selectedFleetMode == "headless";
+        assert rootManagerManifest.desktopController.liveHostMode == "factory-gnome";
+        assert !rootManagerManifest.desktopController.hostControllerActivated;
+        assert
+          rootManagerManifest.desktopController.supportedModes == [
+            "headless"
+            "gnome"
+          ];
+        assert rootManagerManifest.desktopController.preservesSystemManagerTarget;
+        assert rootManagerManifest.desktopController.preservesTailscale;
+        assert !rootManagerManifest.desktopController.ownsFactoryGdm;
+        assert !rootManagerManifest.desktopController.ownsFactoryDesktopPackages;
+        assert !rootManagerManifest.desktopController.performsRuntimeSwitchDuringActivation;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.result == "not-yet-run";
+        assert !rootManagerManifest.desktopController.disposableLifecycleTest.hostMutation;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;
@@ -2502,6 +2703,15 @@
           ;
       };
 
+      desktopModeLifecycleContainerTest = import ./root/desktop/mode-lifecycle-test.nix {
+        pkgs = rootPkgs;
+        inherit
+          rootManagerOverlays
+          rootCanary
+          system-manager
+          ;
+      };
+
       nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
         mkdir -p \
           "$out/bootstrap/nix" \
@@ -2723,6 +2933,8 @@
         root-system-canary-generation-two = rootCanaryRegistrationTestGeneration;
         root-system-canary-generation-three-boot = rootCanaryBootPersistenceGeneration;
         root-system-tailscale-migration = rootTailscaleMigrationGeneration;
+        root-system-desktop-headless = rootDesktopHeadlessGeneration;
+        root-system-desktop-gnome = rootDesktopGnomeGeneration;
         root-tailscale-migration-bundle = rootTailscaleMigrationBundle;
         root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
@@ -2739,6 +2951,8 @@
         codex-relaxed-defaults = codexRelaxedDefaultsRegressionCheck;
         devbox-package = devboxPackage;
         devbox-policy = devboxPolicyCheck;
+        desktop-controller-policy = desktopControllerPolicyCheck;
+        desktop-mode-lifecycle-container = desktopModeLifecycleContainerTest;
         home-sparkle-01 = sparkleHome.activationPackage;
         home-base = baseProfile.activationPackage;
         home-graphical = graphicalProfile.activationPackage;

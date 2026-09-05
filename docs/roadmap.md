@@ -157,7 +157,11 @@ is now ready for the first future dependency change; no live update was needed.
 
 - [x] Build-test pinned Hyprland on `aarch64-linux`
 - [x] Review and build-test current Ghostty as the shared graphical terminal
-- [ ] Implement and inspect `headless` and factory `gnome` transitions first
+- [x] Implement, build, and statically inspect the thin `headless` and factory
+      `gnome` root-controller candidates without activating them
+- [ ] Pass the disposable `headless -> gnome -> headless`, reboot, access-plane,
+      and factory-fallback lifecycle
+- [ ] Build and pass the guarded live switch/rollback operator
 - [ ] Validate the NVIDIA userspace bridge for Hyprland
 - [ ] Review Hyprland's portal as an independent closure
 - [ ] Add a reversible GDM session entry

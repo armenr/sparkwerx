@@ -540,6 +540,31 @@ drift. Removing that fallback is a separate reviewed cleanup and is not part of
 ordinary `plan`, `apply`, or dependency updates. The current authority is
 [host attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md).
 
+### D-018: desktop modes use thin targets and never own factory GDM
+
+**Status:** ACCEPTED AS BUILT CANDIDATES; NOT ACTIVE
+
+The first root desktop controller supports only `headless` and factory `gnome`.
+It adds two mutually exclusive, isolatable systemd targets. The headless target
+requires both Ubuntu's `multi-user.target` and `system-manager.target`; the
+GNOME target requires factory `graphical.target` and `system-manager.target`.
+This keeps Nix-managed Tailscale alive during either mode without relying on an
+apt-era enablement link.
+
+The selected mode supplies an immutable `/etc/systemd/system/default.target`
+alias plus a non-secret marker. Neither candidate declares, replaces, masks, or
+packages GDM, `display-manager.service`, GNOME, or an XDG portal. Removing the
+controller removes the `/etc` default override so Ubuntu's original
+`/usr/lib/systemd/system/default.target -> graphical.target` is authoritative
+again.
+
+System Manager activation changes persistent declaration only. Runtime target
+isolation—which can terminate a GUI session—belongs to a separate guarded
+operator with explicit preview, rollback, and postflight. The exact candidates
+and static checks are recorded in the
+[desktop-controller candidate record](2026-09-05-desktop-controller-candidates.md).
+They grant no live switch or reboot authority.
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -558,8 +583,9 @@ ordinary `plan`, `apply`, or dependency updates. The current authority is
   four numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- Design the exact systemd/GDM implementation and rollback for all four desktop
-  modes.
+- Pass the disposable headless/factory-GNOME lifecycle and build its guarded
+  live switch/rollback operator. Hyprland and KDE remain later independent
+  extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
 - Design and prove Chromium's exact root sandbox integration, then wire and

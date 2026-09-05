@@ -175,14 +175,22 @@ rollback rules live in the
 ## Desktop modes
 
 The implemented Home Manager enum selects exactly one of `headless`, `gnome`,
-`hyprland`, or `kde` for user-profile composition. A future root controller
-applies the same singular choice to systemd and GDM. Headless then stops
-graphical services without removing the factory desktop packages and must
-retain Tailscale. Graphical modes activate their matching session and portal
-set plus the shared Ghostty terminal; Armen's personal graphical overlay
-composes above that shared role. The current pilot Home profile is active as
-user-layer headless while the actual host remains in factory GNOME. See the
-[desktop-mode contract](desktop-modes.md).
+`hyprland`, or `kde` for user-profile composition. The first root-controller
+candidates now apply `headless` and factory `gnome` through thin, mutually
+exclusive targets. Each target requires `system-manager.target`, so an isolate
+cannot discard Nix-managed Tailscale; neither candidate owns GDM or a desktop
+package. Their selected immutable `default.target` alias overrides the factory
+default only while the role is active, and activation alone never performs the
+runtime isolate.
+
+These candidates are built and statically checked but not live. Headless will
+stop graphical services without removing factory packages after the disposable
+lifecycle and guarded switch gates pass. Later graphical modes activate their
+matching session and portal set plus the shared Ghostty terminal; Armen's
+personal graphical overlay composes above that shared role. The current pilot
+Home profile is user-layer headless while the actual host remains in factory
+GNOME. See the [desktop-mode contract](desktop-modes.md) and
+[candidate record](2026-09-05-desktop-controller-candidates.md).
 
 ## Hyprland pilot safety model
 
@@ -229,9 +237,9 @@ transactions, live pilots, disposable recovery lifecycle, real reboot
 rollback, restoration, and Tailscale migration all passed. Hash-pinned helpers
 deliberately contain no reboot action.
 
-Desktop-mode root control, personal app packages, workload roles, and all
-graphical/desktop/workload activation remain deliberately inactive. Tailscale
-ownership migration is complete. The first minimal Home transaction passed
+Desktop-mode root candidates exist but are inactive; personal app packages,
+workload roles, and all graphical/desktop/workload activation remain
+deliberately inactive. Tailscale ownership migration is complete. The first minimal Home transaction passed
 disposable and real rollback, then retained exact generation one; its headless profile
 emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already

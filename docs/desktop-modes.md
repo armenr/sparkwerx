@@ -5,10 +5,13 @@ loosely related booleans:
 
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
-The enum and its Home Manager package composition are implemented. The
-root-level systemd/GDM controller is not. Until that controller is reviewed and
-activated, changing this option evaluates a different user profile but cannot
-change what the host boots or stop factory desktop services.
+The enum and its Home Manager package composition are implemented. Exact
+root-level `headless` and factory-`gnome` controller candidates are also built
+and policy-checked, but their disposable lifecycle and guarded live switch are
+not yet approved. Until those gates pass and a controller is activated,
+changing the user option evaluates a different Home profile but cannot change
+what the host boots or stop factory desktop services. See the
+[candidate record](2026-09-05-desktop-controller-candidates.md).
 
 ## Mode behavior
 
@@ -106,9 +109,10 @@ not authorize the switch.
 
 ## Implementation hold points
 
-- Select and review the non-NixOS root configuration manager.
-- Implement the already-modeled enum at the systemd/GDM layer without
-  introducing contradictory booleans.
+- Pass the root-assisted disposable `headless -> gnome -> headless` lifecycle
+  without changing the live host.
+- Build the guarded live switch/rollback operator around the two candidate
+  targets without introducing contradictory booleans.
 - Keep host-level systemd/GDM ownership separate from Home Manager.
 - Review Ghostty's measured graphical closure before building it, then validate
   it under factory GNOME and each approved Wayland mode.

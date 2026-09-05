@@ -18,6 +18,7 @@ in
 {
   imports = [
     ./boot-persistence.nix
+    ./desktop-mode.nix
     ./tailscale.nix
   ];
 
