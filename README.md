@@ -25,8 +25,10 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   disposable lifecycle. They add no desktop package or GDM ownership,
   explicitly preserve `system-manager.target` and Nix-managed Tailscale, and
   are not active on the host. The exact switch primitive also passed all 12
-  failure/rollback cases. A short persistent-rollback operator is implemented;
-  its separate disposable lifecycle is the remaining gate. See the
+  failure/rollback cases. The short persistent-rollback operator then passed
+  its seven-subtest lifecycle, including same-boot rollback, confirmed
+  retention, reboot recovery, and a clean live-host boundary. It is ready for
+  a separately authorized live pilot but has not switched the host. See the
   [candidate record](docs/2026-09-05-desktop-controller-candidates.md).
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
   evidence has its own immutable root Nixpkgs lane, while a separate

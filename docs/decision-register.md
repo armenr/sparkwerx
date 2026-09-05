@@ -542,7 +542,7 @@ ordinary `plan`, `apply`, or dependency updates. The current authority is
 
 ### D-018: desktop modes use thin targets and never own factory GDM
 
-**Status:** ACCEPTED AND DISPOSABLE-LIFECYCLE PROVEN; NOT ACTIVE
+**Status:** ACCEPTED AND ALL DISPOSABLE LIFECYCLES PROVEN; NOT ACTIVE
 
 The first root desktop controller supports only `headless` and factory `gnome`.
 It adds two mutually exclusive, isolatable systemd targets. The headless target
@@ -566,13 +566,21 @@ authoritative again.
 System Manager activation changes persistent declaration only. Runtime target
 isolation—which can terminate a GUI session—belongs to `scripts/dgx-desktop`,
 a separate guarded operator with preview, private snapshot, persistent timed
-rollback, and postflight. Its live use remains blocked until its own exact
-disposable lifecycle is recorded as current and passed. The exact candidates
-and static checks are recorded in the
+rollback, and postflight. Its live use was blocked until its own exact
+disposable lifecycle was recorded as current and passed. That condition is now
+satisfied: the seven-subtest lifecycle passed from commit `8ab5dd8`, including
+same-boot automatic rollback,
+confirmed retention, one reboot with automatic factory recovery, exact
+Tailscale continuity, complete candidate-root retention, and clean live-host
+postflight. The operator is now eligible for a separately authorized live
+pilot, but the proof granted no live switch or reboot authority. The exact
+candidates and static checks are recorded in the
 [desktop-controller candidate record](2026-09-05-desktop-controller-candidates.md).
 The exact ten-subtest/three-reboot disposable lifecycle passed while the live
 host stayed on unchanged generation four. That PASS authorizes guarded
-live-transaction design, but grants no live switch or reboot authority.
+live-transaction design, but grants no live switch or reboot authority. The
+final operator proof is recorded in the
+[switch-lifecycle result](../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
 
 ## Explicit non-selections
 
@@ -592,8 +600,8 @@ live-transaction design, but grants no live switch or reboot authority.
   four numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- Pass and record the implemented guarded headless/factory-GNOME operator's
-  disposable lifecycle. Hyprland and KDE remain later independent extensions.
+- Run and confirm the guarded factory-GNOME-to-headless live pilot through
+  `scripts/dgx-desktop`. Hyprland and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
 - Design and prove Chromium's exact root sandbox integration, then wire and

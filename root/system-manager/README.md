@@ -837,6 +837,22 @@ A candidate change makes this helper stale. Update its exact path only together
 with the manifest, closure review, newly authorized disposable test, host
 preflight, and a fresh same-window snapshot.
 
+## Desktop-controller boundary
+
+Exact generation four remains the live factory-GNOME rollback boundary. The
+headless/factory-GNOME candidates, low-level transaction, and guarded operator
+have all passed their independent disposable lifecycles. The final operator
+proof included persistent isolation-resistant rollback, confirmation,
+same-boot rollback, one reboot recovery, Tailscale continuity, complete root
+retention, and a clean live-host postflight. See the
+[desktop switch validation](../desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
+
+Any live desktop transition must use `scripts/dgx-desktop`; never invoke a raw
+candidate's activation program or `systemctl isolate` directly. A live switch
+can close the graphical session and therefore remains separately authorized.
+The operator arms its ten-minute factory-GNOME rollback before mutation and
+never performs a reboot.
+
 ## Updates
 
 `scripts/update-dependencies.sh` advances only the user/package Nixpkgs lanes

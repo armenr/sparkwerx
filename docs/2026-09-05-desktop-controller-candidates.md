@@ -2,8 +2,8 @@
 
 ## Result
 
-**CANDIDATES BUILT; POLICY AND DISPOSABLE LIFECYCLE PASSED; LIVE SWITCH NOT
-YET AUTHORIZED.**
+**ALL CANDIDATE, TRANSACTION, AND GUARDED-OPERATOR LIFECYCLES PASSED; LIVE
+SWITCH NOT YET PERFORMED.**
 
 The first root desktop-controller implementation adds only two thin systemd
 targets, one selected `default.target` dispatcher, and one non-secret mode
@@ -140,10 +140,16 @@ contains the complete authority boundary and failed-feedback history.
 
 ## Next gate
 
-The guarded live operator and its immutable ten-minute rollback bundle are now
-implemented. Separately run and record its exact disposable lifecycle through
-`sudo ./scripts/test-desktop-switch-lifecycle.sh`. That proof includes
-same-boot rollback, confirmation, headless reboot recovery, Nix-managed
-Tailscale continuity, and an unchanged host boundary. It does not itself
-authorize profile registration, target isolation, GUI termination, a live
-desktop switch, or reboot on `sparkle-01`.
+The guarded live operator and its immutable ten-minute rollback bundle passed
+all seven lifecycle subtests from commit `8ab5dd8`. The proof covered
+same-boot rollback, confirmed retention, headless reboot recovery, Nix-managed
+Tailscale continuity, complete root retention, and an unchanged host boundary.
+See the
+[exact switch-lifecycle record](../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
+
+The remaining gate is a separately authorized live invocation of
+`./scripts/dgx-desktop headless`, followed by reconnecting over Tailscale,
+checking `status`, and running `confirm` before the persistent ten-minute
+factory-GNOME rollback fires. The operator does not reboot. The disposable
+proof itself did not authorize profile registration, target isolation, GUI
+termination, or a live desktop switch on `sparkle-01`.

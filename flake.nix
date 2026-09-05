@@ -1439,7 +1439,7 @@
               hostPostflight = "clean";
             };
           guardedHeadlessTransaction = {
-            status = "transaction-primitive-passed-live-operator-awaiting";
+            status = "guarded-operator-lifecycle-passed-live-switch-awaiting";
             program = {
               repositoryPath = "scripts/root-desktop-mode-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
@@ -1457,7 +1457,7 @@
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
-              status = "designed-disposable-lifecycle-awaiting";
+              status = "disposable-lifecycle-passed-live-switch-awaiting";
               implemented = true;
               repositoryPath = "scripts/dgx-desktop";
               sha256 = builtins.hashFile "sha256" rootDesktopSwitchOperatorProgram;
@@ -1478,11 +1478,35 @@
               detachedWorkerIgnoresIsolation = true;
               exactPhraseRequired = false;
               performsReboot = false;
-              isolatedLifecycle = {
-                flakeCheck = "desktop-switch-lifecycle-container";
-                result = "awaiting-root-local-run";
-                hostMutation = false;
-              };
+              isolatedLifecycle =
+                let
+                  observedDrvPath = "/nix/store/2pjvrigr248rx344kigkh0w5cqkgqyvn-container-test-dgx-desktop-switch-lifecycle.drv";
+                  observedOutputPath = "/nix/store/lizh586mhdqg9jn8kpd40ip9c0wzw86h-container-test-dgx-desktop-switch-lifecycle";
+                in
+                {
+                  flakeCheck = "desktop-switch-lifecycle-container";
+                  verifiedAt = "2026-09-05T12:35:10Z";
+                  repositoryCommit = "8ab5dd86e72322489dee41a7bedfafde38529276";
+                  result = "passed";
+                  inherit observedDrvPath observedOutputPath;
+                  outputHash = "sha256:0mxnvzdxr9f083f1cc0alsa01pq38y0jbfd2daaszprx2j2qx7zq";
+                  outputSriHash = "sha256-+J+OhRQ936+VaqK5JYFHA98AlKYKMBbcQMCl3Nvftlc=";
+                  currentDrvPath = desktopSwitchLifecycleContainerTest.drvPath;
+                  currentOutputPath = desktopSwitchLifecycleContainerTest.outPath;
+                  matchesCurrent =
+                    desktopSwitchLifecycleContainerTest.drvPath == observedDrvPath
+                    && desktopSwitchLifecycleContainerTest.outPath == observedOutputPath;
+                  subtestCount = 7;
+                  disposableRestarts = 1;
+                  provesIsolationResistantRollback = true;
+                  provesSameBootRollback = true;
+                  provesConfirmedRetention = true;
+                  provesRebootRecovery = true;
+                  provesTailscaleContinuity = true;
+                  provesCandidateRootRetention = true;
+                  hostMutation = false;
+                  hostPostflight = "clean";
+                };
             };
             isolatedTest =
               let
@@ -1992,7 +2016,7 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.status
-          == "transaction-primitive-passed-live-operator-awaiting";
+          == "guarded-operator-lifecycle-passed-live-switch-awaiting";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
           == reviewedRootDesktopModeTransactionSha256;
@@ -2012,7 +2036,7 @@
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.status
-          == "designed-disposable-lifecycle-awaiting";
+          == "disposable-lifecycle-passed-live-switch-awaiting";
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.implemented;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.sha256
@@ -2037,9 +2061,32 @@
           !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.performsReboot;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.result
-          == "awaiting-root-local-run";
+          == "passed";
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.matchesCurrent;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.subtestCount
+          == 7;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.disposableRestarts
+          == 1;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesIsolationResistantRollback;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesSameBootRollback;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesConfirmedRetention;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesRebootRecovery;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesTailscaleContinuity;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.provesCandidateRootRetention;
         assert
           !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.hostMutation;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.hostPostflight
+          == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
         assert

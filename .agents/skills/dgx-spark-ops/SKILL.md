@@ -107,14 +107,16 @@ Exact headless and factory-GNOME controller candidates passed their
 10-subtest/three-reboot disposable lifecycle with clean host postflight, but
 remain inactive. The exact switch primitive passed its separate 12-subtest
 failure/rollback lifecycle. `scripts/dgx-desktop` and its persistent timed
-rollback bundle are implemented but must not be used live until
-`sudo ./scripts/test-desktop-switch-lifecycle.sh` passes and its exact evidence
-is recorded as current. Read
+rollback bundle then passed their seven-subtest lifecycle, including automatic
+same-boot rollback, confirmed retention, reboot recovery, Tailscale continuity,
+and a clean live-host boundary. The operator is therefore eligible for a
+separately authorized live pilot; the proof itself did not activate the role or
+authorize a reboot. Read
 [`docs/2026-09-05-desktop-controller-candidates.md`](../../../docs/2026-09-05-desktop-controller-candidates.md)
 and the exact
-[`root/desktop` validation record](../../../root/desktop/validation/2026-09-05-mode-lifecycle-container-test.md)
-before testing or changing that role; never activate a raw candidate or call
-`systemctl isolate` directly on the host.
+[`root/desktop` switch validation record](../../../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md)
+before testing or changing that role. Use only `./scripts/dgx-desktop`; never
+activate a raw candidate or call `systemctl isolate` directly on the host.
 After changing this integration, run
 `./scripts/test-post-tailscale-integration.sh` as the declared user; it keeps
 the destructive-looking lifecycle entirely inside a disposable container and

@@ -71,8 +71,11 @@ root retention in a disposable Ubuntu container. The host-boundary wrapper is:
 sudo ./scripts/test-desktop-switch-lifecycle.sh
 ```
 
-That lifecycle is the remaining proof gate. Until its exact result is recorded
-as current and passed, do not run `./scripts/dgx-desktop headless`.
+That seven-subtest lifecycle passed from commit `8ab5dd8`, including one
+disposable reboot and a clean live-host postflight. Its exact derivation,
+output hash, and authority boundary are in the
+[switch-lifecycle result](2026-09-05-switch-lifecycle-container-test.md).
+The operator is now eligible for a separately authorized live pilot.
 
 This plan and its test do not authorize rooting, registering, activating,
 isolating, stopping GDM, or rebooting `sparkle-01`.
