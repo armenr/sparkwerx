@@ -552,11 +552,13 @@ This keeps Nix-managed Tailscale alive during either mode without relying on an
 apt-era enablement link.
 
 The selected mode supplies an immutable `/etc/systemd/system/default.target`
-alias plus a non-secret marker. Neither candidate declares, replaces, masks, or
-packages GDM, `display-manager.service`, GNOME, or an XDG portal. Removing the
-controller removes the `/etc` default override so Ubuntu's original
-`/usr/lib/systemd/system/default.target -> graphical.target` is authoritative
-again.
+dispatcher plus a non-secret marker. The dispatcher explicitly requires the
+selected named mode target because System Manager cannot safely emit a normal
+systemd alias to an immutable store path. Neither candidate declares, replaces,
+masks, or packages GDM, `display-manager.service`, GNOME, or an XDG portal.
+Removing the controller removes the `/etc` default override so Ubuntu's
+original `/usr/lib/systemd/system/default.target -> graphical.target` is
+authoritative again.
 
 System Manager activation changes persistent declaration only. Runtime target
 isolation—which can terminate a GUI session—belongs to a separate guarded

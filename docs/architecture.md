@@ -179,9 +179,9 @@ The implemented Home Manager enum selects exactly one of `headless`, `gnome`,
 candidates now apply `headless` and factory `gnome` through thin, mutually
 exclusive targets. Each target requires `system-manager.target`, so an isolate
 cannot discard Nix-managed Tailscale; neither candidate owns GDM or a desktop
-package. Their selected immutable `default.target` alias overrides the factory
-default only while the role is active, and activation alone never performs the
-runtime isolate.
+package. Their selected immutable `default.target` dispatcher overrides the
+factory default only while the role is active, and activation alone never
+performs the runtime isolate.
 
 These candidates are built and statically checked but not live. Headless will
 stop graphical services without removing factory packages after the disposable

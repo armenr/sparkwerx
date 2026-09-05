@@ -180,10 +180,10 @@ system-manager.lib.containerTest.makeContainerTest {
 
     def assert_default(mode: str) -> None:
         # System Manager materializes unit files as immutable links outside
-        # systemd's unit search path. systemctl consequently classifies this
-        # as a linked default.target unit and reports its lookup name rather
-        # than the basename of the fully resolved target. Prove both the
-        # expected report and the exact target instead of conflating them.
+        # systemd's unit search path, so systemctl reports the linked lookup
+        # name. The dispatcher must explicitly pull in the selected named
+        # target; a direct store alias would instead load its contents under
+        # the name default.target and leave dgx-<mode>.target inactive.
         reported_default = machine.succeed("systemctl get-default").strip()
         assert reported_default == "default.target", (
             "expected System Manager's linked default.target report; "
@@ -191,8 +191,12 @@ system-manager.lib.containerTest.makeContainerTest {
         )
         machine.succeed(f"test -L '{default_alias}'")
         machine.succeed(
-            f"test \"$(basename \"$(readlink -f '{default_alias}')\")\" "
-            f"= 'dgx-{mode}.target'"
+            f"grep -Fx 'Requires=dgx-{mode}.target' "
+            f"\"$(readlink -f '{default_alias}')\""
+        )
+        machine.succeed(
+            f"grep -Fx 'After=dgx-{mode}.target' "
+            f"\"$(readlink -f '{default_alias}')\""
         )
         machine.succeed(f"grep -Fx 'mode={mode}' '{desktop_marker}'")
         machine.succeed(

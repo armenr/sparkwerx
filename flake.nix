@@ -215,7 +215,7 @@
       # First host desktop-controller candidates. Both preserve exact
       # generation-four Tailscale ownership and the boot edge. Their only new
       # root surface is the pair of thin DGX mode targets, the selected
-      # default.target alias, and a non-secret mode marker. Building either
+      # default.target dispatcher, and a non-secret mode marker. Building either
       # candidate does not switch a target, stop GDM, or change the live host.
       mkRootDesktopModeGeneration =
         mode:
@@ -1784,14 +1784,14 @@
 
           test -L "$headless_units/default.target"
           test -L "$gnome_units/default.target"
-          test "$(${rootPkgs.coreutils}/bin/readlink -f -- \
-            "$headless_units/default.target")" = \
-            "$(${rootPkgs.coreutils}/bin/readlink -f -- \
-              '${rootDesktopHeadlessConfig.systemd.units."dgx-headless.target".unit}/dgx-headless.target')"
-          test "$(${rootPkgs.coreutils}/bin/readlink -f -- \
-            "$gnome_units/default.target")" = \
-            "$(${rootPkgs.coreutils}/bin/readlink -f -- \
-              '${rootDesktopGnomeConfig.systemd.units."dgx-gnome.target".unit}/dgx-gnome.target')"
+          grep -Fx 'Requires=dgx-headless.target' \
+            "$headless_units/default.target"
+          grep -Fx 'After=dgx-headless.target' \
+            "$headless_units/default.target"
+          grep -Fx 'Requires=dgx-gnome.target' \
+            "$gnome_units/default.target"
+          grep -Fx 'After=dgx-gnome.target' \
+            "$gnome_units/default.target"
 
           grep -Fx 'Requires=multi-user.target system-manager.target' \
             "$headless_units/dgx-headless.target"
