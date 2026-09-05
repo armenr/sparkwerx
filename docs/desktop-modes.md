@@ -6,9 +6,10 @@ loosely related booleans:
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
 The enum and its Home Manager package composition are implemented. Exact
-root-level `headless` and factory-`gnome` controller candidates are also built
-and policy-checked, but their disposable lifecycle and guarded live switch are
-not yet approved. Until those gates pass and a controller is activated,
+root-level `headless` and factory-`gnome` controller candidates are built,
+policy-checked, and proven through a 10-subtest/three-reboot disposable
+lifecycle. Their guarded live switch is not yet built or approved. Until that
+gate passes and a controller is activated,
 changing the user option evaluates a different Home profile but cannot change
 what the host boots or stop factory desktop services. See the
 [candidate record](2026-09-05-desktop-controller-candidates.md).
@@ -109,8 +110,6 @@ not authorize the switch.
 
 ## Implementation hold points
 
-- Pass the root-assisted disposable `headless -> gnome -> headless` lifecycle
-  without changing the live host.
 - Build the guarded live switch/rollback operator around the two candidate
   targets without introducing contradictory booleans.
 - Keep host-level systemd/GDM ownership separate from Home Manager.

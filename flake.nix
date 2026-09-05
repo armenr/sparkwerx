@@ -1372,7 +1372,7 @@
         };
 
         desktopController = {
-          status = "candidates-built-lifecycle-test-awaiting";
+          status = "disposable-lifecycle-passed-live-switch-awaiting";
           selectedFleetMode = sparkleHost.desktop.mode;
           liveHostMode = "factory-gnome";
           hostControllerActivated = false;
@@ -1400,11 +1400,31 @@
           ownsFactoryGdm = false;
           ownsFactoryDesktopPackages = false;
           performsRuntimeSwitchDuringActivation = false;
-          disposableLifecycleTest = {
-            check = desktopModeLifecycleContainerTest.drvPath;
-            result = "not-yet-run";
-            hostMutation = false;
-          };
+          disposableLifecycleTest =
+            let
+              observedDrvPath = "/nix/store/qv3v6lglnqigqa60qs3zg4x5qkcy6hsw-container-test-dgx-desktop-mode-lifecycle.drv";
+              observedOutputPath = "/nix/store/58ca2p4a20hfsvy5is4dzk0g5zs60rqg-container-test-dgx-desktop-mode-lifecycle";
+            in
+            {
+              verifiedAt = "2026-09-05T11:23:31Z";
+              result = "passed";
+              inherit observedDrvPath observedOutputPath;
+              outputHash = "sha256:109yz2sydf0zp6sqwsqsv9pw53f7lkm0qq7dksd3vw1bys4riypv";
+              outputSriHash = "sha256-+/qYifYr8D2anu1gDOqkx43Cb9oaa461uR+45rX4PoE=";
+              currentDrvPath = desktopModeLifecycleContainerTest.drvPath;
+              currentOutputPath = desktopModeLifecycleContainerTest.outPath;
+              matchesCurrent =
+                desktopModeLifecycleContainerTest.drvPath == observedDrvPath
+                && desktopModeLifecycleContainerTest.outPath == observedOutputPath;
+              subtestCount = 10;
+              disposableRestarts = 3;
+              provesHeadlessPersistence = true;
+              provesGnomePersistence = true;
+              provesFactoryFallback = true;
+              provesTailscaleContinuity = true;
+              hostMutation = false;
+              hostPostflight = "clean";
+            };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
 
@@ -1829,7 +1849,8 @@
         assert rootManagerManifest.foundationNixpkgs.policy == "frozen-live-root-lane";
         assert rootManagerManifest.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
         assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
-        assert rootManagerManifest.desktopController.status == "candidates-built-lifecycle-test-awaiting";
+        assert
+          rootManagerManifest.desktopController.status == "disposable-lifecycle-passed-live-switch-awaiting";
         assert rootManagerManifest.desktopController.selectedFleetMode == "headless";
         assert rootManagerManifest.desktopController.liveHostMode == "factory-gnome";
         assert !rootManagerManifest.desktopController.hostControllerActivated;
@@ -1843,8 +1864,16 @@
         assert !rootManagerManifest.desktopController.ownsFactoryGdm;
         assert !rootManagerManifest.desktopController.ownsFactoryDesktopPackages;
         assert !rootManagerManifest.desktopController.performsRuntimeSwitchDuringActivation;
-        assert rootManagerManifest.desktopController.disposableLifecycleTest.result == "not-yet-run";
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.result == "passed";
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.matchesCurrent;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.subtestCount == 10;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.disposableRestarts == 3;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.provesHeadlessPersistence;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.provesGnomePersistence;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.provesFactoryFallback;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.provesTailscaleContinuity;
         assert !rootManagerManifest.desktopController.disposableLifecycleTest.hostMutation;
+        assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;

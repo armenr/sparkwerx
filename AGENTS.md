@@ -23,8 +23,13 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - `./scripts/dgx-setup apply [HOSTNAME]` composes only the proven bootstrap and
   headless Home transactions. Its exact retained-pilot no-op test passed; read
   `docs/2026-09-03-guarded-staged-apply.md`. `APPLY_STATUS=PARTIAL` is expected
-  while Tailscale migration and the root desktop controller remain untouched;
+  while the root desktop controller remains untouched;
   never interpret it as full desired-state convergence or bypass those gates.
+- The exact headless/factory-GNOME desktop candidates passed their
+  10-subtest/three-reboot disposable lifecycle with clean live-host postflight.
+  Read `root/desktop/validation/2026-09-05-mode-lifecycle-container-test.md`.
+  This permits guarded live-operator design only; never activate a raw
+  candidate or call `systemctl isolate` directly on the host.
 - Read `docs/decision-register.md` before changing packages, profiles, desktop
   modes, user overlays, or workloads; ACCEPTED/SELECTED is not activation
   authorization.

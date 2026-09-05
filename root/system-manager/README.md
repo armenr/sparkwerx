@@ -25,8 +25,11 @@ two, and snapshot-bound verification plus exact cleanup passed. Generations
 one and two remained registered and all three pilot roots remained. The
 retry-safe restoration then passed two full postflights and automatically
 retained exact registered/live/boot-linked generation three. All three numbered
-generations and direct pilot roots remain, recovery is unarmed, and no broader
-root role exists.
+generations and direct pilot roots remained at that milestone. The later
+guarded Tailscale migration retained exact generation four after a real reboot;
+generation four is current, all four earlier anchors remain, and recovery is
+unarmed. Exact headless and factory-GNOME generation-five candidates then
+passed their 10-subtest/three-reboot disposable lifecycle but remain inactive.
 
 ## Reviewed candidate
 
@@ -46,9 +49,11 @@ root role exists.
 | Guarded generation-switch transaction test | **PASS** for exact failure-injection derivation |
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
 | Persistent first-reboot recovery | **PASS** for exact 13-subtest/two-restart lifecycle and first real reboot; missed deadline automatically restored generation two, verification/cleanup passed, host recovery is unarmed |
-| Host registration | Exact generations one, two, and three registered; generation three selected/upstream-rooted |
-| Host activation | Exact generation-three canary active with its one declarative boot edge after verified restoration |
-| Rollback anchors | All three exact direct pilot roots and numbered generations remain; generation two is the reviewed no-boot rollback target |
+| Tailscale generation four | **ACTIVE** after guarded migration, real reboot, and fresh SSH confirmation |
+| Desktop controller | **PASS** for exact 10-subtest/three-reboot disposable lifecycle; live switch not authorized |
+| Host registration | Exact generations one through four registered; generation four selected/upstream-rooted |
+| Host activation | Exact generation four active with Nix-managed Tailscale and its declarative boot edge |
+| Rollback anchors | All four exact direct pilot roots and numbered generations remain |
 | Root package foundation | Exact `nixpkgs-root` revision `a9e6d84f9c2f9012f5fe7d964a7851352300e61a`; routine user/package updates cannot advance it |
 
 The release branch deliberately matches the frozen root Nixpkgs 26.05 lane;
@@ -122,7 +127,8 @@ is the authority for the first registered-generation milestone. The
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
 is the generation-two milestone authority. The
 [retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md)
-is the current full live-state authority.
+is historical recovery authority. Current live-state authority is the
+[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
 
 Do not rerun the inactive-state preflight or activation helper while this
 canary remains active. Do not rerun the first-registration helper now that its
@@ -179,9 +185,11 @@ at the first-registration milestone. The later guarded switch added exact
 to generation two while retaining generation one and both direct pilot roots.
 The guarded boot-persistence pilot then added exact `system-manager-3-link`,
 selected and upstream-rooted generation three, and preserved all earlier links
-and all three direct pilot roots. No fourth or unknown registered generation
-exists. The current exact surface and operating rules are in the
-[retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md).
+and all three direct pilot roots. The later guarded Tailscale migration added
+exact `system-manager-4-link`, selected and upstream-rooted generation four,
+and retained all four direct pilot roots. No fifth or unknown registered
+generation exists. Current authority is the
+[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -644,10 +652,12 @@ is the first-registration authority; and the
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
 is the historical generation-two authority. The
 [retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md)
-is the current full live-state authority. The
+is historical recovery authority. The
 [boot-persistence container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md)
 is repository/test evidence for the pre-activation milestone and explicitly
 records that its disposable test left the then-live host on generation two.
+Current live-state authority is the
+[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
 
 Review missing builds without realizing anything:
 

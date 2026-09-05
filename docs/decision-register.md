@@ -542,7 +542,7 @@ ordinary `plan`, `apply`, or dependency updates. The current authority is
 
 ### D-018: desktop modes use thin targets and never own factory GDM
 
-**Status:** ACCEPTED AS BUILT CANDIDATES; NOT ACTIVE
+**Status:** ACCEPTED AND DISPOSABLE-LIFECYCLE PROVEN; NOT ACTIVE
 
 The first root desktop controller supports only `headless` and factory `gnome`.
 It adds two mutually exclusive, isolatable systemd targets. The headless target
@@ -568,7 +568,9 @@ isolation—which can terminate a GUI session—belongs to a separate guarded
 operator with explicit preview, rollback, and postflight. The exact candidates
 and static checks are recorded in the
 [desktop-controller candidate record](2026-09-05-desktop-controller-candidates.md).
-They grant no live switch or reboot authority.
+The exact ten-subtest/three-reboot disposable lifecycle passed while the live
+host stayed on unchanged generation four. That PASS authorizes guarded
+live-transaction design, but grants no live switch or reboot authority.
 
 ## Explicit non-selections
 
@@ -588,9 +590,8 @@ They grant no live switch or reboot authority.
   four numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- Pass the disposable headless/factory-GNOME lifecycle and build its guarded
-  live switch/rollback operator. Hyprland and KDE remain later independent
-  extensions.
+- Build and pass the guarded headless/factory-GNOME live switch/rollback
+  operator. Hyprland and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
 - Design and prove Chromium's exact root sandbox integration, then wire and

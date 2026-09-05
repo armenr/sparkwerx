@@ -185,9 +185,10 @@ performs the runtime isolate. The two mode targets are immutable unit files,
 not entries in System Manager's active-service map; the guarded operator owns
 every runtime transition.
 
-These candidates are built and statically checked but not live. Headless will
-stop graphical services without removing factory packages after the disposable
-lifecycle and guarded switch gates pass. Later graphical modes activate their
+These candidates are built, statically checked, and proven through an exact
+10-subtest/three-reboot disposable lifecycle, but are not live. Headless will
+stop graphical services without removing factory packages after the guarded
+switch gate passes. Later graphical modes activate their
 matching session and portal set plus the shared Ghostty terminal; Armen's
 personal graphical overlay composes above that shared role. The current pilot
 Home profile is user-layer headless while the actual host remains in factory
@@ -239,7 +240,8 @@ transactions, live pilots, disposable recovery lifecycle, real reboot
 rollback, restoration, and Tailscale migration all passed. Hash-pinned helpers
 deliberately contain no reboot action.
 
-Desktop-mode root candidates exist but are inactive; personal app packages,
+Desktop-mode root candidates passed their disposable lifecycle but remain
+inactive; personal app packages,
 workload roles, and all graphical/desktop/workload activation remain
 deliberately inactive. Tailscale ownership migration is complete. The first minimal Home transaction passed
 disposable and real rollback, then retained exact generation one; its headless profile

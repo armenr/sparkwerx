@@ -2,7 +2,8 @@
 
 ## Result
 
-**CANDIDATES BUILT AND POLICY-PASSED; DISPOSABLE LIFECYCLE NOT YET RUN.**
+**CANDIDATES BUILT; POLICY AND DISPOSABLE LIFECYCLE PASSED; LIVE SWITCH NOT
+YET AUTHORIZED.**
 
 The first root desktop-controller implementation adds only two thin systemd
 targets, one selected `default.target` dispatcher, and one non-secret mode
@@ -94,8 +95,7 @@ guarded switch operator owns that separately visible action.
 - Importing the disabled module leaves the current generation-four output
   byte-for-byte identical.
 - The disposable test script passed Nix evaluation, Python type/lint
-  generation, Bash syntax, Nix formatting, and ShellCheck. Its actual systemd
-  lifecycle needs the root-local container builder and remains the next gate.
+  generation, Bash syntax, Nix formatting, and ShellCheck.
 
 ## Disposable feedback incorporated
 
@@ -121,21 +121,29 @@ managed immutable unit tree but outside System Manager's active-service map.
 This makes declaration and removal persistence-only operations and leaves all
 runtime target transitions to the future guarded desktop operator.
 
+The fourth run, from repository commit `e80dec6979663dcffd80834294dd0405e744e3f9`,
+passed all ten lifecycle subtests at `2026-09-05T11:23:31Z`. It exercised three
+disposable reboots and proved headless persistence, GNOME persistence, both
+runtime directions, controller removal, factory fallback, unchanged
+Nix-managed Tailscale access, and an unchanged live host.
+The [exact validation record](../root/desktop/validation/2026-09-05-mode-lifecycle-container-test.md)
+contains the complete authority boundary and failed-feedback history.
+
+| Evidence | Exact value |
+| --- | --- |
+| Test derivation | `/nix/store/qv3v6lglnqigqa60qs3zg4x5qkcy6hsw-container-test-dgx-desktop-mode-lifecycle.drv` |
+| Test output | `/nix/store/58ca2p4a20hfsvy5is4dzk0g5zs60rqg-container-test-dgx-desktop-mode-lifecycle` |
+| Output hash | `sha256-+/qYifYr8D2anu1gDOqkx43Cb9oaa461uR+45rX4PoE=` |
+| Nix-base32 hash | `109yz2sydf0zp6sqwsqsv9pw53f7lkm0qq7dksd3vw1bys4riypv` |
+| Container reboots | 3 |
+| Host mutation | None |
+
 ## Next gate
 
-From a clean commit, run:
-
-```console
-sudo ./scripts/test-desktop-mode-lifecycle.sh
-```
-
-The wrapper first proves the live host is still exact generation four with
-factory GNOME and no controller paths. Only inside a disposable Ubuntu
-container it then exercises headless declaration, runtime isolation, reboot,
-GNOME declaration, runtime isolation, reboot, GNOME-to-headless return,
-controller removal/factory fallback, and a final reboot. It requires
-System Manager and Nix-managed Tailscale to survive every transition.
-
-A PASS authorizes design of the guarded live switch transaction. It does not
-itself authorize a profile registration, target isolation, GUI termination,
-desktop switch, or reboot on `sparkle-01`.
+Design and separately test the guarded live switch transaction. It must retain
+generation four, root the exact target candidate, arm automatic rollback before
+registration/activation/isolation, verify Nix-managed Tailscale and protected
+factory services, and expose a short status/rollback path. This lifecycle PASS
+authorizes that repository work only. It does not itself authorize profile
+registration, target isolation, GUI termination, a desktop switch, or reboot
+on `sparkle-01`.
