@@ -18,7 +18,10 @@ let
     Description=DGX headless mode
     Requires=multi-user.target system-manager.target
     After=multi-user.target system-manager.target
-    Conflicts=dgx-gnome.target graphical.target
+    # The factory Dashboard UI is independently wanted by default.target. A
+    # conflict is required so it cannot start alongside a headless default
+    # boot; the separate Dashboard admin daemon remains in multi-user.target.
+    Conflicts=dgx-dashboard.service dgx-gnome.target graphical.target
     AllowIsolate=true
   '';
 
@@ -102,6 +105,14 @@ in
       {
         assertion = !builtins.hasAttr "display-manager.service" config.systemd.units;
         message = "The DGX desktop controller must not replace the factory display-manager alias.";
+      }
+      {
+        assertion = !builtins.hasAttr "dgx-dashboard.service" config.systemd.units;
+        message = "The DGX desktop controller must orchestrate, not own, the factory Dashboard GUI.";
+      }
+      {
+        assertion = !builtins.hasAttr "dgx-dashboard-admin.service" config.systemd.units;
+        message = "The DGX desktop controller must not own the headless-safe factory Dashboard admin daemon.";
       }
     ];
   };

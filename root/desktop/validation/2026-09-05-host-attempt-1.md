@@ -77,3 +77,24 @@ The old disposable proofs are superseded until all three desktop lifecycle
 tests pass with a factory Dashboard fixture. No live retry is authorized by
 this record. Use only `scripts/dgx-desktop` after current evidence is recorded;
 never activate a raw candidate or isolate a target directly on the host.
+
+## Follow-up disposable feedback
+
+The first Dashboard-aware combined rerun passed the 12-subtest transaction
+test, including same-boot Dashboard stop/restart behavior. Its mode-lifecycle
+test then failed only inside the container on the first headless reboot:
+Ubuntu's persistent `default.target.wants/dgx-dashboard.service` edge started
+the GUI service alongside the headless dispatcher.
+
+The corrected headless target therefore explicitly conflicts with the existing
+factory `dgx-dashboard.service`. A conflict is required—not package removal,
+unit replacement, or a mask—because the factory wants edge remains installed.
+The non-required GUI start job is discarded when headless is selected, while
+the independent Dashboard admin daemon remains under `multi-user.target`.
+
+That target correction produces a new immutable generation-five candidate.
+The next guarded switch atomically moves the main candidate root to the
+corrected output while preserving the superseded candidate at
+`/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot`. The
+rollover is not a live activation and occurs only after current lifecycle
+evidence passes and the persistent factory rollback is being installed.

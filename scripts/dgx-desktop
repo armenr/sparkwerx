@@ -13,6 +13,7 @@ state_dir=/var/lib/dgx-setup/desktop-switch
 state_context=$state_dir/context
 profile_dir=/nix/var/nix/profiles/system-manager-profiles
 headless_root=/nix/var/nix/gcroots/dgx-setup-desktop-headless-pilot
+superseded_headless_root=/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot
 rollback_root=/nix/var/nix/gcroots/dgx-setup-desktop-switch-rollback
 rollback_service=dgx-desktop-switch-rollback.service
 rollback_timer=dgx-desktop-switch-rollback.timer
@@ -80,7 +81,7 @@ require_commands() {
 
   for command_name in \
     awk cmp date find git grep hostname install jq ln mktemp nvidia-smi \
-    readlink rm sed sha256sum sort stat systemctl systemd-analyze systemd-run \
+    mv readlink rm sed sha256sum sort stat systemctl systemd-analyze systemd-run \
     tailscale timeout touch uname; do
     command -v "$command_name" >/dev/null 2>&1 ||
       die "required command is unavailable: $command_name"
@@ -101,12 +102,19 @@ context_value() {
   awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$file"
 }
 
-assert_store_path() {
+assert_store_path_shape() {
   local value="$1"
   local suffix="$2"
 
   [[ "$value" =~ ^/nix/store/[a-z0-9]{32}-${suffix}$ ]] ||
     die "invalid recorded store path: $value"
+}
+
+assert_store_path() {
+  local value="$1"
+  local suffix="$2"
+
+  assert_store_path_shape "$value" "$suffix"
   [[ -e "$value" ]] || die "recorded store path is unavailable: $value"
 }
 
@@ -261,6 +269,9 @@ load_repo_outputs() {
     die "could not evaluate generation four"
   headless_generation="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" ||
     die "could not evaluate the headless generation"
+  superseded_headless_generation="$(
+    eval_output .#lib.dgxRootManagerManifest.aarch64-linux.desktopController.firstLiveAttempt.headlessCandidate
+  )" || die "could not evaluate the superseded headless generation"
   switch_bundle="$(eval_output .#packages.aarch64-linux.root-desktop-switch-bundle.outPath)" ||
     die "could not evaluate the desktop-switch bundle"
   tailscale_package="$(eval_output .#packages.aarch64-linux.tailscale.outPath)" ||
@@ -278,6 +289,10 @@ load_repo_outputs() {
     "$(jq -r '.matchesCurrent' <<<"$evidence_json")" == true ]] ||
     die "the exact headless transaction evidence is not current and passed"
   [[ -e "$lifecycle_test" ]] || die "the passed transaction output is unavailable"
+  # New hosts never need the historical sparkle-01 candidate in their store.
+  # Validate only its immutable path shape here; existence is required below
+  # only when a retained pilot root actually points at it.
+  assert_store_path_shape "$superseded_headless_generation" system-manager
 }
 
 assert_switch_lifecycle_evidence() {
@@ -347,7 +362,7 @@ assert_factory_boundary() {
 }
 
 assert_no_guard_surface() {
-  local path unit load_state retained
+  local path unit load_state retained superseded_retained
 
   for path in \
     "$state_dir" "$rollback_root" "$rollback_service_path" \
@@ -357,9 +372,24 @@ assert_no_guard_surface() {
   if path_exists "$headless_root"; then
     [[ -L "$headless_root" ]] || die "headless pilot root is a foreign collision"
     retained="$(readlink -- "$headless_root" 2>/dev/null || true)"
-    [[ "$retained" == "$headless_generation" ]] ||
-      die "headless pilot root retains an unknown candidate"
-    pass candidate_root "reusing retained exact headless candidate"
+    case "$retained" in
+      "$headless_generation")
+        pass candidate_root "reusing retained exact headless candidate"
+        ;;
+      "$superseded_headless_generation")
+        [[ -e "$superseded_headless_generation" ]] ||
+          die "retained superseded headless candidate is unavailable"
+        pass candidate_root "verified superseded candidate; guarded rollover required"
+        ;;
+      *) die "headless pilot root retains an unknown candidate" ;;
+    esac
+  fi
+  if path_exists "$superseded_headless_root"; then
+    [[ -L "$superseded_headless_root" ]] ||
+      die "superseded headless pilot root is a foreign collision"
+    superseded_retained="$(readlink -- "$superseded_headless_root" 2>/dev/null || true)"
+    [[ "$superseded_retained" == "$superseded_headless_generation" ]] ||
+      die "superseded headless pilot root retains an unknown candidate"
   fi
   for unit in "$rollback_service" "$rollback_timer" "$apply_service"; do
     load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
@@ -392,6 +422,7 @@ create_snapshot() {
     printf 'generation_three=%s\n' "$generation_three"
     printf 'generation_four=%s\n' "$generation_four"
     printf 'headless_generation=%s\n' "$headless_generation"
+    printf 'superseded_headless_generation=%s\n' "$superseded_headless_generation"
     printf 'bundle=%s\n' "$switch_bundle"
     printf 'tailscale_package=%s\n' "$tailscale_package"
     printf 'lifecycle_test=%s\n' "$lifecycle_test"
@@ -458,6 +489,7 @@ load_context() {
   context_generation_three="$(context_value generation_three)"
   context_generation_four="$(context_value generation_four)"
   context_headless="$(context_value headless_generation)"
+  context_superseded_headless="$(context_value superseded_headless_generation)"
   context_tailscale_package="$(context_value tailscale_package)"
   context_lifecycle_test="$(context_value lifecycle_test)"
   context_switch_lifecycle_test="$(context_value switch_lifecycle_test)"
@@ -505,6 +537,7 @@ load_context() {
   assert_store_path "$context_generation_three" system-manager
   assert_store_path "$context_generation_four" system-manager
   assert_store_path "$context_headless" system-manager
+  assert_store_path_shape "$context_superseded_headless" system-manager
   [[ "$context_tailscale_package" =~ ^/nix/store/[a-z0-9]{32}-tailscale-[0-9] ]] ||
     die "invalid recorded Tailscale package"
   [[ -e "$context_tailscale_package" && -e "$context_lifecycle_test" &&
@@ -544,7 +577,14 @@ cleanup_guard_surface() {
   validate_guard_link "$rollback_service_path" \
     "$context_bundle/lib/systemd/system/$rollback_service"
   validate_guard_link "$rollback_root" "$context_bundle"
-  validate_guard_link "$headless_root" "$context_headless"
+  if path_exists "$headless_root"; then
+    [[ -L "$headless_root" ]] || die "headless pilot root is a foreign collision"
+    case "$(readlink -- "$headless_root" 2>/dev/null || true)" in
+      "$context_headless" | "$context_superseded_headless") ;;
+      *) die "headless pilot root retains an unknown candidate during cleanup" ;;
+    esac
+  fi
+  validate_guard_link "$superseded_headless_root" "$context_superseded_headless"
 
   rm -f -- "$rollback_wants_path" "$rollback_timer_path" \
     "$rollback_service_path" "$rollback_root"
@@ -562,12 +602,36 @@ cleanup_guard_surface() {
 }
 
 install_guard() {
+  local retained temporary
+
   install -d -m 0700 "$state_dir" || return 1
   install -m 0600 "$snapshot/context" "$state_context" || return 1
   touch "$state_dir/armed" || return 1
   if path_exists "$headless_root"; then
-    validate_guard_link "$headless_root" "$headless_generation" || return 1
-    candidate_created=false
+    [[ -L "$headless_root" ]] || return 1
+    retained="$(readlink -- "$headless_root" 2>/dev/null || true)"
+    case "$retained" in
+      "$headless_generation")
+        candidate_created=false
+        ;;
+      "$superseded_headless_generation")
+        if path_exists "$superseded_headless_root"; then
+          validate_guard_link \
+            "$superseded_headless_root" "$superseded_headless_generation" || return 1
+        else
+          ln -s -- "$superseded_headless_generation" \
+            "$superseded_headless_root" || return 1
+        fi
+        temporary="$headless_root.dgx-desktop-$$"
+        ! path_exists "$temporary" || return 1
+        ln -s -- "$headless_generation" "$temporary" || return 1
+        mv -Tf -- "$temporary" "$headless_root" || return 1
+        candidate_created=false
+        pass candidate_root \
+          "retained superseded candidate separately and selected corrected candidate"
+        ;;
+      *) return 1 ;;
+    esac
   else
     ln -s -- "$headless_generation" "$headless_root" || return 1
     candidate_created=true
@@ -595,20 +659,24 @@ record_result() {
 }
 
 plan_action() {
-  local live guard candidate
+  local live guard candidate superseded_candidate
 
   require_commands
   load_repo_outputs
   live="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
   guard=absent
   candidate=absent
+  superseded_candidate=absent
   path_exists "$state_dir" && guard=present
   path_exists "$headless_root" && candidate="$(readlink -- "$headless_root" 2>/dev/null || true)"
+  path_exists "$superseded_headless_root" &&
+    superseded_candidate="$(readlink -- "$superseded_headless_root" 2>/dev/null || true)"
   info host "$host_name"
   info live_generation "${live:-ABSENT}"
   info factory_generation "$generation_four"
   info headless_generation "$headless_generation"
   info candidate_retention "$candidate"
+  info superseded_candidate_retention "$superseded_candidate"
   info guard "$guard"
   info current_default "$(systemctl get-default 2>/dev/null || printf UNKNOWN)"
 }

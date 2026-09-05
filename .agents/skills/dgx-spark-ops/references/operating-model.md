@@ -245,7 +245,9 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Treat the factory `dgx-dashboard.service` UI as a desktop service: stop it in
   headless and start it with factory GNOME. Keep the separate
   `dgx-dashboard-admin.service` active in both modes. The repository does not
-  own either factory package or unit.
+  own either factory package or unit. Preserve the explicit headless-target
+  conflict that defeats the GUI service's factory `default.target.wants` edge
+  on cold headless boots.
 - Keep the permanent base limited to `ncdu`, `lazydocker`, and `devbox`.
 - Keep Ghostty shared across graphical modes and absent from headless.
 - Keep user overlays explicit; never infer Armen's overlay for another user.

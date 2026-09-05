@@ -573,6 +573,12 @@ unit or package; the desktop controller only selects whether the existing GUI
 unit is in the active target graph. Docker, Dashboard Admin, and NVIDIA
 persistence are the mode-independent same-PID continuity set.
 
+Because the factory Dashboard wants edge is attached directly to
+`default.target`, it would otherwise start on a cold headless boot even though
+the graphical target is absent. The thin headless target therefore declares an
+explicit conflict with `dgx-dashboard.service`. It does not mask, replace, or
+disable the vendor unit; switching back to factory GNOME starts it normally.
+
 System Manager activation changes persistent declaration only. Runtime target
 isolation—which can terminate a GUI session—belongs to `scripts/dgx-desktop`,
 a separate guarded operator with preview, private snapshot, persistent timed

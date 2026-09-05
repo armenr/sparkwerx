@@ -83,8 +83,10 @@ assert_host_boundary() {
     [[ -L "$headless_root" ]] ||
       die "headless pilot-root path is not a symlink: $headless_root"
     retained_headless="$(readlink -- "$headless_root" 2>/dev/null || true)"
-    [[ "$retained_headless" == "$headless_candidate" ]] ||
-      die "headless pilot root points at an unknown candidate: $retained_headless"
+    case "$retained_headless" in
+      "$headless_candidate" | "$superseded_headless_candidate") ;;
+      *) die "headless pilot root points at an unknown candidate: $retained_headless" ;;
+    esac
   fi
 
   systemctl is-active --quiet gdm.service || die 'factory GDM is not active'
@@ -113,6 +115,9 @@ generation_two="$(eval_output .#packages.aarch64-linux.root-system-canary-genera
 generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-three-boot.outPath)" || exit 1
 generation_four="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" || exit 1
 headless_candidate="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" || exit 1
+superseded_headless_candidate="$(
+  eval_output .#lib.dgxRootManagerManifest.aarch64-linux.desktopController.firstLiveAttempt.headlessCandidate
+)" || exit 1
 
 assert_host_boundary
 services_before="$(unit_snapshot)" || exit 1

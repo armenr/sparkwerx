@@ -326,9 +326,9 @@
       rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
       rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
       rootDesktopModeTransactionProgram = ./scripts/root-desktop-mode-transaction.sh;
-      reviewedRootDesktopModeTransactionSha256 = "46a17e0e9405b5b9fa2c7a60a9d439f07143fb7091d3b94ccbc5bf62761c878d";
+      reviewedRootDesktopModeTransactionSha256 = "df087af105f418230d6ff2bacf9041e825827a7f7f6591907cc45d0a6684f183";
       rootDesktopSwitchOperatorProgram = ./scripts/dgx-desktop;
-      reviewedRootDesktopSwitchOperatorSha256 = "341924e8648247dc32272afbb3ea9bed8e82808801edbd3de6965b3c13892621";
+      reviewedRootDesktopSwitchOperatorSha256 = "253cfb76e2c51f40503f867d3a7c1a8f830de167092e5f81871097a01030bf61";
       rootDesktopSwitchBundle = import ./root/desktop/switch-bundle.nix {
         pkgs = rootPkgs;
         transactionProgram = rootDesktopModeTransactionProgram;
@@ -1430,6 +1430,7 @@
             result = "rolled-back-clean";
             snapshot = "inventory/sparkle-01/raw/desktop-mode-switch/20260905T134345Z";
             evidence = "root/desktop/validation/2026-09-05-host-attempt-1.md";
+            headlessCandidate = "/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager";
             reachedHeadless = true;
             tailscaleIdentityPreserved = true;
             rollbackRestoredGeneration = 4;
@@ -1478,6 +1479,14 @@
             exactToGeneration = 5;
             rollbackMode = "factory-gnome-generation-four";
             retainsAllFivePilotRoots = true;
+            candidateRollover = {
+              state = "pending-next-guarded-switch";
+              from = "/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager";
+              to = rootDesktopHeadlessGeneration.outPath;
+              supersededRetentionRoot = "/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot";
+              preservesSupersededCandidate = true;
+              atomic = true;
+            };
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
@@ -1906,6 +1915,10 @@
         assert !(builtins.hasAttr "gdm.service" rootDesktopGnomeConfig.systemd.units);
         assert !(builtins.hasAttr "display-manager.service" rootDesktopHeadlessConfig.systemd.units);
         assert !(builtins.hasAttr "display-manager.service" rootDesktopGnomeConfig.systemd.units);
+        assert !(builtins.hasAttr "dgx-dashboard.service" rootDesktopHeadlessConfig.systemd.units);
+        assert !(builtins.hasAttr "dgx-dashboard.service" rootDesktopGnomeConfig.systemd.units);
+        assert !(builtins.hasAttr "dgx-dashboard-admin.service" rootDesktopHeadlessConfig.systemd.units);
+        assert !(builtins.hasAttr "dgx-dashboard-admin.service" rootDesktopGnomeConfig.systemd.units);
         rootPkgs.runCommand "dgx-desktop-controller-policy" { } ''
           headless_units="$(${rootPkgs.coreutils}/bin/readlink -f -- \
             ${rootDesktopHeadlessConfig.build.etc.staticEnv}/systemd/system)"
@@ -1925,7 +1938,7 @@
 
           grep -Fx 'Requires=multi-user.target system-manager.target' \
             "$headless_units/dgx-headless.target"
-          grep -Fx 'Conflicts=dgx-gnome.target graphical.target' \
+          grep -Fx 'Conflicts=dgx-dashboard.service dgx-gnome.target graphical.target' \
             "$headless_units/dgx-headless.target"
           grep -Fx 'AllowIsolate=true' "$headless_units/dgx-headless.target"
           grep -Fx 'Requires=graphical.target system-manager.target' \
@@ -1936,8 +1949,16 @@
 
           test ! -e "$headless_units/gdm.service"
           test ! -e "$headless_units/display-manager.service"
+          test ! -e "$headless_units/dgx-dashboard.service"
+          test ! -e "$headless_units/dgx-dashboard-admin.service"
           test ! -e "$gnome_units/gdm.service"
           test ! -e "$gnome_units/display-manager.service"
+          test ! -e "$gnome_units/dgx-dashboard.service"
+          test ! -e "$gnome_units/dgx-dashboard-admin.service"
+          grep -F 'dgx-setup-desktop-headless-pre-dashboard-pilot' \
+            ${rootDesktopSwitchOperatorProgram}
+          grep -F 'mv -Tf -- "$temporary" "$headless_root"' \
+            ${rootDesktopSwitchOperatorProgram}
 
           # A pure Nix builder cannot create systemd's hard-coded
           # /run/systemd manager directory. Parse the same portable unit
@@ -2085,6 +2106,18 @@
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.exactFromGeneration == 4;
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.exactToGeneration == 5;
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.retainsAllFivePilotRoots;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.from
+          == rootManagerManifest.desktopController.firstLiveAttempt.headlessCandidate;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.to
+          == rootDesktopHeadlessGeneration.outPath;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.state
+          == "pending-next-guarded-switch";
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.preservesSupersededCandidate;
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.atomic;
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.preservesTailscaleProcess;
         assert !rootManagerManifest.desktopController.guardedHeadlessTransaction.performsReboot;
         assert

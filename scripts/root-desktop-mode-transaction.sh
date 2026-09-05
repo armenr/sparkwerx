@@ -162,7 +162,7 @@ assert_candidates_and_roots() {
   grep -Fx 'Requires=multi-user.target system-manager.target' \
     "$unit_tree/dgx-headless.target" >/dev/null ||
     fail "headless target dependencies are invalid" || return 1
-  grep -Fx 'Conflicts=dgx-gnome.target graphical.target' \
+  grep -Fx 'Conflicts=dgx-dashboard.service dgx-gnome.target graphical.target' \
     "$unit_tree/dgx-headless.target" >/dev/null ||
     fail "headless target conflicts are invalid" || return 1
 }

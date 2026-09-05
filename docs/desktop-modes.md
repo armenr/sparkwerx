@@ -22,6 +22,11 @@ until the Dashboard-aware test suite passes. See the
 | `hyprland` | Boot graphically through GDM; select the pinned Nix Hyprland session | Use only the reviewed Hyprland/GTK portal combination | Active after its own approval | Factory GNOME session remains available locally as fallback |
 | `kde` | Boot graphically; initially reuse GDM unless testing proves another display manager necessary | Use only the reviewed Plasma/KDE portal combination | Active after its own approval | Factory GNOME session remains available during pilot |
 
+The factory Dashboard GUI has its own `default.target.wants` edge. The
+headless target explicitly conflicts with `dgx-dashboard.service` so that edge
+cannot start the GUI on a cold headless boot. This is runtime orchestration of
+the existing vendor unit, not Nix ownership, masking, or package removal.
+
 Only one mode owns the default session, portal selection, and graphical
 autostarts at a time. Ghostty is the shared terminal in `gnome`, `hyprland`,
 and `kde`; it is absent from the active `headless` profile. Installed desktop

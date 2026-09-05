@@ -44,12 +44,14 @@ Nix-managed access service on a clean future Spark. The new
 | Mode | System Manager output | Closure size |
 | --- | --- | --- |
 | Current generation-four rollback boundary | `/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager` | 312,125,456 bytes |
-| Headless candidate | `/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager` | 312,130,992 bytes |
-| Factory-GNOME candidate | `/nix/store/rri20h082q9qkcvwdg1zarp7i46nscy2-system-manager` | 312,130,960 bytes |
+| Superseded first-attempt headless candidate | `/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager` | 312,130,992 bytes |
+| Corrected headless candidate | `/nix/store/3rnw3fnaazga52ms8mz613s6czvdkz8a-system-manager` | 312,131,232 bytes |
+| Corrected factory-GNOME candidate | `/nix/store/j3153lsxpflz7rappri3l7qczd2g91m2-system-manager` | 312,131,200 bytes |
 
-The headless delta is 5,536 bytes and the GNOME delta is 5,504 bytes. Both
-reuse the entire existing closure; neither adds a desktop package, global
-package, portal, user service, or daemon.
+The corrected headless delta is 5,776 bytes and the corrected GNOME delta is
+5,744 bytes. Both reuse the entire existing closure; neither adds a desktop
+package, global package, portal, user service, or daemon. The small increase is
+the documented Dashboard conflict in the shared immutable target tree.
 
 The selected candidate owns exactly these four additional paths:
 
@@ -59,7 +61,8 @@ The selected candidate owns exactly these four additional paths:
 - `/etc/systemd/system/dgx-gnome.target`.
 
 `dgx-headless.target` requires `multi-user.target` and
-`system-manager.target`, conflicts with `graphical.target`, and is isolatable.
+`system-manager.target`, conflicts with `graphical.target`, the GNOME mode
+target, and the factory Dashboard GUI service, and is isolatable.
 `dgx-gnome.target` requires factory `graphical.target` plus
 `system-manager.target`, conflicts with the headless target, and is isolatable.
 
@@ -156,6 +159,14 @@ tests must prove all of the following before another host attempt:
 - the transaction, three-reboot mode lifecycle, and persistent guarded switch
   all pass in disposable containers; and
 - the post-Tailscale live integration remains a no-op.
+
+`sparkle-01` still retains the superseded first-attempt headless candidate at
+the normal headless pilot root. On the next guarded switch, the operator first
+preserves that exact output at
+`/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot`, then
+atomically selects the corrected candidate at the normal pilot root. A fresh
+Spark with no historical candidate skips this rollover entirely, and does not
+need the old output in its Nix store.
 
 Run the one-command regression through
 `./scripts/test-desktop-stack-integration.sh`. Exact current derivations and
