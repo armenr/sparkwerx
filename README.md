@@ -190,7 +190,9 @@ regression as the declared user:
 It checks the read-only plan, reruns the clean-host Nix bootstrap and full
 Tailscale ownership/reboot/rollback lifecycles only inside disposable
 containers, and proves the live staged apply is an exact no-op for Nix, Home,
-System Manager, Tailscale, protected services, and mutable Codex state.
+System Manager, Tailscale, protected services, and mutable Codex state. The
+complete current sequence passed on the retained pilot; see the
+[post-Tailscale integration record](docs/2026-09-05-post-tailscale-integration.md).
 
 ```bash
 ./scripts/check.sh
