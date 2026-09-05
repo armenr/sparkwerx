@@ -138,10 +138,10 @@ system-manager.lib.containerTest.makeContainerTest {
         "system-manager.target",
         "tailscaled.service",
     }
-    desktop_units = generation_four_units | {
-        "dgx-headless.target",
-        "dgx-gnome.target",
-    }
+    # Mode targets are immutable orchestration files. They deliberately stay
+    # outside System Manager's active-service state so declaration and removal
+    # never perform a runtime target transition.
+    desktop_units = generation_four_units
 
     def assert_absent(path: str) -> None:
         machine.fail(f"test -e '{path}' || test -L '{path}'")

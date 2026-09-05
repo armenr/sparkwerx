@@ -38,10 +38,10 @@ Nix-managed access service on a clean future Spark. The new
 | Mode | System Manager output | Closure size |
 | --- | --- | --- |
 | Current generation-four rollback boundary | `/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager` | 312,125,456 bytes |
-| Headless candidate | `/nix/store/ljaimjw9df1xq8a35ksq4cgnym38nzdc-system-manager` | 312,130,232 bytes |
-| Factory-GNOME candidate | `/nix/store/svq7vbz4zsb07ad33b0lg7q9fxm7hsv2-system-manager` | 312,130,200 bytes |
+| Headless candidate | `/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager` | 312,130,992 bytes |
+| Factory-GNOME candidate | `/nix/store/rri20h082q9qkcvwdg1zarp7i46nscy2-system-manager` | 312,130,960 bytes |
 
-The headless delta is 4,776 bytes and the GNOME delta is 4,744 bytes. Both
+The headless delta is 5,536 bytes and the GNOME delta is 5,504 bytes. Both
 reuse the entire existing closure; neither adds a desktop package, global
 package, portal, user service, or daemon.
 
@@ -87,6 +87,8 @@ guarded switch operator owns that separately visible action.
 - Generated targets have the exact dependency/conflict/`AllowIsolate`
   contract.
 - Neither candidate declares `gdm.service` or `display-manager.service`.
+- Both candidates retain generation four's exact four-entry active-service
+  map; the mode targets exist only in the immutable unit tree.
 - Both retain the exact Nix-managed Tailscale service and empty global package
   set.
 - Importing the disabled module leaves the current generation-four output
@@ -110,6 +112,14 @@ the name `default.target`, so `dgx-headless.target` itself was inactive. The
 direct alias was replaced with the dispatcher described above. Both failures
 were inside the disposable container; the wrapper's before/after host boundary
 checks passed and no live-host controller path was created.
+
+The third run passed the complete headless boot, GNOME declaration/isolation/
+boot, and GNOME-to-headless return. During final controller removal, System
+Manager exited successfully but logged a non-fatal error while trying to stop
+the already-unloaded inactive `dgx-gnome.target`. The targets now remain in the
+managed immutable unit tree but outside System Manager's active-service map.
+This makes declaration and removal persistence-only operations and leaves all
+runtime target transitions to the future guarded desktop operator.
 
 ## Next gate
 

@@ -13,6 +13,24 @@ let
   ];
   selectedTargetName = "dgx-${cfg.mode}.target";
 
+  headlessTargetPackage = pkgs.writeTextDir "lib/systemd/system/dgx-headless.target" ''
+    [Unit]
+    Description=DGX headless mode
+    Requires=multi-user.target system-manager.target
+    After=multi-user.target system-manager.target
+    Conflicts=dgx-gnome.target graphical.target
+    AllowIsolate=true
+  '';
+
+  gnomeTargetPackage = pkgs.writeTextDir "lib/systemd/system/dgx-gnome.target" ''
+    [Unit]
+    Description=DGX factory GNOME mode
+    Requires=graphical.target system-manager.target
+    After=graphical.target system-manager.target
+    Conflicts=dgx-headless.target
+    AllowIsolate=true
+  '';
+
   # System Manager deliberately does not implement unit aliases: immutable
   # unit links outside systemd's search path retain the lookup name
   # `default.target` instead of becoming a real alias to the selected target.
@@ -45,45 +63,20 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # These are thin orchestration targets. They own no Ubuntu desktop package
-    # or display-manager unit. Requiring system-manager.target is essential:
-    # System Manager attaches its managed services there, so a headless
-    # isolate keeps Nix-managed Tailscale and the root configuration alive on
-    # a clean host without depending on an old apt enablement symlink.
-    systemd.targets = {
-      dgx-headless = {
-        description = "DGX headless mode";
-        requires = [
-          "multi-user.target"
-          "system-manager.target"
-        ];
-        after = [
-          "multi-user.target"
-          "system-manager.target"
-        ];
-        conflicts = [
-          "dgx-gnome.target"
-          "graphical.target"
-        ];
-        unitConfig.AllowIsolate = true;
-      };
-
-      dgx-gnome = {
-        description = "DGX factory GNOME mode";
-        requires = [
-          "graphical.target"
-          "system-manager.target"
-        ];
-        after = [
-          "graphical.target"
-          "system-manager.target"
-        ];
-        conflicts = [ "dgx-headless.target" ];
-        unitConfig.AllowIsolate = true;
-      };
-    };
-
-    systemd.packages = [ defaultTargetPackage ];
+    # These are thin orchestration files, not System Manager-managed active
+    # services. The future guarded desktop operator owns runtime isolation;
+    # activation only changes persistent declaration. Keeping them out of the
+    # service set also lets controller removal discard an inactive alternate
+    # target without System Manager trying to stop an already-unloaded unit.
+    # Requiring system-manager.target is essential: System Manager attaches
+    # its managed services there, so a headless isolate keeps Nix-managed
+    # Tailscale and the root configuration alive on a clean host without
+    # depending on an old apt enablement symlink.
+    systemd.packages = [
+      defaultTargetPackage
+      headlessTargetPackage
+      gnomeTargetPackage
+    ];
 
     environment.etc."dgx-setup/desktop-mode" = {
       text = ''

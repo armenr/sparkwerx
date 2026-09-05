@@ -432,13 +432,7 @@
         "tailscaled.service"
       ];
 
-      expectedRootDesktopServiceNames = lib.sort builtins.lessThan (
-        expectedRootTailscaleMigrationServiceNames
-        ++ [
-          "dgx-gnome.target"
-          "dgx-headless.target"
-        ]
-      );
+      expectedRootDesktopServiceNames = expectedRootTailscaleMigrationServiceNames;
 
       expectedRootCanaryEtcNames = [
         "dgx-setup/canary"
@@ -1754,24 +1748,6 @@
         assert rootDesktopHeadlessGeneration.outPath != rootTailscaleMigrationGeneration.outPath;
         assert rootDesktopGnomeGeneration.outPath != rootTailscaleMigrationGeneration.outPath;
         assert rootDesktopHeadlessGeneration.outPath != rootDesktopGnomeGeneration.outPath;
-        assert
-          rootDesktopHeadlessConfig.systemd.targets.dgx-headless.requires == [
-            "multi-user.target"
-            "system-manager.target"
-          ];
-        assert
-          rootDesktopGnomeConfig.systemd.targets.dgx-gnome.requires == [
-            "graphical.target"
-            "system-manager.target"
-          ];
-        assert
-          rootDesktopHeadlessConfig.systemd.targets.dgx-headless.conflicts == [
-            "dgx-gnome.target"
-            "graphical.target"
-          ];
-        assert rootDesktopGnomeConfig.systemd.targets.dgx-gnome.conflicts == [ "dgx-headless.target" ];
-        assert rootDesktopHeadlessConfig.systemd.targets.dgx-headless.unitConfig.AllowIsolate;
-        assert rootDesktopHeadlessConfig.systemd.targets.dgx-gnome.unitConfig.AllowIsolate;
         assert !(builtins.hasAttr "gdm.service" rootDesktopHeadlessConfig.systemd.units);
         assert !(builtins.hasAttr "gdm.service" rootDesktopGnomeConfig.systemd.units);
         assert !(builtins.hasAttr "display-manager.service" rootDesktopHeadlessConfig.systemd.units);

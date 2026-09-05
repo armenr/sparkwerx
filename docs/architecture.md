@@ -181,7 +181,9 @@ exclusive targets. Each target requires `system-manager.target`, so an isolate
 cannot discard Nix-managed Tailscale; neither candidate owns GDM or a desktop
 package. Their selected immutable `default.target` dispatcher overrides the
 factory default only while the role is active, and activation alone never
-performs the runtime isolate.
+performs the runtime isolate. The two mode targets are immutable unit files,
+not entries in System Manager's active-service map; the guarded operator owns
+every runtime transition.
 
 These candidates are built and statically checked but not live. Headless will
 stop graphical services without removing factory packages after the disposable
