@@ -35,30 +35,34 @@ generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-gene
 candidate="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" || exit 1
 
 assert_host_boundary() {
-  local root_state fragment
+  local current fragment
 
-  root_state="$(
-    "$repo_dir/scripts/audit-root-canary-state.sh" \
-      "$generation_three" registered-third-boot \
-      "$generation_one" "$generation_two" 2>/dev/null || true
-  )"
-  [[ "$root_state" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]] ||
-    die "expected exact live generation three; observed ${root_state:-UNKNOWN}"
-
-  systemctl is-active --quiet tailscaled.service ||
-    die "live vendor tailscaled.service is not active"
+  current="$(readlink -f -- /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
+  systemctl is-active --quiet tailscaled.service || die "live tailscaled.service is not active"
   fragment="$(systemctl show tailscaled.service -p FragmentPath --value)"
-  [[ "$fragment" == "$vendor_unit" ]] ||
-    die "live Tailscale is not loaded from the vendor unit: $fragment"
-
-  [[ -L "$vendor_wants" ]] || die "vendor Tailscale boot link is absent"
-  [[ "$(readlink -f -- "$vendor_wants")" == "$vendor_unit" ]] ||
-    die "vendor Tailscale boot link target changed"
-
-  for path in "$managed_unit" "$managed_wants"; do
-    [[ ! -e "$path" && ! -L "$path" ]] ||
-      die "candidate ownership path already exists on host: $path"
-  done
+  if [[ "$current" == "$generation_three" ]]; then
+    "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+      verify-before "$generation_one" "$generation_two" \
+      "$generation_three" "$candidate" >/dev/null ||
+      die "generation-three/vendor host boundary failed verification"
+    [[ "$fragment" == "$vendor_unit" ]] ||
+      die "live Tailscale is not loaded from the vendor unit: $fragment"
+    [[ -L "$vendor_wants" && "$(readlink -f -- "$vendor_wants")" == "$vendor_unit" ]] ||
+      die "vendor Tailscale boot link is absent or changed"
+    for path in "$managed_unit" "$managed_wants"; do
+      [[ ! -e "$path" && ! -L "$path" ]] ||
+        die "candidate ownership path already exists on host: $path"
+    done
+  elif [[ "$current" == "$candidate" ]]; then
+    "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+      verify-after "$generation_one" "$generation_two" \
+      "$generation_three" "$candidate" >/dev/null ||
+      die "generation-four/Nix-managed host boundary failed verification"
+    [[ "$fragment" == "$managed_unit" ]] ||
+      die "live Tailscale is not loaded from the Nix-managed unit: $fragment"
+  else
+    die "live System Manager generation is neither migration boundary: ${current:-ABSENT}"
+  fi
 }
 
 assert_host_boundary
@@ -91,7 +95,7 @@ service_after="$(
     -p ExecMainStartTimestampMonotonic -p FragmentPath -p NeedDaemonReload
 )"
 [[ "$service_after" == "$service_before" ]] ||
-  die "live vendor tailscaled.service changed while the disposable test ran"
+  die "live tailscaled.service changed while the disposable test ran"
 
 if [[ "$build_status" -eq 0 ]]; then
   printf '%s\n' \

@@ -113,8 +113,10 @@ the measured software manifest; evaluation did not authorize realization.
       base, optional roles, user overlays, and workloads
 - [x] Build the staged guarded host `apply` entry point for the independently
       proven Nix and headless Home lifecycles; pass its exact live no-op test
-- [ ] Extend `apply` from honest `APPLY_STATUS=PARTIAL` convergence to the
-      separately proven Tailscale and root desktop roles
+- [x] Extend `apply` to verify the separately proven Nix-managed Tailscale role
+      without restarting it
+- [ ] Extend `apply` beyond honest `APPLY_STATUS=PARTIAL` convergence to the
+      separately proven root desktop role
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration
@@ -123,10 +125,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Build and validate the Tailscale package/unit without activation
 - [x] Build and pass the exact apt-to-Nix transaction, injected-failure
       rollback, candidate/vendor reboot, and persistent timed-rollback lifecycle
-- [ ] Run the guarded live handoff and require preserved `/var/lib/tailscale`
+- [x] Run the guarded live handoff and require preserved `/var/lib/tailscale`
       identity, a separately authorized reboot, and a fresh SSH reconnect before
       confirmation
-- [ ] Remove the Tailscale apt package/source only after Nix ownership is proven
+- [ ] After an observation period, separately decide whether to remove the now
+      inactive Tailscale apt package/source fallback
 
 ## Phase 4: minimal Home Manager activation
 

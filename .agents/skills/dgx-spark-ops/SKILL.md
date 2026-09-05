@@ -98,11 +98,15 @@ If the user explicitly requests configuration application, use
 `./scripts/dgx-setup apply [HOSTNAME]` rather than invoking Home Manager
 directly. Read
 [`docs/2026-09-03-guarded-staged-apply.md`](../../../docs/2026-09-03-guarded-staged-apply.md)
-first. The current operator composes only the independently proven Nix and
-headless Home transactions. Its exact live no-op regression passed, but
-`APPLY_STATUS=PARTIAL` deliberately leaves the apt-owned Tailscale daemon and
-factory GNOME/root desktop controller untouched. Do not treat that result as
-complete convergence or use it to infer authority for those roles.
+as historical pre-migration evidence. The current operator composes the
+independently proven Nix and headless Home transactions and verifies the
+confirmed Nix-managed Tailscale role without restarting it.
+`APPLY_STATUS=PARTIAL` now means the factory GNOME/root desktop controller is
+still untouched. Do not treat that result as authority for desktop changes.
+After changing this integration, run
+`./scripts/test-post-tailscale-integration.sh` as the declared user; it keeps
+the destructive-looking lifecycle entirely inside a disposable container and
+requires the real apply path to remain a no-op.
 
 ### Apply an approved update
 
@@ -350,14 +354,16 @@ that snapshot is spent historical evidence. The corrected retry used snapshot
 `20260903T083058Z`, one Enter, two full automatic postflights, and automatic
 rollback disarming to retain generation three without rebooting. Read
 `../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md`.
-Current classifier is
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`: all three numbered
-generations and direct pilot roots exist, generation three is selected/
-upstream-rooted/live, its declarative boot edge exists, and recovery is absent.
-No timer is armed. Require manifest boot status
-`live-generation-three-boot-linked-retained`, the same current state,
-live-attempt status `automatic-rollback-verified-cleaned`, and restoration
-status `generation-three-restored-after-verified-postflight`.
+That classifier is historical pre-migration authority: all three earlier
+generations and direct roots remain recovery anchors. Current live authority is
+generation four with Nix-managed Tailscale, recorded in
+`../../../root/tailscale/validation/2026-09-05-host-attempt-2.md`; use
+`scripts/dgx-tailscale status`, not the generation-three canary classifier, for
+the current root state. No timer is armed. The historical root manifest must
+retain boot status `live-generation-three-boot-linked-retained`, recorded state
+`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`, live-attempt status
+`automatic-rollback-verified-cleaned`, and restoration status
+`generation-three-restored-after-verified-postflight`.
 
 After a clean boot, `nix-daemon.service` may legitimately be inactive/dead
 while the unchanged `nix-daemon.socket` is active/listening. Accept that exact
@@ -404,8 +410,9 @@ not that cosmetic warning, determine the test verdict.
 Read [references/tailscale.md](references/tailscale.md),
 [references/update-audit.md](references/update-audit.md), and
 [references/source-map.md](references/source-map.md). Tailscale is a
-repository-owned fleet access service that is still awaiting migration from its
-manual apt installation; it is not part of the NVIDIA factory substrate.
+repository-owned fleet access service, not part of the NVIDIA factory
+substrate. On `sparkle-01`, exact generation four now owns the running service;
+the apt installation remains only as inactive rollback material.
 
 An audit may inspect only sanitized version, package provenance, unit state,
 backend state, online state, `WantRunning`, and `RunSSH`. Never print raw
@@ -418,9 +425,13 @@ activation requires independently verified console/recovery access and the
 rollback guard defined in the reference.
 
 The exact disposable handoff, injected-failure rollback, candidate/vendor
-reboots, and persistent unconfirmed-reboot rollback now pass. For an explicitly
-authorized live migration, use `./scripts/dgx-tailscale`; do not reconstruct
-the low-level System Manager commands. Run `plan` first. `migrate` requires a
+reboots, and persistent unconfirmed-reboot rollback pass. The guarded live
+migration and a fresh post-reboot Tailscale SSH reconnect also passed on
+`sparkle-01`; `root/tailscale/validation/2026-09-05-host-attempt-2.md` is the
+current authority. Do not rerun `migrate` there while generation four is exact.
+For another explicitly authorized host migration, use
+`./scripts/dgx-tailscale`; do not reconstruct the low-level System Manager
+commands. Run `plan` first. `migrate` requires a
 clean exact commit, reruns the lifecycle test, snapshots private host evidence,
 arms rollback before mutation, and launches the expected disconnect in a
 detached worker. It never reboots. Require same-boot `AWAITING_REBOOT`, then a
@@ -504,14 +515,13 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   a reviewed root-equivalent host change.
 - Installing Devbox never authorizes its installer to install, replace, or
   upgrade the repository-owned Nix runtime.
-- System Manager's bounded six-path/three-service canary is retained active on
-  `sparkle-01` as exact generation three after the verified first-reboot
-  rollback, the first restoration attempt's timed rollback, and the retry's
-  two verified postflights plus automatic retention. Generation three is
-  selected, upstream-rooted, directly pilot-rooted, and linked at boot. All
-  three exact generations are registered and directly rooted. Recovery is
-  absent and all three direct roots are recovery anchors.
-  Preserve its exact service/`/etc` allowlists, state/registration disclosure,
+- System Manager's bounded six-path/three-service generation-three canary is
+  the historical foundation for the current host. Exact generation four
+  inherits that boundary and adds only the reviewed Nix-managed Tailscale
+  service and links. Generation four is selected, upstream-rooted, directly
+  pilot-rooted, and linked at boot; generations one through three and their
+  roots remain rollback anchors. Recovery is absent.
+  Preserve the exact service/`/etc` allowlists, state/registration disclosure,
   one declarative boot edge, Nix 2.35.2 private runtime, and closure rejection
   of Nix 2.34.8 and real `userborn`. Preserve the exact-version
   `skip-empty-tmpfiles` patch, its manifest hash/policy, and the unmanaged-rule
@@ -522,7 +532,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   inactive-state preflight/activation, first-registration, pre-switch snapshot,
   live-switch, boot-persistence, or restoration helpers; remove a generation or root;
   reboot; manually add/remove boot linkage; broaden ownership; or update any
-  candidate underneath the host.
+  candidate underneath the host. The old generation-three classifier is
+  historical after Tailscale migration; use `scripts/dgx-tailscale status` for
+  the current root-level exact state.
   Preserve exact passed-test evidence only while it matches the evaluated
   derivation. Preserve the two failed-closed live-attempt records and never
   reuse their commit/time-bound snapshots. The third guarded attempt registered
@@ -544,14 +556,20 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   automatic rollback restored generation two, and verification/cleanup passed.
   Restoration attempt one then safely timed back; retry-safe attempt two used
   snapshot `20260903T083058Z`, passed two full postflights, and automatically
-  retained generation three without rebooting. The successful restoration
-  record is current authority. Preserve exact generation three, all three
-  numbered generations and direct roots, its boot edge, absent recovery, and
-  the Nix socket-idle lesson.
-- The apt-installed Tailscale package is temporary migration input. Do not
+  retained generation three without rebooting. That successful restoration
+  record is the recovery authority immediately preceding Tailscale migration.
+  Preserve generations one through three and their direct roots as rollback
+  anchors, plus the boot edge, absent recovery, and Nix socket-idle lesson.
+- The current live authority is Tailscale snapshot `20260905T084503Z` and
+  `root/tailscale/validation/2026-09-05-host-attempt-2.md`. Preserve exact
+  generation four, its selected/upstream/pilot roots, the Nix-managed
+  `tailscaled.service`, mutable node identity, `RunSSH=true`, multi-user boot
+  edge, and absent migration guard.
+- The apt-installed Tailscale package is retained fallback input. Do not
   downgrade it to the older package in locked Nixpkgs, delete its mutable
-  identity, containerize the host access plane, or remove apt ownership before
-  the Nix-managed service has passed the guarded live reboot and reconnect.
+  identity, containerize the host access plane, or treat the installed apt
+  files as live ownership. Package/repository removal is a separate reviewed
+  cleanup after an observation period.
 - Preserve the exact `scripts/dgx-tailscale` operator, its private snapshot,
   generation-three/vendor rollback roots, persistent timer, original boot-ID
   gate, and clean commit/helper hashes throughout an in-flight migration.

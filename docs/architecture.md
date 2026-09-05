@@ -56,9 +56,10 @@ build/install packages, mutate profiles, change services, enroll Tailscale,
 switch desktops, or reboot. The staged `scripts/dgx-setup apply` half now
 composes the independently proven Nix bootstrap/adoption and headless Home
 lifecycle, refusing unsupported host or declaration drift before mutation and
-using each layer's own retention, health, and rollback checks. It reports
-`APPLY_STATUS=PARTIAL` while Tailscale migration and the root desktop controller
-remain explicit untouched holds. Secrets, browser/account state, Tailscale node
+using each layer's own retention, health, and rollback checks. It also verifies
+the already Nix-managed Tailscale role without restarting it. It reports
+`APPLY_STATUS=PARTIAL` while the root desktop controller remains an explicit
+untouched hold. Secrets, browser/account state, Tailscale node
 identity, models, and other mutable data remain external inputs rather than
 Nix-store contents.
 
@@ -125,11 +126,12 @@ System Manager's two control targets. Low-level activation leaves its rollback
 record under `/var/lib/system-manager/state`; registration/profile roots are a
 separate action, and low-level activation does not otherwise retain its store
 closure. The pilot therefore keeps the direct root
-`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. The exact canary is
-currently active as registered/live/boot-linked generation three after the
-first real reboot's verified automatic rollback and the later verified
-restoration. All three generations remain registered and directly retained by
-their pilot roots. Its six disposable tests and guarded live activation,
+`/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. That exact canary became
+registered/live/boot-linked generation three after the first real reboot's
+verified automatic rollback and the later verified restoration. It is now the
+inherited foundation of generation four, which adds the Nix-managed Tailscale
+service. All four generations remain registered and directly retained by their
+pilot roots. The foundational six disposable tests and guarded live activation,
 registration, generation-switch, boot-link, and first-reboot milestones passed.
 Generation three differs from generation two only by its marker and one
 declarative `default.target` edge; its activation used a fresh private snapshot,
@@ -139,28 +141,29 @@ recovery then survived a real host reboot and restored exact generation two
 when the confirmation deadline expired; verification and exact cleanup
 passed. Restoration attempt one safely exercised its own rollback; retry-safe
 attempt two passed two postflights and automatically retained generation three.
+The later Tailscale migration and guarded reboot retained generation four.
 Hash-pinned lifecycle helpers accept Nix's normal postboot socket-idle state,
-and a short operator router avoids long private paths. The host is unarmed.
+and short operator routers avoid long private paths. The host is unarmed.
 Read
 [the root-manager runbook](../root/system-manager/README.md) before evaluating,
 testing, registering, or activating it.
 
 ## Tailscale access plane
 
-Tailscale is a repository-owned overlay, not factory substrate. The current
-official apt package is retained only until an approved Nix package and root
-service can take over without downgrading the daemon or replacing its mutable
-identity. The official current-stable ARM64 package and inert unit are now
-exactly pinned, no-link built, and SBOM-reviewed. Locked stable/apps packages
-remain older. The live apt service is deliberately unchanged until the root
-manager, recovery, rollback, reboot, and reconnect gates pass.
+Tailscale is a repository-owned overlay, not factory substrate. The official
+current-stable ARM64 package and unit are exactly pinned, no-link built, and
+SBOM-reviewed. Exact System Manager generation four now owns the loaded unit
+and running daemon without replacing its mutable identity. Locked stable/apps
+packages remain older. The apt package and repository remain installed only as
+inactive fallback material.
 
 The exact migration transaction and persistent rollback bundle now pass a
 disposable lifecycle covering failure after registration, Nix takeover, Nix
 reboot, explicit vendor rollback, vendor reboot, and automatic rollback after
-an unconfirmed candidate reboot. `scripts/dgx-tailscale` is the only reviewed
-live entry point. It retains apt, reuses the existing mutable identity, requires
-one real guarded reboot, and cannot confirm on the origin boot.
+an unconfirmed candidate reboot. The live migration then survived the expected
+SSH disconnect, fresh reconnect, one guarded real reboot, and another fresh
+Tailscale SSH connection before confirmation. `scripts/dgx-tailscale` remains
+the reviewed status and migration entry point for this fleet.
 
 The service must remain wanted by `multi-user.target` in headless mode. Its
 package, unit, and Tailscale SSH desired state are declarative; node identity
@@ -212,33 +215,33 @@ Hyprland portal gate, and explicit Armen mapping. Evaluation invariants prevent
 the old base, Ghostty-in-headless, implicit portals, broad unfree permission,
 and VS Code from entering the reviewed profiles.
 
-The bounded System Manager canary is active as exact registered/live
-boot-linked generation three. The first real reboot's persistent deadline
+The bounded System Manager canary became exact registered/live boot-linked
+generation three. The first real reboot's persistent deadline
 correctly rolled generation three back; snapshot-bound verification and exact
 cleanup passed. A first restoration attempt also exercised its timed rollback,
 then the retry-safe second attempt restored generation three, passed two full
-postflights, and automatically disarmed rollback. All three generations and
-direct pilot roots remain, the upstream root selects generation three, the one
-declarative boot edge exists, the recovery surface is absent, no countdown is
-active, and the classifier is
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. The reviewed
+postflights, and automatically disarmed rollback. The guarded Tailscale handoff
+then advanced the host to exact generation four. All four generations and
+direct pilot roots remain, the upstream root selects generation four, the
+declarative boot edge exists, both recovery surfaces are absent, and no
+countdown is active. The reviewed
 transactions, live pilots, disposable recovery lifecycle, real reboot
-rollback, and restoration all passed. Hash-pinned helpers deliberately contain
-no reboot action.
-Desktop-mode root control, Tailscale ownership migration, personal app
-packages, workload roles, and all graphical/desktop/workload activation remain
-deliberately inactive. The first minimal Home transaction passed disposable
-and real rollback, then retained exact generation one; its headless profile
+rollback, restoration, and Tailscale migration all passed. Hash-pinned helpers
+deliberately contain no reboot action.
+
+Desktop-mode root control, personal app packages, workload roles, and all
+graphical/desktop/workload activation remain deliberately inactive. Tailscale
+ownership migration is complete. The first minimal Home transaction passed
+disposable and real rollback, then retained exact generation one; its headless profile
 emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already
 matches the live generation. The separately gated pilot Nix runtime update to
 2.35.2 is complete. The declarative fleet selection and read-only plan are also
 implemented and host-tested. Exact Nix adoption and the complete disposable
 clean-install/rollback lifecycle are host-tested. The staged guarded apply
-front door passed its live exact no-op test for Nix plus headless Home; it
-reports partial convergence and leaves Tailscale and the root desktop
-controller untouched. Tailscale's package/unit no-link
-build and the active
-Home generation do not authorize a raw `home-manager switch`, a systemd service
+front door converges Nix plus headless Home and now verifies the already managed
+Tailscale role; it reports partial convergence because the root desktop
+controller remains untouched. The active Home generation does not authorize a
+raw `home-manager switch`, a systemd service
 link/restart, or another root-runtime change. Host mode switching and service
 changes require their own later approval.

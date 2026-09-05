@@ -98,7 +98,9 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Executed persistent first-reboot live lifecycle plan | [root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-live-plan.md) |
 | Verified first-reboot automatic-rollback authority | [root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md) |
 | Historical restoration-attempt rollback authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md) |
-| Current successful generation-three restoration authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md) |
+| Historical successful generation-three restoration authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md) |
+| Current retained generation-four/Nix-managed Tailscale authority | [root/tailscale/validation/2026-09-05-host-attempt-2.md](../../../../root/tailscale/validation/2026-09-05-host-attempt-2.md) |
+| Combined post-migration plan/lifecycle/apply regression | [scripts/test-post-tailscale-integration.sh](../../../../scripts/test-post-tailscale-integration.sh) |
 | Frozen root dependency-lane identity proof | [root/system-manager/validation/2026-09-03-root-dependency-lane.md](../../../../root/system-manager/validation/2026-09-03-root-dependency-lane.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |

@@ -489,14 +489,14 @@ second run adopted without mutation. The Nix-only branch is eligible for a
 declared clean ARM64 host through the one repository operator.
 
 The staged guarded `scripts/dgx-setup apply` entry point now composes that exact
-bootstrap with the proven headless Home first-activation/update lifecycle. Its
-live pilot regression passed with both layers as exact no-ops and proved the
-root lane, protected services, mutable Codex config, Tailscale, and GNOME state
-unchanged. It reports `APPLY_STATUS=PARTIAL` because the apt-to-Nix Tailscale
-migration and root desktop controller remain OPEN and untouched. This is
-deliberately not a false claim of complete desired-state convergence; the
-integrated clean-host path and each optional ownership layer retain their own
-gates.
+bootstrap with the proven headless Home first-activation/update lifecycle. The
+original live pilot regression passed with both layers as exact no-ops. After
+the separately guarded Tailscale migration, the front door also verifies the
+already Nix-managed generation-four access role without restarting it. It
+reports `APPLY_STATUS=PARTIAL` because the root desktop controller remains OPEN
+and untouched. This is deliberately not a false claim of complete desired-state
+convergence; the integrated clean-host path and each optional ownership layer
+retain their own gates.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 
@@ -523,6 +523,23 @@ Nix package and higher-precedence launcher are active through retained Home
 generation one; the 0.152.0 standalone release tree remains rollback input but
 no longer wins command resolution.
 
+### D-017: Tailscale service ownership is Nix-managed; apt is retained fallback
+
+**Status:** ACCEPTED AND ACTIVE ON `sparkle-01`
+
+Exact current-stable ARM64 Tailscale 1.102.3 and its `tailscaled.service` are
+owned by System Manager generation four. The guarded handoff preserved the
+existing `/var/lib/tailscale` identity and `RunSSH=true`, survived the expected
+SSH disconnect, passed one real reboot, and was confirmed only after a fresh
+Tailscale SSH connection and repeated health checks. The migration rollback
+guard is gone and no timer is armed.
+
+The apt package and repository remain installed but do not own the loaded unit
+or running daemon. They are deliberate rollback material, not configuration
+drift. Removing that fallback is a separate reviewed cleanup and is not part of
+ordinary `plan`, `apply`, or dependency updates. The current authority is
+[host attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md).
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -536,12 +553,11 @@ no longer wins command resolution.
 
 ## Open decisions
 
-- The first real host reboot and automatic recovery rollback are proven, and
-  retry-safe no-reboot restoration has returned generation three to selected/
-  upstream-rooted/live/boot-linked state. All three numbered generations and
-  direct pilot roots remain; recovery is clean and unarmed. Any later recovery
-  arming, reboot, generation/pilot-root retirement, or first real managed
-  service remains a separate decision.
+- The first recovery reboot/rollback and later Tailscale reboot/retention are
+  proven. Generation four is selected/upstream-rooted/live/boot-linked, all
+  four numbered generations and direct pilot roots remain, and recovery is
+  clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
+  retirement remains a separate decision.
 - Design the exact systemd/GDM implementation and rollback for all four desktop
   modes.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -591,11 +607,12 @@ The repository-only policy alignment was completed and evaluated on
 - evaluation invariants and dry-run plans cover headless, GNOME, Hyprland, and
   Hyprland-with-portal.
 
-The exported pilot Home profile is active as retained user-layer `headless`
-generation one. This did not change the running factory GNOME host. Devbox is
-now active through the Nix user profile; the Tailscale package/unit remains
-candidate-only, the apt Tailscale daemon remains active, and GDM/desktop state
-was not changed. The separately approved root Nix
+At that Phase 1 checkpoint, the exported pilot Home profile was active as
+retained user-layer `headless` generation one. This did not change the running
+factory GNOME host. Devbox was active through the Nix user profile; Tailscale
+was still candidate-only and apt-owned. D-017 and its live evidence supersede
+that historical Tailscale state. GDM/desktop state remains unchanged. The
+separately approved root Nix
 runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
 Tailscale-continuity checks. The software manifest remains the
 application/service/desktop install and activation gate.

@@ -125,12 +125,13 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
   daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
   remains a separate GC-rooted rollback anchor;
-- System Manager 1.1.0 is the selected root-manager candidate; its exact
-  six-path/three-service generation-three canary is retained active after the
-  successful retry-safe second restoration. Generations one, two, and three
-  are registered and directly pilot-rooted; generation three is selected,
-  upstream-rooted, live, and linked by its one reviewed `default.target` edge.
-  Recovery is absent and no rollback timer is armed. Its
+- System Manager 1.1.0 is the selected root manager. Its exact
+  six-path/three-service generation-three canary was retained after the
+  successful retry-safe restoration; generation four now inherits that
+  boundary and adds only Nix-managed Tailscale. Generations one through four
+  are registered and directly pilot-rooted; generation four is selected,
+  upstream-rooted, live, and linked by the reviewed `default.target` edge.
+  Recovery and migration guards are absent and no rollback timer is armed. Its
   109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
   registration surfaces documented in `root/system-manager/README.md`;
@@ -195,11 +196,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   generation two, verification passed, and exact cleanup removed the recovery
   surface. The first restoration attempt then safely timed back after a
   mistyped phrase; retry-safe attempt two used one Enter, passed two automatic
-  postflights, and retained generation three without rebooting. Current class
-  is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; all three
-  numbered generations and direct roots remain, generation three is selected/
-  upstream-rooted/live, its one boot edge exists, and no recovery or rollback
-  timer exists. Postboot checks must accept a cleanly idle
+  postflights, and retained generation three without rebooting. That was the
+  exact pre-migration recovery authority. The later guarded Tailscale handoff
+  and reboot retained generation four; all four numbered generations and
+  direct roots remain, generation four is selected/upstream-rooted/live, its
+  boot edge exists, and no recovery or rollback timer exists. Postboot checks
+  must accept a cleanly idle
   `nix-daemon.service` behind active `nix-daemon.socket` while preserving strict
   same-boot process continuity. `scripts/dgx-recovery` supplies the short
   no-reboot operator path;
@@ -221,12 +223,12 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   current-candidate path is a mutation-free no-op;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
 - the pilot user is not currently a member of the Docker group;
-- Tailscale `1.102.3` was manually installed from Tailscale's official apt
-  repository, its daemon is enabled at multi-user boot, and Tailscale SSH is
-  active; and
+- Tailscale `1.102.3` was originally installed from Tailscale's official apt
+  repository; its identity and Tailscale SSH remain active under the now
+  Nix-managed multi-user service; and
 - locked stable/apps Nixpkgs expose older Tailscale `1.98.10`/`1.102.2`, so the
-  repository now pins and build-validates official stable `1.102.3`; the apt
-  service still owns the live daemon and identity.
+  repository pins official stable `1.102.3`. Exact System Manager generation
+  four owns the live daemon; apt remains only as inactive fallback.
 
 The Tailscale versions above are dated baseline evidence. Re-audit them and read
 [the dedicated Tailscale reference](tailscale.md) before changing ownership.
@@ -247,11 +249,11 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   nearby catalog products.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
-- The exact System Manager container tests and retained host canary passed.
-  Preserve exact live generation three, all three numbered profile links, the
-  upstream generation-three root, all three direct pilot roots, the exact
-  six-path/three-service activation surface, its one boot edge, and absent
-  recovery edges.
+- The exact System Manager and Tailscale container tests and retained host
+  transitions passed. Preserve exact live generation four, all four numbered
+  profile links and direct pilot roots, the upstream generation-four root, the
+  inherited canary plus Nix-managed Tailscale surface, its boot edge, and
+  absent recovery/migration edges.
   Snapshots `20260902T110421Z`, `20260902T204546Z`, and every earlier live
   snapshot are spent; do not rerun their wrappers. Read the boot-persistence
   records and first-reboot result before touching this state. The persistent

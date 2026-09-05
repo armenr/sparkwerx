@@ -565,11 +565,15 @@ record_result() {
 }
 
 plan_action() {
+  local live_generation ownership_status
+
   require_commands
   load_repo_outputs
+  live_generation="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
   info host "$host_name"
-  info current_generation "$generation_three"
-  info candidate_generation "$generation_four"
+  info current_generation "${live_generation:-ABSENT}"
+  info rollback_generation "$generation_three"
+  info managed_generation "$generation_four"
   info tailscale_package "$tailscale_package"
   info migration_bundle "$migration_bundle"
   if path_exists "$state_dir" || path_exists "$rollback_root" ||
@@ -582,6 +586,22 @@ plan_action() {
     info candidate_retention "$(readlink -- "$candidate_root" 2>/dev/null || printf 'unreadable')"
   else
     info candidate_retention absent
+  fi
+  ownership_status=unknown
+  if [[ "$live_generation" == "$generation_four" ]] &&
+    "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+      verify-after-public "$generation_one" "$generation_two" \
+      "$generation_three" "$generation_four" >/dev/null 2>&1; then
+    ownership_status=confirmed-nix-managed
+    pass ownership "$ownership_status;generation=$generation_four"
+  elif [[ "$live_generation" == "$generation_three" ]] &&
+    "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+      verify-before-public "$generation_one" "$generation_two" \
+      "$generation_three" "$generation_four" >/dev/null 2>&1; then
+    ownership_status=vendor-pre-migration
+    pass ownership "$ownership_status;generation=$generation_three"
+  else
+    info ownership "$ownership_status;live=${live_generation:-ABSENT}"
   fi
   systemctl show tailscaled.service \
     -p ActiveState -p SubState -p MainPID -p FragmentPath -p NeedDaemonReload \

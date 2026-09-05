@@ -123,7 +123,7 @@ plan_host() {
   local installer_version installer_sha installer_size installer_url desired_nix
   local repo_state dgx_name dgx_version ubuntu_version observed_version observed_sha observed_size
   local runtime_version features candidate live_candidate closure status
-  local tailscale_version
+  local tailscale_version tailscale_package tailscale_plan
 
   validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
   actual_host="$(hostname -s)"
@@ -224,12 +224,21 @@ plan_host() {
   fi
 
   if [[ "$tailscale_selected" == true ]]; then
-    if command -v tailscale >/dev/null 2>&1; then
+    if [[ "$tailscale_owner" == nix-managed && -x "$nix_bin" ]] &&
+      tailscale_plan="$("$repo_dir/scripts/dgx-tailscale" plan 2>&1)" &&
+      grep -Fq 'PASS|ownership|confirmed-nix-managed;generation=' <<<"$tailscale_plan"; then
+      tailscale_package="$(sed -n 's/^INFO|tailscale_package|//p' <<<"$tailscale_plan")"
+      [[ -x "$tailscale_package/bin/tailscale" ]] ||
+        die 'verified Tailscale plan did not expose its exact Nix client'
+      tailscale_version="$("$tailscale_package/bin/tailscale" version --json 2>/dev/null | python3 -c \
+        'import json,sys; value=json.load(sys.stdin); print(value.get("majorMinorPatch") or value.get("short") or value.get("long") or "UNKNOWN")')"
+      emit PASS tailscale_apply "ownership=nix-managed;installed=$tailscale_version;exact generation four is live and boot-linked"
+    elif [[ "$tailscale_owner" == migration-pending-apt ]] && command -v tailscale >/dev/null 2>&1; then
       tailscale_version="$(tailscale version --json 2>/dev/null | python3 -c \
-        'import json,sys; value=json.load(sys.stdin); print(value.get("long") or value.get("short") or value.get("majorMinorPatch") or "UNKNOWN")')"
-      emit HOLD tailscale_apply "selected but $tailscale_owner;installed=$tailscale_version;migration remains separately gated"
+        'import json,sys; value=json.load(sys.stdin); print(value.get("majorMinorPatch") or value.get("short") or value.get("long") or "UNKNOWN")')"
+      emit HOLD tailscale_apply "ownership=migration-pending-apt;installed=$tailscale_version;use the separately gated migration operator"
     else
-      emit HOLD tailscale_apply 'selected but Nix-managed migration/enrollment is not yet apply-ready'
+      emit HOLD tailscale_apply "declared ownership=$tailscale_owner does not match a verified live state"
     fi
   fi
   if [[ "$desktop_mode" == headless && "$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")" == not-implemented ]]; then
@@ -247,6 +256,7 @@ apply_host() {
   local target_host=$1 actual_host actual_user declared_user declared_home
   local desktop_mode host_controller tailscale_selected tailscale_owner
   local isaac_enabled llmster_enabled home_profile home_action
+  local tailscale_preflight tailscale_status
   local partial=false
 
   validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
@@ -280,14 +290,22 @@ apply_host() {
     die "host desktop controller $host_controller has no guarded apply lifecycle yet"
   [[ "$isaac_enabled" == false && "$llmster_enabled" == false ]] ||
     die 'an enabled workload has no guarded apply lifecycle yet'
-  if [[ "$tailscale_selected" == true && "$tailscale_owner" != migration-pending-apt ]]; then
-    die "selected Tailscale ownership $tailscale_owner has no guarded migration lifecycle yet"
+  if [[ "$tailscale_selected" == true &&
+    "$tailscale_owner" != migration-pending-apt && "$tailscale_owner" != nix-managed ]]; then
+    die "selected Tailscale ownership $tailscale_owner is not applyable"
+  fi
+  if [[ "$tailscale_selected" == true && "$tailscale_owner" == nix-managed ]]; then
+    tailscale_preflight="$("$repo_dir/scripts/dgx-tailscale" plan 2>&1)" ||
+      die 'could not inspect declared Nix-managed Tailscale before apply'
+    grep -Fq 'PASS|ownership|confirmed-nix-managed;generation=' \
+      <<<"$tailscale_preflight" ||
+      die 'declared Nix-managed Tailscale does not match the live generation; refusing before mutation'
   fi
 
   printf '# DGX guarded staged apply\n'
   printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   emit INFO target "$target_host"
-  emit INFO contract 'converge only proven Nix/bootstrap and headless Home transactions; leave gated root roles untouched'
+  emit INFO contract 'converge proven Nix/bootstrap and headless Home transactions; verify already-managed Tailscale; leave unimplemented root roles untouched'
   plan_host "$target_host"
 
   "$repo_dir/scripts/bootstrap-nix.sh" "$target_host"
@@ -307,8 +325,17 @@ apply_host() {
   emit PASS apply_home 'exact headless Home transaction converged'
 
   if [[ "$tailscale_selected" == true ]]; then
-    emit HOLD apply_tailscale "ownership=$tailscale_owner;apt daemon and mutable identity were not changed"
-    partial=true
+    if [[ "$tailscale_owner" == nix-managed ]]; then
+      tailscale_status="$("$repo_dir/scripts/dgx-tailscale" status)" ||
+        die 'Nix-managed Tailscale failed its exact retained-state verification'
+      printf '%s\n' "$tailscale_status"
+      grep -Fx 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED' <<<"$tailscale_status" >/dev/null ||
+        die 'declared Nix-managed Tailscale is not in the confirmed retained state'
+      emit PASS apply_tailscale 'ownership=nix-managed;service, SSH desired state, identity continuity, and generation four verified; no restart performed'
+    else
+      emit HOLD apply_tailscale 'ownership=migration-pending-apt;use scripts/dgx-tailscale for the guarded handoff'
+      partial=true
+    fi
   fi
   emit HOLD apply_desktop 'host controller is not implemented; factory GNOME/GDM was not changed'
   partial=true

@@ -640,11 +640,11 @@
           wantedBy = [ "multi-user.target" ];
           statePath = "/var/lib/tailscale/tailscaled.state";
           socketPath = "/run/tailscale/tailscaled.sock";
-          # Declarative side-effect flag: this output is inert. It is not a
-          # live-host observation of the apt-owned daemon.
+          # Declarative side-effect flag: evaluating this output is inert.
+          # The separately recorded deployment below is the live-host fact.
           activated = false;
           rootCandidate = rootTailscaleMigrationGeneration.outPath;
-          ownershipState = "candidate-only";
+          ownershipState = "nix-managed";
         };
 
         policies.armenCodexRelaxedDefaults = {
@@ -685,6 +685,26 @@
           rollbackArmed = false;
           realRollbackPassed = true;
           evidence = "docs/2026-09-03-home-headless-host.md";
+        };
+
+        deployments.sparkle01Tailscale = {
+          hostName = "sparkle-01";
+          status = "nix-managed-confirmed-after-reboot";
+          confirmedOn = "2026-09-05";
+          deployedFromRepositoryCommit = "f57e51d142db30edfe44fd4d6694d22a822a6d24";
+          snapshot = "inventory/sparkle-01/raw/tailscale-migration/20260905T084503Z";
+          observedCandidate = "/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager";
+          currentCandidate = rootTailscaleMigrationGeneration.outPath;
+          matchesCurrent =
+            rootTailscaleMigrationGeneration.outPath
+            == "/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager";
+          profileGeneration = 4;
+          mutableIdentityPreserved = true;
+          tailscaleSshReconnectVerified = true;
+          rebootVerified = true;
+          rollbackArmed = false;
+          aptFallbackRetained = true;
+          evidence = "root/tailscale/validation/2026-09-05-host-attempt-2.md";
         };
 
         evaluatedProfiles = {
@@ -1343,7 +1363,7 @@
         ];
         assert sparkleHost.access.tailscale.selected;
         assert sparkleHost.access.tailscale.sshDesired;
-        assert sparkleHost.access.tailscale.ownership == "migration-pending-apt";
+        assert sparkleHost.access.tailscale.ownership == "nix-managed";
         assert sparkleHost.workloads.isaacOmniverse.selected;
         assert !sparkleHost.workloads.isaacOmniverse.enabled;
         assert !sparkleHost.workloads.lmstudioDaemon.selected;
@@ -1399,6 +1419,14 @@
         assert !profileManifests.deployments.sparkle01Home.userSystemdEnabled;
         assert !profileManifests.deployments.sparkle01Home.rollbackArmed;
         assert profileManifests.deployments.sparkle01Home.realRollbackPassed;
+        assert profileManifests.services.tailscale.ownershipState == "nix-managed";
+        assert profileManifests.deployments.sparkle01Tailscale.matchesCurrent;
+        assert profileManifests.deployments.sparkle01Tailscale.profileGeneration == 4;
+        assert profileManifests.deployments.sparkle01Tailscale.mutableIdentityPreserved;
+        assert profileManifests.deployments.sparkle01Tailscale.tailscaleSshReconnectVerified;
+        assert profileManifests.deployments.sparkle01Tailscale.rebootVerified;
+        assert !profileManifests.deployments.sparkle01Tailscale.rollbackArmed;
+        assert profileManifests.deployments.sparkle01Tailscale.aptFallbackRetained;
         assert graphicalPackageNames == expectedGraphicalPackageNames;
         assert !baseProfile.config.xdg.enable;
         assert !baseProfile.config.xdg.mime.enable;
@@ -1605,7 +1633,15 @@
             nativeBuildInputs = [ rootPkgs.shellcheck ];
           }
           ''
-            shellcheck ${./scripts/dgx-tailscale}
+            shellcheck \
+              ${./scripts/dgx-home} \
+              ${./scripts/dgx-setup} \
+              ${./scripts/dgx-tailscale} \
+              ${./scripts/test-dgx-setup-apply.sh} \
+              ${./scripts/test-dgx-setup-plan.sh} \
+              ${./scripts/test-post-tailscale-integration.sh} \
+              ${./scripts/test-tailscale-unit-lifecycle.sh} \
+              ${./.agents/skills/dgx-spark-ops/scripts/audit-updates.sh}
             # This transaction intentionally names the exact common path set
             # next to its unit set; the assertions below consume the paths
             # individually rather than iterating that documentation array.

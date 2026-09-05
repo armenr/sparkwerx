@@ -21,7 +21,7 @@
         "tailscale": {
           "selected": true,
           "sshDesired": true,
-          "ownership": "migration-pending-apt"
+          "ownership": "nix-managed"
         }
       },
       "desktop": {

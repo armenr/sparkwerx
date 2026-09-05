@@ -54,7 +54,7 @@ NIX_USER_CONF_FILES=/dev/null
 export PATH NIX_USER_CONF_FILES
 
 usage() {
-  printf 'Usage: %s apply|rollback|verify-before|verify-after /nix/store/<generation-one> /nix/store/<generation-two> /nix/store/<generation-three> /nix/store/<generation-four>\n' \
+  printf 'Usage: %s apply|rollback|verify-before|verify-after|verify-before-public|verify-after-public /nix/store/<generation-one> /nix/store/<generation-two> /nix/store/<generation-three> /nix/store/<generation-four>\n' \
     "$(basename "$0")" >&2
 }
 
@@ -180,7 +180,12 @@ assert_candidate_shape() {
     fail "vendor Tailscale unit is unavailable" || return 1
   [[ -L "$vendor_wants" && "$(resolved_link "$vendor_wants")" == "$vendor_unit" ]] ||
     fail "vendor Tailscale boot link is missing or changed" || return 1
-  [[ -f "$tailscale_state" ]] || fail "mutable Tailscale state is absent" || return 1
+  if [[ "${public_verification:-false}" == true ]]; then
+    [[ -d "${tailscale_state%/*}" && ! -L "${tailscale_state%/*}" ]] ||
+      fail "mutable Tailscale state directory is absent or redirected" || return 1
+  else
+    [[ -f "$tailscale_state" ]] || fail "mutable Tailscale state is absent" || return 1
+  fi
 }
 
 assert_known_profile_surface() {
@@ -554,11 +559,6 @@ apply_migration() {
   pass transaction "generation four registered and activated with one deliberate Tailscale restart"
 }
 
-if [[ "$EUID" -ne 0 ]]; then
-  fail "run this transaction as root"
-  exit 1
-fi
-
 if [[ "$#" -ne 5 ]]; then
   usage
   exit 2
@@ -572,15 +572,39 @@ generation_four="$5"
 
 case "$action" in
   apply)
+    [[ "$EUID" -eq 0 ]] || {
+      fail "run the mutating apply transaction as root"
+      exit 1
+    }
     apply_migration "$generation_one" "$generation_two" "$generation_three" "$generation_four"
     ;;
   rollback)
+    [[ "$EUID" -eq 0 ]] || {
+      fail "run the mutating rollback transaction as root"
+      exit 1
+    }
     rollback_migration "$generation_one" "$generation_two" "$generation_three" "$generation_four"
     ;;
   verify-before)
+    [[ "$EUID" -eq 0 ]] || {
+      fail "run the exact verify-before transaction as root"
+      exit 1
+    }
     assert_generation_three "$generation_one" "$generation_two" "$generation_three" "$generation_four"
     ;;
   verify-after)
+    [[ "$EUID" -eq 0 ]] || {
+      fail "run the exact verify-after transaction as root"
+      exit 1
+    }
+    assert_generation_four "$generation_one" "$generation_two" "$generation_three" "$generation_four"
+    ;;
+  verify-before-public)
+    public_verification=true
+    assert_generation_three "$generation_one" "$generation_two" "$generation_three" "$generation_four"
+    ;;
+  verify-after-public)
+    public_verification=true
     assert_generation_four "$generation_one" "$generation_two" "$generation_three" "$generation_four"
     ;;
   *)

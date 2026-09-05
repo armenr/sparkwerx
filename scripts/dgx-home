@@ -216,6 +216,7 @@ assert_root_lane_unchanged() {
 .#root-system-canary	/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
 .#root-system-canary-generation-two	/nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager
 .#root-system-canary-generation-three-boot	/nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager
+.#root-system-tailscale-migration	/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager
 .#root-reboot-recovery	/nix/store/wpikhcgj77ws90j4ivdp3498mlmffyax-dgx-root-reboot-recovery
 EOF
 }
@@ -224,14 +225,16 @@ assert_sparkle_root_state() {
   [[ "$(host_name)" == sparkle-01 ]] || return 0
 
   local observed
-  observed="$("$repo_dir/scripts/audit-root-canary-state.sh" \
-    /nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager \
-    registered-third-boot \
+  observed="$("$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+    verify-after-public \
     /nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager \
     /nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager \
-    activation 2>/dev/null || true)"
-  [[ "$observed" == ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED ]] ||
-    die "root lane is ${observed:-UNKNOWN}, not the retained generation-three state"
+    /nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager \
+    /nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager \
+    2>/dev/null || true)"
+  [[ "$observed" == \
+    'PASS|generation_four|generation four is selected, live, boot-linked, and owns running Tailscale' ]] ||
+    die "root lane is not the confirmed Nix-managed generation-four state"
 }
 
 protected_units=(
@@ -1336,7 +1339,7 @@ update_headless() {
   load_snapshot "$snapshot"
   unit=${context[timer_unit]}
   info snapshot "$snapshot"
-  info scope 'user profile only; prior generation retained; no sudo, root role, service restart, desktop switch, or Tailscale migration'
+  info scope 'user profile only; prior generation retained; no sudo, root role, service restart, desktop switch, or Tailscale service change'
   arm_update_timer "$snapshot"
 
   set +e
@@ -1388,7 +1391,7 @@ activate_headless() {
   load_snapshot "$snapshot"
   unit=${context[timer_unit]}
   info snapshot "$snapshot"
-  info scope 'user profile only; no sudo, root role, service restart, desktop switch, or Tailscale migration'
+  info scope 'user profile only; no sudo, root role, service restart, desktop switch, or Tailscale service change'
   arm_timer "$snapshot"
 
   set +e

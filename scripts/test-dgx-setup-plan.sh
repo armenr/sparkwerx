@@ -29,8 +29,10 @@ grep -Fx 'INFO|declared_system|aarch64-linux' <<<"$output" >/dev/null ||
   fail 'plan omitted the declared ARM64 system'
 grep -Fx 'INFO|fleet_base|enabled;ncdu,lazydocker,devbox' <<<"$output" >/dev/null ||
   fail 'plan omitted the exact fleet base'
-grep -Fx 'INFO|tailscale|selected=true;ssh_desired=true;ownership=migration-pending-apt' \
+grep -Fx 'INFO|tailscale|selected=true;ssh_desired=true;ownership=nix-managed' \
   <<<"$output" >/dev/null || fail 'plan omitted the explicit Tailscale role'
+grep -F 'PASS|tailscale_apply|ownership=nix-managed;installed=1.102.3;' \
+  <<<"$output" >/dev/null || fail 'plan did not verify the live Nix-managed Tailscale role'
 grep -F 'PASS|nix_bootstrap|adopt exact official installer 2.35.1;' \
   <<<"$output" >/dev/null || fail 'plan did not verify the exact installer'
 grep -F 'CURRENT|home|candidate=' <<<"$output" >/dev/null ||
@@ -51,4 +53,4 @@ fi
 [[ "$(capture_units)" == "$before_units" ]] ||
   fail 'plan changed a protected service process or fragment'
 
-printf 'PASS|dgx_setup_plan_test|declaration, bootstrap adoption, role gates, privacy, and zero-mutation checks passed\n'
+printf 'PASS|dgx_setup_plan_test|declaration, bootstrap adoption, Nix-managed Tailscale, remaining role gates, privacy, and zero-mutation checks passed\n'

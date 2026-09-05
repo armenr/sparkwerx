@@ -105,6 +105,10 @@ generations and direct pilot roots remain, generation three is selected/
 upstream-rooted/live, its one declarative boot edge exists, and the recovery
 surface is absent. Updated hash-pinned helpers accept Nix's normal socket-idle
 postboot state and expose a short operator route but no reboot action.
+That was the exact pre-migration authority. The later guarded Tailscale
+transaction added generation four, preserved generations one through three as
+rollback anchors, survived its real reboot and fresh SSH reconnect, and is now
+the current live authority.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -127,11 +131,11 @@ rebuilt in Phase 1.
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
-| Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; PACKAGE/UNITS BUILD-PASSED; activation OPEN | Apt `tailscale` 1.102.3 plus `tailscale-archive-keyring` remain live. Repository pins current stable official ARM64 1.102.3 tarball and checksum; copied binaries are byte-identical, static, and form a one-path 67.7 MiB runtime closure. Inert three-unit tree adds 2,640 NAR bytes and references that package. Stable/apps stock are only 1.98.10/1.102.2. System Manager's reboot rollback is proven but it does not yet own Tailscale | Do not replace/restart the live daemon over Tailscale SSH. Design the exact optional-role ownership diff and apt package/source/keyring rollback first, then separately approve console, timed rollback, identity/state preservation, restart, reboot, and reconnect gates |
+| Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; CURRENT; NIX-MANAGED ACTIVE ON `sparkle-01` | Repository pins current stable official ARM64 1.102.3; its one-path 67.7 MiB runtime contains byte-identical client/daemon binaries. Exact System Manager generation four owns the loaded unit and running daemon. The guarded migration preserved identity and `RunSSH=true`, survived a deliberate disconnect plus real reboot, and was confirmed after fresh SSH reconnect. Apt 1.102.3 and its repository remain installed only as inactive fallback material | Audit/update through the pinned source and guarded role. Do not manually restart/replace the service, delete mutable identity, or remove apt fallback without a separate reviewed cleanup |
 | Developer tools | Codex CLI + Armen permission policy | CURRENT; NIX-MANAGED ACTIVE | Armen's all-modes overlay pins OpenAI's official 0.153.0 ARM64 release bundle at SHA-256 `076b2b75...99be4`. The 278.2 MiB one-path closure contains `codex`, code-mode host, bundled ripgrep, sandbox helper, and package manifest. Home generation one owns the higher-precedence `~/.local/bin/codex` launcher and disables startup self-update while preserving auth/plugin/MCP/history state; real rollback and reactivation passed. The old standalone 0.152.0 tree is retained but no longer resolves | Continue auditing through `scripts/update-codex.sh`; keep the standalone tree temporarily as rollback input and remove it only through separate cleanup evidence |
 | Bootstrap | Official Nix installer | CURRENT PIN; EXACT ADOPTION AND CLEAN-INSTALL LIFECYCLES PASSED; NIX-ONLY FRESH-HOST USE READY | `bootstrap/nix/source.json` pins official `NixOS/nix-installer` 2.35.1 for ARM64 Linux at 32,536,352 bytes and SHA-256 `7e6e2f75...e0e0e649`. The installed `/nix/nix-installer` matches it byte-for-byte. `scripts/update-nix-installer.sh --check` validates latest GitHub metadata/downloaded bytes. `scripts/dgx-setup bootstrap` adopts the pilot with zero mutation. Exact disposable derivation `81pb42...` passed clean install, injected post-runtime failure with receipt rollback to the clean boundary, retry at runtime 2.35.2 with persistent flakes, and second no-mutation adoption; [full evidence](2026-09-03-nix-bootstrap-lifecycle.md) includes the hash-valid output and clean host postflight | Use only `scripts/dgx-setup bootstrap` on a clean committed, declared ARM64 host; keep runtime updates separate and do not infer unified apply or optional-role authority |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; ALL SIX DISPOSABLE TESTS PASSED; FIRST REAL REBOOT/AUTOMATIC ROLLBACK VERIFIED; RETRY-SAFE RESTORATION PASSED; GENERATION THREE LIVE/REGISTERED/BOOT-LINKED; ALL THREE GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; inert ARM64 closure is 109 paths / 230.0 MiB. Its private wrapper is verified Nix 2.35.2, and all six exact disposable derivations remain policy-pinned. The 13-subtest recovery design survived the separately authorized first real reboot. Restoration attempt one safely timed back after the old phrase was mistyped; attempt two used one Enter, passed two full postflights, and automatically retained exact generation three. `system-manager -> system-manager-3-link -> w8kn…` and `system-manager-current -> w8kn…`; all three numbered generations and direct pilot roots remain, and the one declarative boot edge is present. Current classifier is `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; no recovery or rollback timer is armed, and the helper contains no reboot action | Preserve all three generations and direct roots while broader root ownership is still canary-only. Do not reuse spent snapshots/helpers, remove a generation/root, arm recovery, reboot, or add a real managed service without its current reviewed gate |
+| Root integration | System Manager | SELECTED; GENERATION FOUR LIVE/REGISTERED/BOOT-LINKED; NIX-MANAGED TAILSCALE ACTIVE; ALL FOUR GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; its private wrapper is verified Nix 2.35.2. The foundational canary/recovery tests, real recovery reboot, and retry-safe generation-three restoration passed. The later generation-four migration adds only reviewed Tailscale ownership, preserved identity/SSH, and passed its own disposable and real-reboot gates. `system-manager -> system-manager-4-link -> vjw…` and `system-manager-current -> vjw…`; no recovery or migration rollback timer is armed | Preserve all four generations and direct roots while broadening root ownership one reviewed role at a time. Do not reuse spent helpers, remove a generation/root, arm recovery, reboot, or add another managed service without its current gate |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -213,9 +217,9 @@ The output contains only the byte-identical `tailscale` and `tailscaled`
 binaries. The generated daemon, optional wait-online service, and online target
 all passed `systemd-analyze verify`. The daemon unit preserves the current
 state/socket paths and `multi-user.target`; the two online-wait artifacts remain
-opt-in and all three are unlinked. The active service still has
-`/usr/lib/systemd/system/tailscaled.service` as its fragment and
-`/usr/{bin,sbin}` binaries.
+opt-in. After the guarded real migration and reboot, the active service has
+`/etc/systemd/system/tailscaled.service` as its loaded fragment and executes the
+pinned Nix package. Apt's byte-identical binaries remain installed but inactive.
 
 The root-manager canary pins System Manager 1.1.0 at revision
 `05e08c6dd739d7f3204e71322594bb8095334cfb` and uses the official Nix
@@ -278,11 +282,11 @@ Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. The original isolated
 activation test registers no profile or GC root. Separately, the live host now
-has exact generations one, two, and three registered and directly pilot-rooted.
-Generation three is selected, upstream-rooted, live, and linked by its one
-reviewed declarative boot edge after the successful retry-safe restoration;
-the recovery surface is absent and no rollback timer is armed. The helper
-supplies temporary root-local
+has exact generations one through four registered and directly pilot-rooted.
+Generation four is selected, upstream-rooted, live, and boot-linked after the
+successful retry-safe generation-three restoration and guarded Tailscale
+migration; both recovery surfaces are absent and no rollback timer is armed.
+The helper supplies temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
 2.35.2 emitted a non-fatal top-level warning about `auto-allocate-uids`, but
@@ -323,8 +327,9 @@ is historical milestone evidence. The
 proves that its disposable test left that then-live state unchanged. The
 historical
 [retained generation-three host record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md)
-is superseded as current live-state authority by the
-[successful restoration record](../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md).
+and [successful restoration record](../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md)
+are historical recovery authorities. Current live-state authority is the
+[retained generation-four Tailscale record](../root/tailscale/validation/2026-09-05-host-attempt-2.md).
 
 The evaluation-only invariant suite is:
 

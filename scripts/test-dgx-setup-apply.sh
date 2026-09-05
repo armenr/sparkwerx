@@ -3,16 +3,17 @@ set -euo pipefail
 
 # Live-host regression for the currently idempotent staged-apply path. The
 # test is valid only while sparkle-01 already has the exact retained Nix, Home,
-# and System Manager generations: apply must then be a verified no-op and must
-# leave the still-gated Tailscale and desktop ownership untouched.
+# and System Manager generations: apply must then be a verified no-op, verify
+# the already Nix-managed Tailscale role, and leave desktop ownership untouched.
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 operator=$repo_dir/scripts/dgx-setup
 home_profile=$HOME/.local/state/nix/profiles/home-manager
 user_profile=$HOME/.local/state/nix/profiles/profile
-root_candidate=/nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager
 root_generation_one=/nix/store/alrczwil6s2ljh1514css13s79rb5fxj-system-manager
 root_generation_two=/nix/store/pmrqryvdrws80cg988vvm975v1ygv82q-system-manager
+root_generation_three=/nix/store/w8kn2idc0ix6x1024qphv2fvmaf664d7-system-manager
+root_candidate=/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager
 
 fail() {
   printf 'FAIL|dgx_setup_apply_test|%s\n' "$1" >&2
@@ -30,9 +31,9 @@ capture_units() {
 }
 
 capture_root_state() {
-  "$repo_dir/scripts/audit-root-canary-state.sh" \
-    "$root_candidate" registered-third-boot \
-    "$root_generation_one" "$root_generation_two" activation
+  "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+    verify-after-public "$root_generation_one" "$root_generation_two" \
+    "$root_generation_three" "$root_candidate"
 }
 
 [[ "$(hostname -s)" == sparkle-01 ]] ||
@@ -55,8 +56,10 @@ grep -Fx 'INFO|home_action|update-headless' <<<"$output" >/dev/null ||
   fail 'existing Home profile did not select the update/no-op lifecycle'
 grep -Fx 'PASS|update|already current; no snapshot, profile generation, timer, or host state changed' \
   <<<"$output" >/dev/null || fail 'Home layer was not an exact no-op'
-grep -F 'HOLD|apply_tailscale|ownership=migration-pending-apt;' \
-  <<<"$output" >/dev/null || fail 'Tailscale migration boundary was not retained'
+grep -Fx 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED' \
+  <<<"$output" >/dev/null || fail 'Tailscale retained state was not verified'
+grep -Fx 'PASS|apply_tailscale|ownership=nix-managed;service, SSH desired state, identity continuity, and generation four verified; no restart performed' \
+  <<<"$output" >/dev/null || fail 'Nix-managed Tailscale did not converge as a no-op'
 grep -Fx 'HOLD|apply_desktop|host controller is not implemented; factory GNOME/GDM was not changed' \
   <<<"$output" >/dev/null || fail 'desktop boundary was not retained'
 grep -Fx 'APPLY_STATUS=PARTIAL' <<<"$output" >/dev/null ||
@@ -76,4 +79,4 @@ grep -Fx 'APPLY_STATUS=PARTIAL' <<<"$output" >/dev/null ||
   fail 'apply changed the frozen System Manager lane'
 
 printf '%s\n' \
-  'PASS|dgx_setup_apply_test|Nix and Home converged as no-ops; Tailscale, desktop, root, services, and mutable state stayed exact'
+  'PASS|dgx_setup_apply_test|Nix, Home, and Nix-managed Tailscale converged as no-ops; desktop, root, services, and mutable state stayed exact'

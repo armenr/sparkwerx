@@ -629,7 +629,8 @@ audit_root_integration() {
   local live_switch_host live_switch_state live_boot_host
   local declared_current_state
   local restoration_status root_evidence generation_one_output generation_two_output
-  local generation_three_output other_root_output middle_root_output
+  local generation_three_output generation_four_output tailscale_deployment_status
+  local profile_manifest public_verification other_root_output middle_root_output
   local policy_ok live_state root_output status detail
   local -a nix_args
 
@@ -745,8 +746,20 @@ audit_root_integration() {
   generation_three_output="$(
     jq -r '.bootPersistence.exactCandidates.generationThree // empty' <<<"$manifest"
   )"
+  profile_manifest="$(
+    timeout 60s nix "${nix_args[@]}" \
+      .#lib.dgxProfileManifests.aarch64-linux 2>/dev/null || true
+  )"
+  generation_four_output="$(
+    jq -r '.deployments.sparkle01Tailscale.currentCandidate // empty' \
+      <<<"$profile_manifest"
+  )"
+  tailscale_deployment_status="$(
+    jq -r '.deployments.sparkle01Tailscale.status // empty' \
+      <<<"$profile_manifest"
+  )"
 
-  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");root-nixpkgs=$(short_rev "$root_nixpkgs_manifest_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};restoration=${restoration_status:-UNKNOWN};live-state=${declared_current_state:-UNKNOWN}"
+  current="system-manager=${manager_version:-UNKNOWN}@$(short_rev "$manager_rev");root-nixpkgs=$(short_rev "$root_nixpkgs_manifest_rev");private-nix=${private_nix_version:-UNKNOWN}@$(short_rev "$private_nix_rev");patch=${manager_patch_name:-MISSING}@${manager_patch_hash:0:12};container-test=${test_result:-UNKNOWN};registration-test=${registration_test_result:-UNKNOWN};registration-match=${registration_test_matches:-UNKNOWN};generation-switch-test=${generation_switch_test_result:-UNKNOWN};generation-switch-match=${generation_switch_test_matches:-UNKNOWN};boot-test=${boot_persistence_test_result:-UNKNOWN};boot-match=${boot_persistence_test_matches:-UNKNOWN};reboot-recovery=${reboot_recovery_test_result:-UNKNOWN};reboot-recovery-match=${reboot_recovery_test_matches:-UNKNOWN};reboot-recovery-status=${reboot_recovery_status:-UNKNOWN};restoration=${restoration_status:-UNKNOWN};tailscale-deployment=${tailscale_deployment_status:-UNKNOWN}"
   candidate="locked-branch=${manager_ref:-UNKNOWN};verified-nix=${release_version:-UNKNOWN}"
   policy_ok="$(jq -r '
     (.system == "aarch64-linux") and
@@ -938,33 +951,51 @@ audit_root_integration() {
   registration_mode=unregistered
   other_root_output=
   middle_root_output=
+  live_state=
   if [[ "$host_name" == "$live_boot_host" &&
+        "$tailscale_deployment_status" == "nix-managed-confirmed-after-reboot" &&
+        -n "$generation_four_output" ]]; then
+    public_verification="$(
+      "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
+        verify-after-public "$generation_one_output" "$generation_two_output" \
+        "$generation_three_output" "$generation_four_output" 2>/dev/null || true
+    )"
+    if [[ "$public_verification" == \
+      'PASS|generation_four|generation four is selected, live, boot-linked, and owns running Tailscale' ]]; then
+      live_state=ACTIVE_REGISTERED_GENERATION_FOUR_TAILSCALE_NIX_MANAGED
+      root_evidence=root/tailscale/validation/2026-09-05-host-attempt-2.md
+    fi
+  fi
+
+  if [[ -z "$live_state" && "$host_name" == "$live_boot_host" &&
         "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_TWO_TRIPLE_RETAINED" ]]; then
     root_output="$generation_two_output"
     other_root_output="$generation_one_output"
     middle_root_output="$generation_three_output"
     registration_mode=registered-second-triple-retained
-  elif [[ "$host_name" == "$live_boot_host" &&
+  elif [[ -z "$live_state" && "$host_name" == "$live_boot_host" &&
         "$declared_current_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     root_output="$generation_three_output"
     other_root_output="$generation_one_output"
     middle_root_output="$generation_two_output"
     registration_mode=registered-third-boot
-  elif [[ "$host_name" == "$live_switch_host" &&
+  elif [[ -z "$live_state" && "$host_name" == "$live_switch_host" &&
         "$live_switch_state" == "ACTIVE_REGISTERED_GENERATION_TWO_RETAINED" ]]; then
     root_output="$generation_two_output"
     other_root_output="$generation_one_output"
     registration_mode=registered-second
-  elif [[ "$host_name" == "$live_registration_host" &&
+  elif [[ -z "$live_state" && "$host_name" == "$live_registration_host" &&
         "$live_registration_state" == "ACTIVE_REGISTERED_RETAINED" ]]; then
     registration_mode=registered-first
   fi
-  live_state="$(
-    "$repo_dir/scripts/audit-root-canary-state.sh" \
-      "$root_output" "$registration_mode" "$other_root_output" \
-      "$middle_root_output" 2>/dev/null ||
-      true
-  )"
+  if [[ -z "$live_state" ]]; then
+    live_state="$(
+      "$repo_dir/scripts/audit-root-canary-state.sh" \
+        "$root_output" "$registration_mode" "$other_root_output" \
+        "$middle_root_output" 2>/dev/null ||
+        true
+    )"
+  fi
 
   if [[ -z "$manager_node" || "$manager_rev" != "$manager_locked_rev" ||
         "$manager_branch" != "$manager_ref" ]]; then
@@ -982,6 +1013,10 @@ audit_root_integration() {
   elif [[ "$policy_ok" != "true" ]]; then
     status="HOLD"
     detail="The candidate exceeds the approved inert ownership policy."
+  elif [[ "$host_name" == "$live_boot_host" &&
+          "$live_state" == "ACTIVE_REGISTERED_GENERATION_FOUR_TAILSCALE_NIX_MANAGED" ]]; then
+    status="CURRENT"
+    detail="The frozen root foundation, Tailscale deployment manifest, and public live classifier agree. sparkle-01 retains exact registered/live/boot-linked generation four with Nix-managed Tailscale; all four numbered generations and direct pilot roots remain, the migration/recovery guards are absent, and apt is inactive fallback material."
   elif [[ "$host_name" == "$live_boot_host" &&
           "$live_state" == "ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED" ]]; then
     status="CURRENT"
@@ -1176,7 +1211,16 @@ else
   tailscale_detail="Tailscale CLI is not on PATH."
 fi
 
-if [[ -n "$tailscale_deb_version" ]]; then
+tailscale_loaded_fragment="$(
+  systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true
+)"
+tailscale_loaded_target="$(readlink -f "$tailscale_loaded_fragment" 2>/dev/null || true)"
+tailscale_nix_owned=false
+if [[ "$tailscale_loaded_target" == /nix/store/* ]]; then
+  tailscale_nix_owned=true
+  tailscale_binary_owner="repository/Nix (apt fallback retained)"
+  tailscale_installed_detail="live unit resolves into the Nix store; deb=${tailscale_deb_version:-absent};arch=${tailscale_deb_arch:-UNKNOWN}"
+elif [[ -n "$tailscale_deb_version" ]]; then
   tailscale_binary_owner="manual official apt (migration input)"
   tailscale_installed_detail="deb=${tailscale_deb_version};arch=${tailscale_deb_arch:-UNKNOWN}; daemon=${tailscale_daemon_path:+present}"
 elif [[ "$tailscale_path_target" == /nix/store/* ]]; then
@@ -1250,7 +1294,11 @@ elif [[ "$tailscale_repo_pin" =~ ^[0-9] && "$tailscale_candidate" =~ ^[0-9] ]]; 
   elif [[ "$tailscale_repo_status" == "UPDATE_AVAILABLE" ]]; then
     tailscale_repo_detail="Repository pin trails official stable; run the checksum-verified updater, then rebuild/review without activation."
   else
-    tailscale_repo_detail="Repository pin matches official stable; revalidate its build/SBOM after every change, and treat active service ownership as a separate gate."
+    if [[ "$tailscale_nix_owned" == true ]]; then
+      tailscale_repo_detail="Repository pin matches official stable and owns the live service; revalidate its build, SBOM, unit lifecycle, and rollback after every change."
+    else
+      tailscale_repo_detail="Repository pin matches official stable; revalidate its build/SBOM after every change, and treat active service ownership as a separate gate."
+    fi
   fi
 else
   tailscale_repo_status="UNKNOWN"

@@ -131,10 +131,9 @@ the Nix package.
 ### Tailscale access plane
 
 Read [tailscale.md](tailscale.md) before auditing, migrating, or updating
-Tailscale. It is repository-owned fleet infrastructure awaiting migration from
-an official apt package, not an NVIDIA-owned component. Its current stable
-package and inert unit now exist and are build-validated; activation remains a
-separate migration gate.
+Tailscale. It is repository-owned fleet infrastructure, not an NVIDIA-owned
+component. On `sparkle-01`, current stable 1.102.3 and its unit are active under
+exact System Manager generation four; apt remains only as fallback.
 
 The first-pass audit reports only:
 
@@ -235,18 +234,18 @@ Its explicit post-reboot mode may additionally emit
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_REBOOTED_RETAINED` and requires
 the reactivation-only sysinit target inactive. Use that mode only inside the
 reviewed active recovery lifecycle, not for the normal retained state.
-On `sparkle-01`, pass exact generation three, `registered-third-boot`, exact
-generation one as the third argument, and exact generation two as the fourth.
-Current authority should report
-`ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. That is the healthy,
-verified post-restoration state.
+That classifier stops at the historical generation-three canary boundary. On
+`sparkle-01`, use `scripts/dgx-tailscale status` for the current root-level
+exact state; healthy authority is `MIGRATION_STATUS=CONFIRMED_NIX_OWNED` with
+generation four selected/live/boot-linked and the Nix unit active.
 
 While retained, do not run the inactive preflight, activation helper,
 first-registration helper, pre-switch snapshot/live helper, boot-persistence
 snapshot/live helper, or spent first-reboot snapshot helper. On `sparkle-01`,
-the selected profile and upstream root must select exact generation three, all
-three numbered generation links and direct pilot roots must remain, the one
-declarative boot edge must exist, and recovery edges must be absent. All six
+the selected profile and upstream root must select exact generation four, all
+four numbered generation links and direct pilot roots must remain, the boot
+edge and Nix-managed Tailscale unit must be exact, and recovery/migration edges
+must be absent. All six foundational
 exact disposable tests and their
 results are documented under `root/system-manager/validation/`. Require the
 activation, registration-lifecycle, first-registration transaction,
@@ -255,15 +254,17 @@ reboot-recovery transaction manifest
 results to be `passed`, each recorded/current derivation to match, and each
 host postflight to be clean. The historical live-switch, generation-three
 activation, real-reboot rollback, and failed first restoration records remain
-valid history. Current boot-persistence status must be
+valid history. The root-manager manifest's boot-persistence status remains
+historical recovery provenance and must be
 `live-generation-three-boot-linked-retained`, with current state
 `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`. Reboot-recovery
 status must be `live-recovery-operational-host-not-armed`, its 13-subtest
 current derivation must match, live-attempt status must be
 `automatic-rollback-verified-cleaned`, and restoration status must be
 `generation-three-restored-after-verified-postflight`, with both the spent
-first-attempt evidence and successful second-attempt authority recorded.
-Recovery paths are
+first-attempt evidence and successful second-attempt authority recorded. The
+profile manifest must additionally record the confirmed generation-four
+Tailscale deployment and current host evidence. Recovery paths are
 forbidden drift in a normal audit. A cleanly idle `nix-daemon.service` is
 healthy postboot only when the
 exact `nix-daemon.socket` is active/listening and reload-clean. The

@@ -40,16 +40,15 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   package and high-precedence launcher are active; the old standalone 0.152.0
   release tree remains only as rollback input. Exact evidence is in the
   [Codex package record](docs/2026-09-03-codex-cli-package.md).
-- Devbox 0.18.0 is active in the Home profile. The official Tailscale 1.102.3
-  ARM64 package plus inert systemd-unit tree were built with `--no-link` and
-  SBOM-reviewed but have not replaced the live apt service.
-- Tailscale `1.102.3` and Tailscale SSH are currently working from a manual
-  official apt installation. The repository now pins the same current stable
-  release and declares the future unit. The exact handoff, injected-failure
-  rollback, candidate/vendor reboots, and persistent unconfirmed-reboot
-  rollback pass in a disposable container. `scripts/dgx-tailscale` is the
-  guarded live operator, but it has not replaced or restarted the live apt
-  daemon yet.
+- Devbox 0.18.0 is active in the Home profile. The repository's official
+  stable ARM64 Tailscale 1.102.3 package and System Manager unit now own the
+  live daemon and preserve Tailscale SSH plus the existing mutable identity.
+- The Tailscale handoff survived its deliberate SSH disconnect, a fresh
+  reconnect, one guarded real reboot, and another fresh Tailscale SSH
+  connection before confirmation. Exact System Manager generation four is
+  selected/live/boot-linked, the migration guard is absent, and no rollback is
+  armed. The apt package/repository remain installed only as inactive fallback
+  material; see the [retained host record](root/tailscale/validation/2026-09-05-host-attempt-2.md).
 - Nix 2.35.2 is active in the machine-wide default profile and the restarted
   daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
   remains at its expected provisioning version, 2.35.1. The default
@@ -67,10 +66,9 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   failure/rollback, clean retry, and second-adoption lifecycle passed. The
   Nix-only bootstrap is ready for declared clean ARM64 hosts through that one
   operator. `scripts/dgx-setup apply` now composes the proven Nix and headless
-  Home transactions; its live no-op test passed without changing any profile,
-  service, root generation, or mutable Codex state. It honestly returns
-  `APPLY_STATUS=PARTIAL` while Tailscale migration and the root desktop
-  controller remain untouched gates.
+  Home transactions and verifies an already Nix-managed Tailscale role without
+  restarting it. It honestly returns `APPLY_STATUS=PARTIAL` while the root
+  desktop controller remains an untouched gate.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -79,13 +77,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   The first separately authorized real reboot exercised that recovery: the
   ten-minute deadline expired, exact no-boot generation two was restored, the
   rollback passed verification, and its recovery surface was cleaned. The
-  retry-safe no-reboot restoration then returned generation three to exact
-  registered/live/boot-linked state, passed two complete postflights, and
-  automatically disarmed its rollback. Current classifier result is
-  `ACTIVE_REGISTERED_GENERATION_THREE_BOOT_LINKED_RETAINED`; all three numbered
-  generations and direct pilot roots remain, the upstream root selects
-  generation three, the one declarative boot edge exists, and no recovery is
-  armed. No broader root role exists. The postboot Nix gate recognizes a
+  retry-safe no-reboot restoration then returned generation three before the
+  guarded Tailscale migration advanced the host to generation four. Generation
+  four is now selected, upstream-rooted, directly pilot-rooted, live, and
+  boot-linked; all four numbered generations and direct pilot roots remain,
+  and no recovery or migration rollback is armed. The postboot Nix gate recognizes a
   cleanly idle daemon behind its active socket, and `scripts/dgx-recovery`
   provides short commands without a reboot action.
 
@@ -148,8 +144,10 @@ The fresh-host front door starts with the read-only plan:
 It reads the plain-JSON host and bootstrap declarations before requiring Nix.
 On a host with Nix, evaluation may fetch missing locked flake sources, but it
 does not build/install packages, mutate a profile, change a service, enroll
-Tailscale, switch the desktop, or reboot. `PLAN_STATUS=PARTIAL_READY` means the
-declared Home layer is usable while separately guarded root roles remain open.
+Tailscale, switch the desktop, or reboot. On the pilot it also verifies that the
+declared Nix-managed Tailscale role matches exact live generation four.
+`PLAN_STATUS=PARTIAL_READY` means the declared layers are usable while a
+separately guarded root role, currently the desktop controller, remains open.
 
 The corresponding bootstrap-only operator is:
 
@@ -175,11 +173,24 @@ The guarded staged apply operator is:
 
 It first prints the complete plan, then runs the exact install-or-adopt Nix
 transaction and the exact headless Home first-activation or update transaction.
-On the current declaration it leaves the apt-owned Tailscale daemon and
-factory GNOME/GDM untouched and ends with `APPLY_STATUS=PARTIAL`. That status is
-a successful convergence of the proven stages, not a claim that every selected
-role is active. Its retained-pilot no-op evidence is in the
-[guarded staged apply record](docs/2026-09-03-guarded-staged-apply.md).
+On the current declaration it verifies exact confirmed Nix-managed Tailscale
+without restarting it, leaves factory GNOME/GDM untouched, and ends with
+`APPLY_STATUS=PARTIAL`. That status is a successful convergence of every
+implemented selected layer; only the root desktop controller remains open. The
+[original guarded staged apply record](docs/2026-09-03-guarded-staged-apply.md)
+is historical pre-migration evidence.
+
+After changing the fleet/apply/Tailscale integration, run the single combined
+regression as the declared user:
+
+```bash
+./scripts/test-post-tailscale-integration.sh
+```
+
+It checks the read-only plan, reruns the clean-host Nix bootstrap and full
+Tailscale ownership/reboot/rollback lifecycles only inside disposable
+containers, and proves the live staged apply is an exact no-op for Nix, Home,
+System Manager, Tailscale, protected services, and mutable Codex state.
 
 ```bash
 ./scripts/check.sh
@@ -302,21 +313,18 @@ narrowly authorized pilot activation prompts.
 
 ## Deliberate hold point
 
-The guarded Nix 2.35.2 runtime and first headless Home rollout are complete.
-Tailscale and the three selected graphical application candidates have passed
-their scoped build gates; Tailscale also passed its complete disposable
-migration/rollback/reboot lifecycle. That does not authorize a Chromium sandbox
-role, live Tailscale service migration, or desktop activation. Do not run a raw
+The guarded Nix 2.35.2 runtime, first headless Home rollout, and Nix-managed
+Tailscale migration are complete. The three selected graphical application
+candidates have passed their scoped build gates. That does not authorize a
+Chromium sandbox role or desktop activation. Do not run a raw
 `home-manager switch`; use `scripts/dgx-home update-headless` for reviewed
-later-generation changes. Do not install Hyprland into a system profile, replace the
-apt Tailscale unit outside `scripts/dgx-tailscale`, change GDM/systemd for a
+later-generation changes. Do not install Hyprland into a system profile,
+manually replace the Nix-managed Tailscale unit, change GDM/systemd for a
 desktop, or activate a portal yet.
-System Manager is currently exact registered/live/boot-linked generation three
-after the first real reboot's verified automatic rollback, the first
-restoration attempt's safe timed rollback, and the retry's two verified
-postflights plus automatic retention. All three numbered generations and
-direct pilot roots remain recovery anchors, the recovery surface is clean, and
-no timer is armed. Do not rerun spent activation, registration,
+System Manager is currently exact registered/live/boot-linked generation four.
+All four numbered generations and direct pilot roots remain recovery anchors;
+the recovery and migration-guard surfaces are clean, and no timer is armed. Do
+not rerun spent activation, registration,
 generation-switch, boot-persistence, recovery, or restoration helpers; remove
 a profile generation/root; or reboot without the current plan. Later recovery
 arming and reboot remain distinct gates, and the helpers expose no reboot

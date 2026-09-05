@@ -141,6 +141,13 @@ Before an update or the initial apt-to-Nix migration:
 9. Keep the previous package and root configuration generation until remote
    access, reboot, and headless-mode tests pass.
 
+These gates passed on `sparkle-01` on 2026-09-05. Exact generation four is now
+selected, live, and boot-linked; its Nix unit owns the running daemon, node
+identity and Tailscale SSH were preserved, a fresh SSH connection succeeded
+after the real reboot, and no rollback is armed. The apt package/repository are
+retained only as inactive fallback material. The current authority is
+`root/tailscale/validation/2026-09-05-host-attempt-2.md`.
+
 For the one-time migration, do not remove the apt package or repository first.
 The reviewed operator is now the runbook:
 
@@ -164,15 +171,15 @@ original boot. `rollback` restores generation three and the apt unit;
 ownership only after the Nix-managed daemon has survived the guarded reboot and
 a fresh Tailscale SSH connection.
 
-The current pre-migration proof is
+The reusable migration proof is
 `scripts/test-tailscale-unit-lifecycle.sh`. It runs the apt-shaped vendor unit,
 generation-three preservation, injected post-registration failure, generation-
 four takeover with one explicit restart, a candidate reboot, exact generation-
 three rollback, a vendor reboot, and persistent unconfirmed-reboot rollback
-entirely inside a disposable container. It also refuses to run unless the real
-host remains on exact generation three with the vendor Tailscale unit, and
-compares the host daemon PID/start time before and after. Passing this test does
-not authorize the live restart.
+entirely inside a disposable container. It accepts only the exact real-host
+generation-three/vendor boundary or the exact generation-four/Nix-managed
+boundary and compares the host daemon PID/start time before and after. Passing
+this test does not authorize a live restart.
 
 ## Headless and rollback invariants
 
@@ -207,3 +214,5 @@ not authorize the live restart.
   `root/tailscale/validation/2026-09-05-migration-lifecycle-container-test.md`
 - First live guard's verified rollback and cleanup:
   `root/tailscale/validation/2026-09-05-host-attempt-1.md`
+- Current retained Nix-managed host authority:
+  `root/tailscale/validation/2026-09-05-host-attempt-2.md`
