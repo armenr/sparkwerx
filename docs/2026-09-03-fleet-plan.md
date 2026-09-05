@@ -1,5 +1,10 @@
 # Declarative fleet plan evidence — 2026-09-03
 
+> Historical first-plan evidence. The host controller and Tailscale ownership
+> shown below were subsequently implemented and activated. Current retained
+> convergence authority is
+> [the confirmed headless integration record](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md).
+
 ## Outcome
 
 The repository now has a single machine-readable selection surface and a

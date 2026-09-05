@@ -10,7 +10,7 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Treat `fleet/hosts.json` and `bootstrap/nix/source.json` as the authoritative
   fresh-host selections. Start with `./scripts/dgx-setup plan [HOSTNAME]` and
   never infer install/apply authority from `PLAN_STATUS`; executable bootstrap
-  and staged Nix-plus-headless-Home apply are implemented. Use
+  and retained-state convergence are implemented. Use
   `scripts/update-nix-installer.sh` for installer release checks, and keep the
   provisioning artifact separate from the running Nix runtime.
 - `./scripts/dgx-setup bootstrap [HOSTNAME]` is the only bootstrap operator.
@@ -20,11 +20,15 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `docs/2026-09-03-nix-bootstrap-lifecycle.md`. Use it only for the Nix
   bootstrap on a declared clean ARM64 host; never invoke the installer binary
   directly or infer authority for unified apply or another ownership layer.
-- `./scripts/dgx-setup apply [HOSTNAME]` composes only the proven bootstrap and
-  headless Home transactions. Its exact retained-pilot no-op test passed; read
-  `docs/2026-09-03-guarded-staged-apply.md`. `APPLY_STATUS=PARTIAL` is expected
-  while the root desktop controller remains untouched;
-  never interpret it as full desired-state convergence or bypass those gates.
+- `./scripts/dgx-setup apply [HOSTNAME]` composes the proven bootstrap and
+  headless Home transactions and verifies the retained Nix-managed Tailscale
+  and System Manager headless roles. On exact `sparkle-01`, its complete live
+  no-op regression passed with `PLAN_STATUS=READY` and
+  `APPLY_STATUS=COMPLETE`; read
+  `root/desktop/validation/2026-09-05-confirmed-headless-integration.md`.
+  Historical `APPLY_STATUS=PARTIAL` evidence predates the completed desktop
+  transition. A pristine host still uses the separately guarded one-time
+  Tailscale and desktop operators; do not bypass or imply those transitions.
 - The Dashboard-aware headless/factory-GNOME candidates passed the
   12-subtest transaction, 10-subtest/three-reboot mode lifecycle, 7-subtest
   persistent rollback lifecycle, and post-Tailscale live no-op integration
@@ -32,6 +36,8 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `root/desktop/validation/2026-09-05-dashboard-aware-stack.md`. The separately
   authorized retry from commit `fc82217` retained exact generation five in
   headless mode with Tailscale intact and no reboot; current authority is
+  `root/desktop/validation/2026-09-05-confirmed-headless-integration.md`, with
+  the exact transition in
   `root/desktop/validation/2026-09-05-host-attempt-2.md`. Use only
   `scripts/dgx-desktop` for future transitions; never activate a raw candidate
   or call `systemctl isolate` directly on the host.
@@ -136,7 +142,9 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `2026-09-03-restoration-host-attempt-1.md` and
   `2026-09-03-restoration-host-attempt-2.md` records plus
   `root/tailscale/validation/2026-09-05-host-attempt-2.md` and
-  `root/desktop/validation/2026-09-05-host-attempt-2.md` before touching this state.
+  `root/desktop/validation/2026-09-05-host-attempt-2.md`, then the current
+  `root/desktop/validation/2026-09-05-confirmed-headless-integration.md` before
+  touching this state.
   Do not rerun the one-time activation, registration, snapshot, switch, or
   boot-persistence helpers; reboot; change boot linkage; select or remove a
   generation; remove any current root; or broaden ownership without a separate

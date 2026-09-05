@@ -232,12 +232,13 @@ assert_sparkle_root_state() {
 
   desktop_plan="$("$repo_dir/scripts/dgx-desktop" plan 2>&1)" ||
     die 'could not inspect the retained headless controller'
-  grep -Fx "INFO|live_generation|$generation_five" <<<"$desktop_plan" >/dev/null &&
-    grep -Fx "INFO|headless_generation|$generation_five" <<<"$desktop_plan" >/dev/null &&
-    grep -Fx "INFO|candidate_retention|$generation_five" <<<"$desktop_plan" >/dev/null &&
-    grep -Fx 'INFO|guard|absent' <<<"$desktop_plan" >/dev/null &&
-    grep -Fx 'INFO|current_default|default.target' <<<"$desktop_plan" >/dev/null ||
+  if ! grep -Fx "INFO|live_generation|$generation_five" <<<"$desktop_plan" >/dev/null ||
+    ! grep -Fx "INFO|headless_generation|$generation_five" <<<"$desktop_plan" >/dev/null ||
+    ! grep -Fx "INFO|candidate_retention|$generation_five" <<<"$desktop_plan" >/dev/null ||
+    ! grep -Fx 'INFO|guard|absent' <<<"$desktop_plan" >/dev/null ||
+    ! grep -Fx 'INFO|current_default|default.target' <<<"$desktop_plan" >/dev/null; then
     die 'root lane is not exact retained generation-five headless state'
+  fi
 
   tailscale_plan="$("$repo_dir/scripts/dgx-tailscale" plan 2>&1)" ||
     die 'could not inspect retained Nix-managed Tailscale'
@@ -282,10 +283,11 @@ assert_sparkle_root_state() {
   for unit in dgx-gnome.target graphical.target gdm.service dgx-dashboard.service; do
     ! systemctl is-active --quiet "$unit" || die "graphical unit is active in headless mode: $unit"
   done
-  grep -Fx 'desktop-controller-generation=5' /etc/dgx-setup/canary >/dev/null &&
-    grep -Fx 'desktop-mode=headless' /etc/dgx-setup/canary >/dev/null &&
-    grep -Fx 'mode=headless' /etc/dgx-setup/desktop-mode >/dev/null ||
+  if ! grep -Fx 'desktop-controller-generation=5' /etc/dgx-setup/canary >/dev/null ||
+    ! grep -Fx 'desktop-mode=headless' /etc/dgx-setup/canary >/dev/null ||
+    ! grep -Fx 'mode=headless' /etc/dgx-setup/desktop-mode >/dev/null; then
     die 'generation-five headless markers are incomplete'
+  fi
   jq -e '
     .version == 1 and
     (.fileTree.backedUpFiles == []) and

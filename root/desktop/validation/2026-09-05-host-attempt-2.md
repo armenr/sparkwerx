@@ -96,7 +96,10 @@ The current host classifier is
 `ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED`.
 This record supersedes host attempt 1 as live desktop-state authority. The
 [Dashboard-aware disposable record](2026-09-05-dashboard-aware-stack.md)
-remains the exact implementation/test authority.
+remains the pre-live implementation/test authority. The subsequent
+[complete retained-state integration](2026-09-05-confirmed-headless-integration.md)
+is current authority for fleet `READY`/`COMPLETE` convergence from this live
+headless state.
 
 Use only `scripts/dgx-desktop` for future desktop status or reviewed transitions.
 Do not invoke raw System Manager activation, `register-profile`, or

@@ -115,8 +115,12 @@ the measured software manifest; evaluation did not authorize realization.
       proven Nix and headless Home lifecycles; pass its exact live no-op test
 - [x] Extend `apply` to verify the separately proven Nix-managed Tailscale role
       without restarting it
-- [ ] Extend `apply` beyond honest `APPLY_STATUS=PARTIAL` convergence to the
-      separately proven root desktop role
+- [x] Extend `apply` to verify the separately proven root desktop role; pass
+      exact retained generation-five `PLAN_STATUS=READY` and
+      `APPLY_STATUS=COMPLETE` no-op integration
+- [ ] Compose the proven one-time Tailscale migration and desktop transition
+      into a guarded pristine-host workflow without weakening either rollback
+      boundary
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration

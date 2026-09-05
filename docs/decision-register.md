@@ -492,11 +492,18 @@ The staged guarded `scripts/dgx-setup apply` entry point now composes that exact
 bootstrap with the proven headless Home first-activation/update lifecycle. The
 original live pilot regression passed with both layers as exact no-ops. After
 the separately guarded Tailscale migration, the front door also verifies the
-already Nix-managed generation-four access role without restarting it. It
-reports `APPLY_STATUS=PARTIAL` because the root desktop controller remains OPEN
-and untouched. This is deliberately not a false claim of complete desired-state
-convergence; the integrated clean-host path and each optional ownership layer
-retain their own gates.
+already Nix-managed access role without restarting it. After the separately
+guarded desktop transition, it also verifies exact retained generation five in
+headless mode without activation, isolation, or service restart. The complete
+live no-op regression now reports `PLAN_STATUS=READY` and
+`APPLY_STATUS=COMPLETE`; see
+`root/desktop/validation/2026-09-05-confirmed-headless-integration.md`.
+
+The older `APPLY_STATUS=PARTIAL` result remains valid historical evidence from
+before those live ownership transitions. Complete retained-state convergence
+does not yet authorize a pristine host to perform the one-time Tailscale or
+desktop transitions implicitly; composing their proven guarded operators is a
+separate remaining milestone.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 
@@ -622,6 +629,8 @@ registered/activated the corrected generation five, and reached headless with
 Tailscale identity/SSH and all mode-independent services intact. Confirmation
 repeated postflight and removed the rollback guard without a reboot. Exact
 current authority is the
+[complete retained-state integration](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md),
+with the transition itself recorded in the
 [successful host record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 ## Explicit non-selections

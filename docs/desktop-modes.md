@@ -16,6 +16,9 @@ headless mode without rebooting. See the
 [candidate record](2026-09-05-desktop-controller-candidates.md),
 [current test validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md),
 and [current host result](../root/desktop/validation/2026-09-05-host-attempt-2.md).
+The subsequent
+[complete retained-state integration](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md)
+is current authority for `READY`/`COMPLETE` fleet convergence in this mode.
 
 ## Mode behavior
 

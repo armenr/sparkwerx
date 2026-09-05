@@ -23,6 +23,9 @@ See the
 The separately authorized retry then retained exact generation five in
 headless mode without rebooting. See the
 [successful host record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
+The later full retained-state rerun is the current integration authority; see
+the
+[confirmed headless integration record](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md).
 
 ## Host facts that shape the design
 

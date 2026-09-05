@@ -1,5 +1,10 @@
 # Guarded staged host apply — 2026-09-03
 
+> Historical pre-Tailscale/pre-desktop evidence. `APPLY_STATUS=PARTIAL` below
+> describes this dated state, not the current retained host. The complete
+> generation-five/headless no-op now reports `APPLY_STATUS=COMPLETE`; see
+> [the current integration authority](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md).
+
 ## Result
 
 **PASS for the retained pilot's idempotent path.** Commit

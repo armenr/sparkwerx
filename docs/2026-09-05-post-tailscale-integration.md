@@ -1,5 +1,10 @@
 # Post-Tailscale integration regression — 2026-09-05
 
+> Historical pre-desktop evidence. The later complete generation-five/headless
+> retained-state regression supersedes this as current integration authority;
+> see
+> [the confirmed headless integration record](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md).
+
 ## Result
 
 **PASS.** After the real apt-to-Nix Tailscale handoff and guarded reboot were

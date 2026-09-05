@@ -17,19 +17,17 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   fleet base is `ncdu`, `lazydocker`, and current Devbox, with Armen's current
   Codex CLI layered above it plus Home Manager's intrinsic session-variable
   file. It emits no Home Manager user-systemd unit, including the otherwise
-  generic `tray.target`. Factory GNOME/GDM remains running and untouched.
+  generic `tray.target`. Factory GNOME/GDM remains installed and is
+  intentionally inactive in confirmed headless mode.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
-- Thin root-controller candidates for `headless` and factory `gnome` are built
-  without taking ownership of desktop packages or GDM. The first guarded live
-  switch reached exact headless generation five with Nix-managed Tailscale
-  intact, then failed closed when it exposed that the factory Dashboard GUI
-  had been misclassified as a mode-independent service. Persistent rollback
-  and exact cleanup restored generation four/factory GNOME without a reboot.
-  Corrected disposable fixtures now model the Dashboard GUI stopping in
-  headless while its admin daemon remains active; current evidence stays
-  fail-closed until the combined suite passes. See the
-  [candidate record](docs/2026-09-05-desktop-controller-candidates.md).
+- Thin root controllers for `headless` and factory `gnome` are implemented
+  without taking ownership of desktop packages or GDM. After one safe rollback
+  exposed the factory Dashboard boundary, the corrected guarded retry retained
+  exact generation five in headless mode with Nix-managed Tailscale intact.
+  The complete transaction, mode, rollback, Tailscale, plan, and apply suite
+  now passes against that live retained state. See the
+  [current integration record](root/desktop/validation/2026-09-05-confirmed-headless-integration.md).
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
   evidence has its own immutable root Nixpkgs lane, while a separate
   lockfile-pinned apps input supplies fast-moving packages. The 2026-09-03
@@ -55,10 +53,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   live daemon and preserve Tailscale SSH plus the existing mutable identity.
 - The Tailscale handoff survived its deliberate SSH disconnect, a fresh
   reconnect, one guarded real reboot, and another fresh Tailscale SSH
-  connection before confirmation. Exact System Manager generation four is
-  selected/live/boot-linked, the migration guard is absent, and no rollback is
-  armed. The apt package/repository remain installed only as inactive fallback
-  material; see the [retained host record](root/tailscale/validation/2026-09-05-host-attempt-2.md).
+  connection before confirmation. Exact System Manager generation five now
+  inherits that Nix-owned access plane while selected/live/boot-linked in
+  headless mode; all migration and desktop guards are absent. The apt
+  package/repository remain installed only as inactive fallback material; see
+  the [retained host record](root/tailscale/validation/2026-09-05-host-attempt-2.md).
 - Nix 2.35.2 is active in the machine-wide default profile and the restarted
   daemon after a checksum/cache-verified ARM64 rollout. The installer artifact
   remains at its expected provisioning version, 2.35.1. The default
@@ -75,10 +74,12 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   branch is host-tested, and the exact disposable clean-install, injected
   failure/rollback, clean retry, and second-adoption lifecycle passed. The
   Nix-only bootstrap is ready for declared clean ARM64 hosts through that one
-  operator. `scripts/dgx-setup apply` now composes the proven Nix and headless
-  Home transactions and verifies an already Nix-managed Tailscale role without
-  restarting it. It honestly returns `APPLY_STATUS=PARTIAL` while the root
-  desktop controller remains an untouched gate.
+  operator. `scripts/dgx-setup apply` composes the proven Nix and headless Home
+  transactions and verifies retained Nix-managed Tailscale plus the System
+  Manager headless role without restarting or switching them. Exact
+  `sparkle-01` now returns `PLAN_STATUS=READY` and `APPLY_STATUS=COMPLETE` as a
+  true no-op. The one-time Tailscale and desktop transitions still need to be
+  composed before a pristine host has the same one-command experience.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -88,10 +89,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   ten-minute deadline expired, exact no-boot generation two was restored, the
   rollback passed verification, and its recovery surface was cleaned. The
   retry-safe no-reboot restoration then returned generation three before the
-  guarded Tailscale migration advanced the host to generation four. Generation
-  four is now selected, upstream-rooted, directly pilot-rooted, live, and
-  boot-linked; all four numbered generations and direct pilot roots remain,
-  and no recovery or migration rollback is armed. The postboot Nix gate recognizes a
+  guarded Tailscale migration advanced the host to generation four and the
+  guarded desktop transition advanced it to generation five. Generation five
+  is selected, upstream-rooted, directly pilot-rooted, live, boot-linked, and
+  headless; all five numbered generations and direct pilot roots remain, and
+  no recovery, migration, or desktop rollback is armed. The postboot Nix gate recognizes a
   cleanly idle daemon behind its active socket, and `scripts/dgx-recovery`
   provides short commands without a reboot action.
 

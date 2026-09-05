@@ -1608,6 +1608,31 @@
             stateFileSha256 = "e8c8aa8aed797fdd44d087225e66ebf061a50b159d45f84ec5620714fec61f74";
             evidence = "root/desktop/validation/2026-09-05-host-attempt-2.md";
           };
+          retainedIntegration = {
+            result = "passed";
+            verifiedAt = "2026-09-05T18:00:52Z";
+            repositoryCommit = "9883d6cded75932abf1db7d452a397e013b1ced4";
+            stateClass = "ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED";
+            liveGeneration = 5;
+            planStatus = "READY";
+            applyStatus = "COMPLETE";
+            desktopStatus = "HEADLESS_CONFIRMED";
+            tailscaleStatus = "CONFIRMED_NIX_OWNED";
+            liveHostMutation = false;
+            freshHostOneTimeTransitionsComposed = false;
+            integrationProgram = {
+              repositoryPath = "scripts/test-desktop-stack-integration.sh";
+              sha256 = "e6366208647641a177058db202c08092cfcc5623766b2206c23242e1c70d2e88";
+            };
+            disposableDerivations = {
+              headlessTransaction = "/nix/store/76x1xcqidxq7s6fn0wsj2d18gq31d5vg-container-test-dgx-desktop-headless-transaction.drv";
+              desktopModeLifecycle = "/nix/store/yzzf9h9lwd9jj2c54y6xhr4f7b2njppj-container-test-dgx-desktop-mode-lifecycle.drv";
+              desktopSwitchLifecycle = "/nix/store/b0j7shxdp46vpx0c3mdms2h7xsn3ixxn-container-test-dgx-desktop-switch-lifecycle.drv";
+              tailscaleUnitLifecycle = "/nix/store/z3ygmg4cm0hhc3bvng7kgcwy09a2p0ba-container-test-dgx-tailscale-unit-lifecycle.drv";
+              nixBootstrapLifecycle = "/nix/store/p7s3xffskdk9mycrmmxr673xx1k3gwg9-container-test-dgx-nix-bootstrap-lifecycle.drv";
+            };
+            evidence = "root/desktop/validation/2026-09-05-confirmed-headless-integration.md";
+          };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
 
@@ -2262,6 +2287,38 @@
         assert !rootManagerManifest.desktopController.liveRetry.hostRebootPerformed;
         assert rootManagerManifest.desktopController.liveRetry.managedPathCount == 12;
         assert rootManagerManifest.desktopController.liveRetry.managedServiceCount == 4;
+        assert rootManagerManifest.desktopController.retainedIntegration.result == "passed";
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.stateClass
+          == "ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED";
+        assert rootManagerManifest.desktopController.retainedIntegration.liveGeneration == 5;
+        assert rootManagerManifest.desktopController.retainedIntegration.planStatus == "READY";
+        assert rootManagerManifest.desktopController.retainedIntegration.applyStatus == "COMPLETE";
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.desktopStatus == "HEADLESS_CONFIRMED";
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.tailscaleStatus == "CONFIRMED_NIX_OWNED";
+        assert !rootManagerManifest.desktopController.retainedIntegration.liveHostMutation;
+        assert
+          !rootManagerManifest.desktopController.retainedIntegration.freshHostOneTimeTransitionsComposed;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.integrationProgram.sha256
+          == builtins.hashFile "sha256" ./scripts/test-desktop-stack-integration.sh;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.headlessTransaction
+          == desktopHeadlessTransactionContainerTest.drvPath;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.desktopModeLifecycle
+          == desktopModeLifecycleContainerTest.drvPath;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.desktopSwitchLifecycle
+          == desktopSwitchLifecycleContainerTest.drvPath;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.tailscaleUnitLifecycle
+          == tailscaleUnitLifecycleContainerTest.drvPath;
+        assert
+          rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.nixBootstrapLifecycle
+          == nixBootstrapLifecycleContainerTest.drvPath;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;

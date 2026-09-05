@@ -1,5 +1,10 @@
 # Dashboard-aware desktop stack validation — 2026-09-05
 
+> This remains the pre-live implementation authority. The later successful
+> host transition and complete retained-state rerun supersede it as current
+> live convergence authority; see
+> [the confirmed headless integration record](2026-09-05-confirmed-headless-integration.md).
+
 ## Result
 
 **PASS.** The complete one-command desktop regression passed against repository

@@ -100,10 +100,15 @@ directly. Read
 [`docs/2026-09-03-guarded-staged-apply.md`](../../../docs/2026-09-03-guarded-staged-apply.md)
 as historical pre-migration evidence. The current operator composes the
 independently proven Nix and headless Home transactions and verifies the
-confirmed Nix-managed Tailscale role without restarting it.
+confirmed Nix-managed Tailscale and System Manager headless roles without
+restarting or switching them. On exact retained `sparkle-01`, the complete
+regression now returns `PLAN_STATUS=READY` and `APPLY_STATUS=COMPLETE` as a true
+live-host no-op.
 The historical `APPLY_STATUS=PARTIAL` result predates the separately guarded
 desktop activation; do not treat it as current host truth or as authority for a
-new desktop change.
+new desktop change. A pristine host still requires the separately guarded
+one-time Tailscale migration and desktop transition because the top-level apply
+operator deliberately does not initiate either transition yet.
 The first guarded headless host attempt reached exact generation five with
 Tailscale intact, then failed closed because `dgx-dashboard.service` was
 correctly stopped with the GUI but incorrectly treated as a mode-independent
@@ -121,6 +126,8 @@ the
 [`Dashboard-aware validation record`](../../../root/desktop/validation/2026-09-05-dashboard-aware-stack.md)
 and the
 [`successful host record`](../../../root/desktop/validation/2026-09-05-host-attempt-2.md)
+and the current
+[`complete retained-state integration record`](../../../root/desktop/validation/2026-09-05-confirmed-headless-integration.md)
 before testing or changing that role. Use only `./scripts/dgx-desktop`; never
 activate a raw candidate or call `systemctl isolate` directly on the host. Do
 not infer live-switch or reboot authority from the passing tests.
@@ -204,8 +211,10 @@ retained exact generation four after a real reboot; read
 `../../../root/tailscale/validation/2026-09-05-host-attempt-2.md` as inherited
 access-plane authority. The corrected desktop retry then retained exact
 generation five in headless mode; read
-`../../../root/desktop/validation/2026-09-05-host-attempt-2.md` as current
-live-state authority. The inactive preflight/activation,
+`../../../root/desktop/validation/2026-09-05-host-attempt-2.md` as transition
+authority and
+`../../../root/desktop/validation/2026-09-05-confirmed-headless-integration.md`
+as current retained-state authority. The inactive preflight/activation,
 absent-prestate first-registration, pre-switch, boot-persistence, and
 restoration snapshot/wrapper helpers are now all inapplicable; do not run them
 and misclassify their expected refusal as drift. Audit current root state with
@@ -606,7 +615,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
 - The Tailscale access-plane authority is snapshot `20260905T084503Z` and
   `root/tailscale/validation/2026-09-05-host-attempt-2.md`. Current host
   authority is desktop snapshot `20260905T153316Z` and
-  `root/desktop/validation/2026-09-05-host-attempt-2.md`. Preserve exact
+  `root/desktop/validation/2026-09-05-host-attempt-2.md`, followed by the
+  complete retained-state result in
+  `root/desktop/validation/2026-09-05-confirmed-headless-integration.md`.
+  Preserve exact
   generation five, all selected/upstream/pilot roots, the inherited Nix-managed
   `tailscaled.service`, mutable node identity, `RunSSH=true`, multi-user boot
   edge, headless dispatcher, and absent migration/desktop guards.

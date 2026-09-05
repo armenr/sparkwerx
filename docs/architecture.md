@@ -53,14 +53,14 @@ validates the declaration using only factory Python, classifies the pinned Nix
 bootstrap, and—when Nix exists—evaluates the exact Home candidate and live
 drift. Nix evaluation may fetch absent locked sources, but the plan does not
 build/install packages, mutate profiles, change services, enroll Tailscale,
-switch desktops, or reboot. The staged `scripts/dgx-setup apply` half currently
-composes the independently proven Nix bootstrap/adoption and headless Home
-lifecycle, refusing unsupported host or declaration drift before mutation and
-using each layer's own retention, health, and rollback checks. It also verifies
-the already Nix-managed Tailscale role without restarting it. The separately
-guarded desktop operator has now retained exact headless generation five; the
-fleet-level apply front door is being advanced to recognize that completed
-controller state as convergence rather than its historical explicit hold.
+switch desktops, or reboot. The staged `scripts/dgx-setup apply` half composes
+the independently proven Nix bootstrap/adoption and headless Home lifecycle,
+refusing unsupported host or declaration drift before mutation and using each
+layer's own retention, health, and rollback checks. It verifies the already
+Nix-managed Tailscale role and retained System Manager headless controller
+without restarting, activating, or switching either one. On exact
+`sparkle-01`, the complete regression returns `PLAN_STATUS=READY` and
+`APPLY_STATUS=COMPLETE` while every enabled layer converges as a no-op.
 Secrets, browser/account state, Tailscale node
 identity, models, and other mutable data remain external inputs rather than
 Nix-store contents.
@@ -260,8 +260,9 @@ matches the live generation. The separately gated pilot Nix runtime update to
 implemented and host-tested. Exact Nix adoption and the complete disposable
 clean-install/rollback lifecycle are host-tested. The staged guarded apply
 front door converges Nix plus headless Home and verifies the already managed
-Tailscale role. Its desktop-state recognition is being updated to match the
-separately completed generation-five controller. The active Home generation
+Tailscale role and completed generation-five headless controller. Its complete
+retained-state regression passed without changing the live host. The active
+Home generation
 does not authorize a raw `home-manager switch`, a systemd service link/restart,
 or another root-runtime change. Future host-mode switching and service changes
 still require their own approval.
