@@ -15,17 +15,10 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir" || exit 1
 
 nix_bin=/nix/var/nix/profiles/default/bin/nix
-tailscale_transaction="$repo_dir/scripts/root-tailscale-migration-transaction.sh"
 headless_root=/nix/var/nix/gcroots/dgx-setup-desktop-headless-pilot
 bundle_root=/nix/var/nix/gcroots/dgx-setup-desktop-switch-rollback
 state_dir=/var/lib/dgx-setup/desktop-switch
 profile_five=/nix/var/nix/profiles/system-manager-profiles/system-manager-5-link
-controller_paths=(
-  /etc/dgx-setup/desktop-mode
-  /etc/systemd/system/default.target
-  /etc/systemd/system/dgx-headless.target
-  /etc/systemd/system/dgx-gnome.target
-)
 guard_paths=(
   "$state_dir"
   "$bundle_root"
@@ -58,54 +51,24 @@ path_exists() {
 }
 
 assert_host_boundary() {
-  local current default_target path unit retained_headless
+  local current desktop_status path
 
   current="$(readlink -f -- \
     /nix/var/nix/profiles/system-manager-profiles/system-manager \
     2>/dev/null || true)"
-  [[ "$current" == "$generation_four" ]] ||
-    die "live System Manager generation is not exact generation four: ${current:-ABSENT}"
-
-  "$tailscale_transaction" verify-after \
-    "$generation_one" "$generation_two" "$generation_three" \
-    "$generation_four" >/dev/null ||
-    die 'live Nix-managed Tailscale boundary failed verification'
-
-  default_target="$(systemctl get-default 2>/dev/null || true)"
-  [[ "$default_target" == graphical.target ]] ||
-    die "factory default target is not graphical.target: ${default_target:-UNKNOWN}"
-
-  for path in "${controller_paths[@]}" "${guard_paths[@]}"; do
+  [[ "$current" == "$headless_candidate" ]] ||
+    die "live System Manager generation is not exact generation five: ${current:-ABSENT}"
+  [[ -L "$profile_five" && "$(readlink -- "$profile_five")" == "$headless_candidate" ]] ||
+    die 'System Manager generation-five profile link changed'
+  [[ -L "$headless_root" && "$(readlink -- "$headless_root")" == "$headless_candidate" ]] ||
+    die 'headless generation-five pilot root changed'
+  for path in "${guard_paths[@]}"; do
     ! path_exists "$path" || die "unexpected live-host path exists: $path"
   done
-
-  for unit in \
-    dgx-headless.target dgx-gnome.target \
-    dgx-desktop-switch-rollback.service \
-    dgx-desktop-switch-rollback.timer \
-    dgx-desktop-switch-apply.service; do
-    [[ "$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)" == not-found ]] ||
-      die "desktop-switch unit is unexpectedly loaded on the live host: $unit"
-  done
-
-  ! path_exists "$profile_five" ||
-    die "System Manager generation-five profile already exists: $profile_five"
-  if path_exists "$headless_root"; then
-    [[ -L "$headless_root" ]] ||
-      die "headless pilot-root path is not a symlink: $headless_root"
-    retained_headless="$(readlink -- "$headless_root" 2>/dev/null || true)"
-    case "$retained_headless" in
-      "$headless_candidate" | "$superseded_headless_candidate") ;;
-      *) die "headless pilot root points at an unknown candidate: $retained_headless" ;;
-    esac
-  fi
-
-  systemctl is-active --quiet gdm.service || die 'factory GDM is not active'
-  systemctl is-active --quiet tailscaled.service || die 'Nix-managed Tailscale is not active'
-  [[ "$(systemctl is-system-running 2>/dev/null || true)" == running ]] ||
-    die 'systemd is not running cleanly'
-  [[ -z "$(systemctl list-units --state=failed --plain --no-legend)" ]] ||
-    die 'the live host has failed units'
+  desktop_status="$("$repo_dir/scripts/dgx-desktop" status 2>&1)" ||
+    die "live headless boundary failed verification: $desktop_status"
+  grep -Fx 'DESKTOP_STATUS=HEADLESS_CONFIRMED' <<<"$desktop_status" >/dev/null ||
+    die 'live desktop is not confirmed generation-five headless'
 }
 
 unit_snapshot() {
@@ -121,20 +84,15 @@ unit_snapshot() {
 [[ -z "$(git status --porcelain=v1)" ]] ||
   die 'repository must be clean so the test binds one committed design'
 
-generation_one="$(eval_output .#packages.aarch64-linux.root-system-canary.outPath)" || exit 1
-generation_two="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-two.outPath)" || exit 1
-generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-three-boot.outPath)" || exit 1
 generation_four="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" || exit 1
 headless_candidate="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" || exit 1
-superseded_headless_candidate="$(
-  eval_output .#lib.dgxRootManagerManifest.aarch64-linux.desktopController.firstLiveAttempt.headlessCandidate
-)" || exit 1
 switch_bundle="$(eval_output .#packages.aarch64-linux.root-desktop-switch-bundle.outPath)" || exit 1
 
 assert_host_boundary
 services_before="$(unit_snapshot)" || exit 1
 
-printf 'INFO|live_generation|%s\n' "$generation_four"
+printf 'INFO|live_generation|%s\n' "$headless_candidate"
+printf 'INFO|container_fixture_generation|%s\n' "$generation_four"
 printf 'INFO|headless_candidate|%s\n' "$headless_candidate"
 printf 'INFO|switch_bundle|%s\n' "$switch_bundle"
 printf '%s\n' \
