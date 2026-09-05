@@ -29,6 +29,10 @@ let
     [Unit]
     Description=DGX factory GNOME mode
     Requires=graphical.target system-manager.target
+    # A direct isolate of this named target does not traverse the factory
+    # default.target.wants edge, so pull in the existing Dashboard GUI without
+    # making its failure fatal to the graphical target.
+    Wants=dgx-dashboard.service
     After=graphical.target system-manager.target
     Conflicts=dgx-headless.target
     AllowIsolate=true

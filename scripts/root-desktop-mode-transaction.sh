@@ -165,6 +165,8 @@ assert_candidates_and_roots() {
   grep -Fx 'Conflicts=dgx-dashboard.service dgx-gnome.target graphical.target' \
     "$unit_tree/dgx-headless.target" >/dev/null ||
     fail "headless target conflicts are invalid" || return 1
+  grep -Fx 'Wants=dgx-dashboard.service' "$unit_tree/dgx-gnome.target" \
+    >/dev/null || fail "GNOME Dashboard dependency is invalid" || return 1
 }
 
 assert_known_profile_surface() {

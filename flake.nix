@@ -326,7 +326,7 @@
       rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
       rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
       rootDesktopModeTransactionProgram = ./scripts/root-desktop-mode-transaction.sh;
-      reviewedRootDesktopModeTransactionSha256 = "df087af105f418230d6ff2bacf9041e825827a7f7f6591907cc45d0a6684f183";
+      reviewedRootDesktopModeTransactionSha256 = "9318775e0dda09273026d337ca8463479919febe27a49451d14d741bebb3e1b8";
       rootDesktopSwitchOperatorProgram = ./scripts/dgx-desktop;
       reviewedRootDesktopSwitchOperatorSha256 = "253cfb76e2c51f40503f867d3a7c1a8f830de167092e5f81871097a01030bf61";
       rootDesktopSwitchBundle = import ./root/desktop/switch-bundle.nix {
@@ -1942,6 +1942,8 @@
             "$headless_units/dgx-headless.target"
           grep -Fx 'AllowIsolate=true' "$headless_units/dgx-headless.target"
           grep -Fx 'Requires=graphical.target system-manager.target' \
+            "$gnome_units/dgx-gnome.target"
+          grep -Fx 'Wants=dgx-dashboard.service' \
             "$gnome_units/dgx-gnome.target"
           grep -Fx 'Conflicts=dgx-headless.target' \
             "$gnome_units/dgx-gnome.target"

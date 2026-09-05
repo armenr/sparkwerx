@@ -479,7 +479,9 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   `dgx-dashboard-admin.service` active and continuity-protected in both modes;
   do not take package or unit ownership from the DGX substrate. The headless
   target must conflict explicitly with the GUI service because its factory
-  `default.target.wants` edge otherwise starts it on a cold headless boot.
+  `default.target.wants` edge otherwise starts it on a cold headless boot. The
+  named GNOME target must non-fatally want the existing GUI service because a
+  direct isolate does not traverse the factory default-target edge.
 - Never set global `allowUnfree = true`. Permit only the exact selected package
   after it appears in the reviewed manifest.
 - Keep ChatGPT, Chromium, both 1Password browser extensions, Zed, and LM Studio

@@ -98,3 +98,13 @@ corrected output while preserving the superseded candidate at
 `/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot`. The
 rollover is not a live activation and occurs only after current lifecycle
 evidence passes and the persistent factory rollback is being installed.
+
+The next combined disposable run proved that corrected cold headless boot,
+then exposed the complementary named-target transition: directly isolating
+`dgx-gnome.target` does not traverse the vendor
+`default.target.wants/dgx-dashboard.service` link. The GNOME orchestration
+target now non-fatally wants the existing Dashboard GUI service. The complete
+two-way contract is therefore: headless conflicts with the GUI, while GNOME
+wants it. Nix still owns neither vendor unit nor package. This second finding
+also occurred only inside the disposable container; another live attempt
+remains blocked pending a complete combined PASS and exact evidence record.

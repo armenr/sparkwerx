@@ -25,7 +25,11 @@ until the Dashboard-aware test suite passes. See the
 The factory Dashboard GUI has its own `default.target.wants` edge. The
 headless target explicitly conflicts with `dgx-dashboard.service` so that edge
 cannot start the GUI on a cold headless boot. This is runtime orchestration of
-the existing vendor unit, not Nix ownership, masking, or package removal.
+the existing vendor unit, not Nix ownership, masking, or package removal. A
+direct isolate of the named GNOME target does not traverse that default-target
+edge, so `dgx-gnome.target` also non-fatally wants the existing Dashboard GUI.
+This ensures both cold-boot and same-boot transitions implement the same
+mode boundary.
 
 Only one mode owns the default session, portal selection, and graphical
 autostarts at a time. Ghostty is the shared terminal in `gnome`, `hyprland`,

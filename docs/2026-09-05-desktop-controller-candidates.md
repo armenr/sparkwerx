@@ -45,13 +45,15 @@ Nix-managed access service on a clean future Spark. The new
 | --- | --- | --- |
 | Current generation-four rollback boundary | `/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager` | 312,125,456 bytes |
 | Superseded first-attempt headless candidate | `/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager` | 312,130,992 bytes |
-| Corrected headless candidate | `/nix/store/3rnw3fnaazga52ms8mz613s6czvdkz8a-system-manager` | 312,131,232 bytes |
-| Corrected factory-GNOME candidate | `/nix/store/j3153lsxpflz7rappri3l7qczd2g91m2-system-manager` | 312,131,200 bytes |
+| Intermediate Dashboard-conflict headless candidate | `/nix/store/3rnw3fnaazga52ms8mz613s6czvdkz8a-system-manager` | 312,131,232 bytes |
+| Intermediate Dashboard-conflict factory-GNOME candidate | `/nix/store/j3153lsxpflz7rappri3l7qczd2g91m2-system-manager` | 312,131,200 bytes |
+| Current two-way Dashboard headless candidate | `/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager` | 312,131,456 bytes |
+| Current two-way Dashboard factory-GNOME candidate | `/nix/store/i8224bkma5f805ncarwpfmbnd9yc1dn9-system-manager` | 312,131,424 bytes |
 
-The corrected headless delta is 5,776 bytes and the corrected GNOME delta is
-5,744 bytes. Both reuse the entire existing closure; neither adds a desktop
-package, global package, portal, user service, or daemon. The small increase is
-the documented Dashboard conflict in the shared immutable target tree.
+The current headless delta is 6,000 bytes and the current GNOME delta is 5,968
+bytes. Both reuse the entire existing closure; neither adds a desktop package,
+global package, portal, user service, or daemon. The small increase is the
+documented two-way Dashboard orchestration in the shared immutable target tree.
 
 The selected candidate owns exactly these four additional paths:
 
@@ -64,7 +66,9 @@ The selected candidate owns exactly these four additional paths:
 `system-manager.target`, conflicts with `graphical.target`, the GNOME mode
 target, and the factory Dashboard GUI service, and is isolatable.
 `dgx-gnome.target` requires factory `graphical.target` plus
-`system-manager.target`, conflicts with the headless target, and is isolatable.
+`system-manager.target`, wants the existing factory Dashboard GUI service,
+conflicts with the headless target, and is isolatable. The `Wants=` edge is
+non-fatal and does not transfer package or unit ownership to Nix.
 
 System Manager does not implement unit aliases. A direct immutable link to a
 mode target is not equivalent: systemd loads its contents under the lookup name
@@ -145,6 +149,19 @@ contains the complete authority boundary and failed-feedback history.
 | Nix-base32 hash | `109yz2sydf0zp6sqwsqsv9pw53f7lkm0qq7dksd3vw1bys4riypv` |
 | Container reboots | 3 |
 | Host mutation | None |
+
+The first Dashboard-aware combined rerun proved the transaction-level
+headless stop and GNOME restart behavior, then exposed that the vendor
+`default.target.wants` link could still start the Dashboard on a cold headless
+boot. The explicit headless conflict fixed that path.
+
+The next combined rerun proved the corrected cold headless boot and advanced
+through GNOME declaration. Its direct `systemctl isolate dgx-gnome.target`
+transition then left the Dashboard inactive because a named-target isolate
+does not traverse `default.target.wants`. The GNOME target now has a non-fatal
+`Wants=dgx-dashboard.service` edge. Together, the conflict and want express
+the intended mode boundary without replacing, masking, or packaging the
+factory service. Both findings occurred only inside disposable containers.
 
 ## Next gate
 

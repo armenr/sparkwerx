@@ -578,6 +578,11 @@ Because the factory Dashboard wants edge is attached directly to
 the graphical target is absent. The thin headless target therefore declares an
 explicit conflict with `dgx-dashboard.service`. It does not mask, replace, or
 disable the vendor unit; switching back to factory GNOME starts it normally.
+Conversely, directly isolating the named `dgx-gnome.target` does not traverse
+the factory `default.target.wants` edge. The GNOME orchestration target
+therefore has a non-fatal `Wants=dgx-dashboard.service` dependency so a
+same-boot transition starts the existing GUI. These two dependency edges
+control runtime membership only; the factory remains the service owner.
 
 System Manager activation changes persistent declaration only. Runtime target
 isolation—which can terminate a GUI session—belongs to `scripts/dgx-desktop`,
