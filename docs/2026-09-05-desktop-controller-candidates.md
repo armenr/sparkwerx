@@ -140,10 +140,10 @@ contains the complete authority boundary and failed-feedback history.
 
 ## Next gate
 
-Design and separately test the guarded live switch transaction. It must retain
-generation four, root the exact target candidate, arm automatic rollback before
-registration/activation/isolation, verify Nix-managed Tailscale and protected
-factory services, and expose a short status/rollback path. This lifecycle PASS
-authorizes that repository work only. It does not itself authorize profile
-registration, target isolation, GUI termination, a desktop switch, or reboot
-on `sparkle-01`.
+The guarded live operator and its immutable ten-minute rollback bundle are now
+implemented. Separately run and record its exact disposable lifecycle through
+`sudo ./scripts/test-desktop-switch-lifecycle.sh`. That proof includes
+same-boot rollback, confirmation, headless reboot recovery, Nix-managed
+Tailscale continuity, and an unchanged host boundary. It does not itself
+authorize profile registration, target isolation, GUI termination, a live
+desktop switch, or reboot on `sparkle-01`.

@@ -327,6 +327,17 @@
       rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
       rootDesktopModeTransactionProgram = ./scripts/root-desktop-mode-transaction.sh;
       reviewedRootDesktopModeTransactionSha256 = "6b62ba0ee094d664ffa059c43cf1da87f39b2790ed0d93708ad9ec0432a60fe4";
+      rootDesktopSwitchOperatorProgram = ./scripts/dgx-desktop;
+      reviewedRootDesktopSwitchOperatorSha256 = "5e55964f27c855af1001e7ec692db6a72408ff0f37763887fbc89b9cc0eed902";
+      rootDesktopSwitchBundle = import ./root/desktop/switch-bundle.nix {
+        pkgs = rootPkgs;
+        transactionProgram = rootDesktopModeTransactionProgram;
+        generationOne = rootCanary;
+        generationTwo = rootCanaryRegistrationTestGeneration;
+        generationThree = rootCanaryBootPersistenceGeneration;
+        generationFour = rootTailscaleMigrationGeneration;
+        headlessGeneration = rootDesktopHeadlessGeneration;
+      };
       rootTailscaleMigrationBundle = import ./root/tailscale/migration-bundle.nix {
         pkgs = rootPkgs;
         transactionProgram = rootTailscaleMigrationTransactionProgram;
@@ -1446,8 +1457,32 @@
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
-              implemented = false;
+              status = "designed-disposable-lifecycle-awaiting";
+              implemented = true;
+              repositoryPath = "scripts/dgx-desktop";
+              sha256 = builtins.hashFile "sha256" rootDesktopSwitchOperatorProgram;
+              actions = [
+                "plan"
+                "headless"
+                "status"
+                "confirm"
+                "rollback"
+                "cleanup-rolled-back"
+              ];
+              bundle = rootDesktopSwitchBundle.outPath;
+              rollbackDelay = "10min";
+              rollbackTarget = rootTailscaleMigrationGeneration.outPath;
+              candidateRoot = "/nix/var/nix/gcroots/dgx-setup-desktop-headless-pilot";
+              rollbackBundleRoot = "/nix/var/nix/gcroots/dgx-setup-desktop-switch-rollback";
               requiresPersistentRollbackBeforeMutation = true;
+              detachedWorkerIgnoresIsolation = true;
+              exactPhraseRequired = false;
+              performsReboot = false;
+              isolatedLifecycle = {
+                flakeCheck = "desktop-switch-lifecycle-container";
+                result = "awaiting-root-local-run";
+                hostMutation = false;
+              };
             };
             isolatedTest =
               let
@@ -1855,6 +1890,32 @@
           test ! -e "$headless_units/display-manager.service"
           test ! -e "$gnome_units/gdm.service"
           test ! -e "$gnome_units/display-manager.service"
+
+          # A pure Nix builder cannot create systemd's hard-coded
+          # /run/systemd manager directory. Parse the same portable unit
+          # directives through a private user-manager runtime here; the
+          # disposable lifecycle check below verifies them as real system
+          # units inside a booted Ubuntu container.
+          verification_units="$TMPDIR/dgx-desktop-verification-units"
+          verification_runtime="$TMPDIR/dgx-desktop-verification-runtime"
+          mkdir -p "$verification_units" "$verification_runtime/systemd"
+          printf '[Unit]\nDescription=Hermetic basic target fixture\n' \
+            >"$verification_units/basic.target"
+          XDG_RUNTIME_DIR="$verification_runtime" \
+            SYSTEMD_UNIT_PATH="${rootDesktopSwitchBundle}/lib/systemd/system:$verification_units" \
+            ${rootPkgs.systemd}/bin/systemd-analyze --user verify \
+              ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.service \
+              ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.timer
+          test -x ${rootDesktopSwitchBundle}/bin/dgx-root-desktop-switch
+          grep -Fx \
+            'ExecStart=${rootDesktopSwitchBundle}/bin/dgx-root-desktop-switch rollback-guarded' \
+            ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.service
+          grep -Fx 'IgnoreOnIsolate=yes' \
+            ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.service
+          grep -Fx 'IgnoreOnIsolate=yes' \
+            ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.timer
+          grep -Fx 'OnActiveSec=10min' \
+            ${rootDesktopSwitchBundle}/lib/systemd/system/dgx-desktop-switch-rollback.timer
           touch "$out"
         '';
 
@@ -1865,6 +1926,7 @@
           }
           ''
             shellcheck \
+              ${./scripts/dgx-desktop} \
               ${./scripts/dgx-home} \
               ${./scripts/dgx-setup} \
               ${./scripts/dgx-tailscale} \
@@ -1872,6 +1934,7 @@
               ${./scripts/test-dgx-setup-plan.sh} \
               ${./scripts/test-desktop-headless-transaction.sh} \
               ${./scripts/test-desktop-mode-lifecycle.sh} \
+              ${./scripts/test-desktop-switch-lifecycle.sh} \
               ${./scripts/test-post-tailscale-integration.sh} \
               ${./scripts/test-tailscale-unit-lifecycle.sh} \
               ${./.agents/skills/dgx-spark-ops/scripts/audit-updates.sh}
@@ -1947,6 +2010,36 @@
         assert !rootManagerManifest.desktopController.guardedHeadlessTransaction.performsReboot;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.status
+          == "designed-disposable-lifecycle-awaiting";
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.implemented;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.sha256
+          == reviewedRootDesktopSwitchOperatorSha256;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.actions == [
+            "plan"
+            "headless"
+            "status"
+            "confirm"
+            "rollback"
+            "cleanup-rolled-back"
+          ];
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.bundle
+          == rootDesktopSwitchBundle.outPath;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.detachedWorkerIgnoresIsolation;
+        assert
+          !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.exactPhraseRequired;
+        assert
+          !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.performsReboot;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.result
+          == "awaiting-root-local-run";
+        assert
+          !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.hostMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
         assert
@@ -2820,6 +2913,16 @@
           ;
       };
 
+      desktopSwitchLifecycleContainerTest = import ./root/desktop/switch-lifecycle-test.nix {
+        pkgs = rootPkgs;
+        inherit
+          rootCanary
+          rootDesktopModeTransactionProgram
+          rootManagerOverlays
+          system-manager
+          ;
+      };
+
       nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
         mkdir -p \
           "$out/bootstrap/nix" \
@@ -3043,6 +3146,7 @@
         root-system-tailscale-migration = rootTailscaleMigrationGeneration;
         root-system-desktop-headless = rootDesktopHeadlessGeneration;
         root-system-desktop-gnome = rootDesktopGnomeGeneration;
+        root-desktop-switch-bundle = rootDesktopSwitchBundle;
         root-tailscale-migration-bundle = rootTailscaleMigrationBundle;
         root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
@@ -3062,6 +3166,7 @@
         desktop-controller-policy = desktopControllerPolicyCheck;
         desktop-headless-transaction-container = desktopHeadlessTransactionContainerTest;
         desktop-mode-lifecycle-container = desktopModeLifecycleContainerTest;
+        desktop-switch-lifecycle-container = desktopSwitchLifecycleContainerTest;
         home-sparkle-01 = sparkleHome.activationPackage;
         home-base = baseProfile.activationPackage;
         home-graphical = graphicalProfile.activationPackage;

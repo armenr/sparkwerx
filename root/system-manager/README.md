@@ -29,7 +29,10 @@ generations and direct pilot roots remained at that milestone. The later
 guarded Tailscale migration retained exact generation four after a real reboot;
 generation four is current, all four earlier anchors remain, and recovery is
 unarmed. Exact headless and factory-GNOME generation-five candidates then
-passed their 10-subtest/three-reboot disposable lifecycle but remain inactive.
+passed their 10-subtest/three-reboot disposable lifecycle, and the exact
+generation-four-to-five transaction passed 12 failure/rollback subtests. A
+persistent-rollback live operator is implemented but awaits its own disposable
+lifecycle; the candidates remain inactive.
 
 ## Reviewed candidate
 
@@ -50,7 +53,7 @@ passed their 10-subtest/three-reboot disposable lifecycle but remain inactive.
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
 | Persistent first-reboot recovery | **PASS** for exact 13-subtest/two-restart lifecycle and first real reboot; missed deadline automatically restored generation two, verification/cleanup passed, host recovery is unarmed |
 | Tailscale generation four | **ACTIVE** after guarded migration, real reboot, and fresh SSH confirmation |
-| Desktop controller | **PASS** for exact 10-subtest/three-reboot disposable lifecycle; live switch not authorized |
+| Desktop controller | **PASS** for exact 10-subtest/three-reboot mode lifecycle and 12-subtest transaction; guarded-operator lifecycle and live authorization remain open |
 | Host registration | Exact generations one through four registered; generation four selected/upstream-rooted |
 | Host activation | Exact generation four active with Nix-managed Tailscale and its declarative boot edge |
 | Rollback anchors | All four exact direct pilot roots and numbered generations remain |

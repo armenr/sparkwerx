@@ -51,14 +51,28 @@ The exact 12-subtest derivation passed from commit `71bd7c4` with clean
 live-host postflight. See the
 [result](2026-09-05-headless-transaction-container-test.md).
 
-## Still required before any live switch
+## Guarded live-operator design
 
-The transaction primitive is not itself the live operator. A later short
-operator must retain the exact headless candidate, capture a private snapshot,
-install and verify a persistent timed rollback to generation four before any
-registration or isolation, survive loss of the SSH/GUI session, and expose
-simple status/confirm/rollback commands. It must pass its own disposable
-lifecycle before live authorization.
+`scripts/dgx-desktop` now wraps that primitive with the short interface
+`plan|headless|status|confirm|rollback|cleanup-rolled-back`. The `headless`
+action retains the exact candidate and immutable rollback bundle, captures a
+private host snapshot, installs a persistent ten-minute generation-four/
+factory-GNOME timer, and starts a detached worker. Both the timer and worker
+ignore target isolation, so closing a GUI terminal or losing an SSH client
+cannot cancel recovery. Confirmation has no fragile typed phrase: invoking
+`confirm` after exact postflight is the decision.
+
+`root/desktop/switch-lifecycle-test.nix` exercises same-boot automatic
+rollback, confirmed retention, explicit factory rollback, a headless reboot
+with automatic factory recovery, Tailscale continuity, and complete candidate-
+root retention in a disposable Ubuntu container. The host-boundary wrapper is:
+
+```bash
+sudo ./scripts/test-desktop-switch-lifecycle.sh
+```
+
+That lifecycle is the remaining proof gate. Until its exact result is recorded
+as current and passed, do not run `./scripts/dgx-desktop headless`.
 
 This plan and its test do not authorize rooting, registering, activating,
 isolating, stopping GDM, or rebooting `sparkle-01`.

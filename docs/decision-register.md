@@ -564,8 +564,10 @@ original `/usr/lib/systemd/system/default.target -> graphical.target` is
 authoritative again.
 
 System Manager activation changes persistent declaration only. Runtime target
-isolation—which can terminate a GUI session—belongs to a separate guarded
-operator with explicit preview, rollback, and postflight. The exact candidates
+isolation—which can terminate a GUI session—belongs to `scripts/dgx-desktop`,
+a separate guarded operator with preview, private snapshot, persistent timed
+rollback, and postflight. Its live use remains blocked until its own exact
+disposable lifecycle is recorded as current and passed. The exact candidates
 and static checks are recorded in the
 [desktop-controller candidate record](2026-09-05-desktop-controller-candidates.md).
 The exact ten-subtest/three-reboot disposable lifecycle passed while the live
@@ -590,8 +592,8 @@ live-transaction design, but grants no live switch or reboot authority.
   four numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- Build and pass the guarded headless/factory-GNOME live switch/rollback
-  operator. Hyprland and KDE remain later independent extensions.
+- Pass and record the implemented guarded headless/factory-GNOME operator's
+  disposable lifecycle. Hyprland and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
 - Design and prove Chromium's exact root sandbox integration, then wire and

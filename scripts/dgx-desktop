@@ -1,0 +1,814 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Guarded initial factory-GNOME -> headless host switch for sparkle-01.
+# The command itself is the operator acknowledgement: there are no fragile
+# typed phrases. The immutable rollback bundle is armed before a detached,
+# isolate-resistant worker changes the live target. This program never reboots.
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+host_name="$(hostname -s)"
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+state_dir=/var/lib/dgx-setup/desktop-switch
+state_context=$state_dir/context
+profile_dir=/nix/var/nix/profiles/system-manager-profiles
+headless_root=/nix/var/nix/gcroots/dgx-setup-desktop-headless-pilot
+rollback_root=/nix/var/nix/gcroots/dgx-setup-desktop-switch-rollback
+rollback_service=dgx-desktop-switch-rollback.service
+rollback_timer=dgx-desktop-switch-rollback.timer
+apply_service=dgx-desktop-switch-apply.service
+rollback_service_path=/etc/systemd/system/$rollback_service
+rollback_timer_path=/etc/systemd/system/$rollback_timer
+rollback_wants_path=/etc/systemd/system/timers.target.wants/$rollback_timer
+snapshot_root=$repo_dir/inventory/$host_name/raw/desktop-mode-switch
+tailscale_transaction=$repo_dir/scripts/root-tailscale-migration-transaction.sh
+desktop_transaction=$repo_dir/scripts/root-desktop-mode-transaction.sh
+
+controller_paths=(
+  /etc/dgx-setup/desktop-mode
+  /etc/systemd/system/default.target
+  /etc/systemd/system/dgx-headless.target
+  /etc/systemd/system/dgx-gnome.target
+)
+protected_units=(
+  docker.service
+  dgx-dashboard.service
+  dgx-dashboard-admin.service
+  nvidia-persistenced.service
+)
+
+NIX_USER_CONF_FILES=/dev/null
+export NIX_USER_CONF_FILES
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/dgx-desktop plan|headless|status|confirm|rollback|cleanup-rolled-back
+
+  plan                Read-only current/candidate/guard summary
+  headless            Snapshot, arm rollback, and switch to headless (no reboot)
+  status              Verify current or in-flight desktop state
+  confirm             Keep a verified headless switch and remove its guard
+  rollback            Immediately ask systemd to restore factory GNOME
+  cleanup-rolled-back Remove guard residue after verified rollback
+EOF
+}
+
+info() {
+  printf 'INFO|%s|%s\n' "$1" "$2"
+}
+
+pass() {
+  printf 'PASS|%s|%s\n' "$1" "$2"
+}
+
+die() {
+  printf 'FAIL|dgx_desktop|%s\n' "$1" >&2
+  exit 1
+}
+
+path_exists() {
+  [[ -e "$1" || -L "$1" ]]
+}
+
+require_root() {
+  if [[ "$EUID" -ne 0 ]]; then
+    exec sudo -- "$repo_dir/scripts/dgx-desktop" "$@"
+  fi
+}
+
+require_commands() {
+  local command_name
+
+  for command_name in \
+    awk cmp date find git grep hostname install jq ln mktemp nvidia-smi \
+    readlink rm sed sha256sum sort stat systemctl systemd-analyze systemd-run \
+    tailscale timeout touch uname; do
+    command -v "$command_name" >/dev/null 2>&1 ||
+      die "required command is unavailable: $command_name"
+  done
+  [[ -x "$nix_bin" ]] || die "root-profile Nix is unavailable at $nix_bin"
+}
+
+eval_output() {
+  "$nix_bin" \
+    --extra-experimental-features "nix-command flakes" \
+    eval --raw --no-write-lock-file "$1"
+}
+
+context_value() {
+  local key="$1"
+  local file="${2:-$state_context}"
+
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$file"
+}
+
+assert_store_path() {
+  local value="$1"
+  local suffix="$2"
+
+  [[ "$value" =~ ^/nix/store/[a-z0-9]{32}-${suffix}$ ]] ||
+    die "invalid recorded store path: $value"
+  [[ -e "$value" ]] || die "recorded store path is unavailable: $value"
+}
+
+current_boot_id() {
+  local boot_id
+
+  boot_id="$(< /proc/sys/kernel/random/boot_id)"
+  [[ "$boot_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] ||
+    die "kernel boot ID is unavailable or invalid"
+  printf '%s\n' "$boot_id"
+}
+
+assert_nix_runtime() {
+  local load active substate reload
+
+  load="$(systemctl show nix-daemon.socket -p LoadState --value 2>/dev/null || true)"
+  active="$(systemctl show nix-daemon.socket -p ActiveState --value 2>/dev/null || true)"
+  substate="$(systemctl show nix-daemon.socket -p SubState --value 2>/dev/null || true)"
+  reload="$(systemctl show nix-daemon.socket -p NeedDaemonReload --value 2>/dev/null || true)"
+  [[ "$load" == loaded && "$active" == active &&
+    ("$substate" == listening || "$substate" == running) &&
+    "$reload" == no ]] || die "Nix daemon socket is not healthy"
+}
+
+assert_machine_health() {
+  local system_state failed_units gpu_state
+
+  system_state="$(systemctl is-system-running 2>/dev/null || true)"
+  [[ "$system_state" == running ]] ||
+    die "systemd state is ${system_state:-UNKNOWN}, not running"
+  failed_units="$(
+    systemctl --failed --no-legend --plain 2>/dev/null |
+      sed '/^[[:space:]]*$/d' || true
+  )"
+  [[ -z "$failed_units" ]] || die "systemd reports failed units"
+  gpu_state="$(
+    nvidia-smi \
+      --query-gpu=name,driver_version,pstate,temperature.gpu \
+      --format=csv,noheader 2>/dev/null || true
+  )"
+  [[ -n "$gpu_state" ]] || die "nvidia-smi health query failed"
+  assert_nix_runtime
+  pass health "systemd=running;failed_units=0;gpu=$gpu_state"
+}
+
+check_tailscale_health() {
+  local package="$1"
+  local expected_identity="${2:-}"
+  local status_json prefs_json backend online want_running run_ssh identity
+
+  status_json="$(timeout 15s "$package/bin/tailscale" status --json 2>/dev/null || true)"
+  prefs_json="$(timeout 15s "$package/bin/tailscale" debug prefs 2>/dev/null || true)"
+  jq -e . >/dev/null 2>&1 <<<"$status_json" ||
+    die "Tailscale status did not return valid JSON"
+  jq -e . >/dev/null 2>&1 <<<"$prefs_json" ||
+    die "Tailscale preferences did not return valid JSON"
+  backend="$(jq -r '.BackendState // "UNKNOWN"' <<<"$status_json")"
+  online="$(jq -r 'if .Self.Online == null then "UNKNOWN" else (.Self.Online | tostring) end' <<<"$status_json")"
+  want_running="$(jq -r 'if .WantRunning == null then "UNKNOWN" else (.WantRunning | tostring) end' <<<"$prefs_json")"
+  run_ssh="$(jq -r 'if .RunSSH == null then "UNKNOWN" else (.RunSSH | tostring) end' <<<"$prefs_json")"
+  identity="$(jq -er '.Self.ID' <<<"$status_json" 2>/dev/null || true)"
+  [[ -n "$identity" ]] || die "Tailscale self identity is unavailable"
+  TAILSCALE_IDENTITY_SHA256="$(printf '%s' "$identity" | sha256sum | awk '{print $1}')"
+
+  [[ "$backend" == Running && "$online" == true &&
+    "$want_running" == true && "$run_ssh" == true ]] ||
+    die "Tailscale health failed: backend=$backend;online=$online;WantRunning=$want_running;RunSSH=$run_ssh"
+  if [[ -n "$expected_identity" &&
+    "$TAILSCALE_IDENTITY_SHA256" != "$expected_identity" ]]; then
+    die "Tailscale node identity changed"
+  fi
+  pass tailscale "backend=$backend;online=$online;WantRunning=$want_running;RunSSH=$run_ssh;identity=unchanged"
+}
+
+capture_protected_units() {
+  local destination="$1"
+
+  systemctl show "${protected_units[@]}" \
+    -p Id -p LoadState -p ActiveState -p SubState -p Result \
+    -p MainPID -p ActiveEnterTimestampMonotonic -p FragmentPath \
+    -p NeedDaemonReload >"$destination"
+}
+
+capture_protected_fragments() {
+  local destination="$1"
+  local unit fragment load active reload
+
+  : >"$destination"
+  for unit in "${protected_units[@]}"; do
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    [[ -n "$fragment" && "$load" == loaded && "$active" == active &&
+      "$reload" == no ]] || die "protected unit is not healthy: $unit"
+    printf '%s|%s\n' "$unit" "$fragment" >>"$destination"
+  done
+}
+
+assert_protected_units() {
+  local baseline="$1"
+  local current
+
+  current="$(mktemp)" || die "could not allocate protected-unit comparison"
+  capture_protected_units "$current"
+  if ! cmp -s -- "$baseline" "$current"; then
+    rm -f -- "$current"
+    die "a protected factory service changed after the snapshot"
+  fi
+  rm -f -- "$current"
+  pass protected_units "four factory services remain active and unrestarted"
+}
+
+assert_protected_units_postboot() {
+  local baseline="$1"
+  local unit expected_fragment load active fragment reload
+
+  while IFS='|' read -r unit expected_fragment; do
+    [[ -n "$unit" && -n "$expected_fragment" ]] ||
+      die "invalid protected-unit fragment baseline"
+    load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
+    fragment="$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)"
+    reload="$(systemctl show "$unit" -p NeedDaemonReload --value 2>/dev/null || true)"
+    [[ "$load" == loaded && "$active" == active &&
+      "$fragment" == "$expected_fragment" && "$reload" == no ]] ||
+      die "protected unit failed post-reboot continuity: $unit"
+  done <"$baseline"
+  pass protected_units "four factory services are active from original fragments after reboot"
+}
+
+assert_protected_continuity() {
+  if [[ "$(current_boot_id)" == "$context_origin_boot_id" ]]; then
+    assert_protected_units "$context_snapshot/protected-services.before.txt"
+  else
+    assert_protected_units_postboot \
+      "$context_snapshot/protected-services.fragments.before.tsv"
+  fi
+}
+
+load_repo_outputs() {
+  local evidence_json
+
+  cd "$repo_dir" || die "repository is unavailable"
+  generation_one="$(eval_output .#packages.aarch64-linux.root-system-canary.outPath)" ||
+    die "could not evaluate generation one"
+  generation_two="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-two.outPath)" ||
+    die "could not evaluate generation two"
+  generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-three-boot.outPath)" ||
+    die "could not evaluate generation three"
+  generation_four="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" ||
+    die "could not evaluate generation four"
+  headless_generation="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" ||
+    die "could not evaluate the headless generation"
+  switch_bundle="$(eval_output .#packages.aarch64-linux.root-desktop-switch-bundle.outPath)" ||
+    die "could not evaluate the desktop-switch bundle"
+  tailscale_package="$(eval_output .#packages.aarch64-linux.tailscale.outPath)" ||
+    die "could not evaluate Tailscale"
+  lifecycle_test="$(eval_output .#checks.aarch64-linux.desktop-headless-transaction-container.outPath)" ||
+    die "could not evaluate the headless transaction test"
+  switch_lifecycle_test="$(eval_output .#checks.aarch64-linux.desktop-switch-lifecycle-container.outPath)" ||
+    die "could not evaluate the desktop-switch lifecycle test"
+  evidence_json="$(
+    "$nix_bin" --extra-experimental-features "nix-command flakes" \
+      eval --json --no-write-lock-file \
+      .#lib.dgxRootManagerManifest.aarch64-linux.desktopController.guardedHeadlessTransaction.isolatedTest
+  )" || die "could not evaluate transaction evidence"
+  [[ "$(jq -r '.result' <<<"$evidence_json")" == passed &&
+    "$(jq -r '.matchesCurrent' <<<"$evidence_json")" == true ]] ||
+    die "the exact headless transaction evidence is not current and passed"
+  [[ -e "$lifecycle_test" ]] || die "the passed transaction output is unavailable"
+}
+
+assert_switch_lifecycle_evidence() {
+  local evidence_json
+
+  evidence_json="$(
+    "$nix_bin" --extra-experimental-features "nix-command flakes" \
+      eval --json --no-write-lock-file \
+      .#lib.dgxRootManagerManifest.aarch64-linux.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle
+  )" || die "could not evaluate desktop-switch lifecycle evidence"
+  [[ "$(jq -r '.result' <<<"$evidence_json")" == passed &&
+    "$(jq -r '.matchesCurrent // false' <<<"$evidence_json")" == true ]] ||
+    die "the exact desktop-switch lifecycle evidence is not current and passed"
+  [[ "$(jq -r '.currentOutputPath // empty' <<<"$evidence_json")" == "$switch_lifecycle_test" ]] ||
+    die "desktop-switch lifecycle evidence names another output"
+  [[ -e "$switch_lifecycle_test" ]] ||
+    die "the passed desktop-switch lifecycle output is unavailable"
+}
+
+run_repo_transaction() {
+  local action="$1"
+
+  /bin/bash "$desktop_transaction" \
+    "$action" \
+    "$generation_one" \
+    "$generation_two" \
+    "$generation_three" \
+    "$generation_four" \
+    "$headless_generation"
+}
+
+run_context_transaction() {
+  local action="$1"
+
+  /bin/bash "$desktop_transaction" \
+    "$action" \
+    "$context_generation_one" \
+    "$context_generation_two" \
+    "$context_generation_three" \
+    "$context_generation_four" \
+    "$context_headless"
+}
+
+assert_factory_boundary() {
+  local current path unit
+
+  current="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
+  [[ "$current" == "$generation_four" ]] ||
+    die "live System Manager generation is not exact generation four"
+  "$tailscale_transaction" verify-after-public \
+    "$generation_one" "$generation_two" "$generation_three" \
+    "$generation_four" >/dev/null ||
+    die "exact generation-four Tailscale boundary did not verify"
+  [[ "$(systemctl get-default 2>/dev/null || true)" == graphical.target ]] ||
+    die "factory default target is not graphical.target"
+  systemctl is-active --quiet graphical.target || die "graphical.target is not active"
+  systemctl is-active --quiet gdm.service || die "factory GDM is not active"
+  for path in "${controller_paths[@]}"; do
+    ! path_exists "$path" || die "desktop-controller path already exists: $path"
+  done
+  for unit in dgx-headless.target dgx-gnome.target; do
+    [[ "$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)" == not-found ]] ||
+      die "desktop-controller unit is unexpectedly loaded: $unit"
+  done
+  ! path_exists "$profile_dir/system-manager-5-link" ||
+    die "System Manager generation five already exists"
+}
+
+assert_no_guard_surface() {
+  local path unit load_state retained
+
+  for path in \
+    "$state_dir" "$rollback_root" "$rollback_service_path" \
+    "$rollback_timer_path" "$rollback_wants_path"; do
+    ! path_exists "$path" || die "desktop-switch guard path already exists: $path"
+  done
+  if path_exists "$headless_root"; then
+    [[ -L "$headless_root" ]] || die "headless pilot root is a foreign collision"
+    retained="$(readlink -- "$headless_root" 2>/dev/null || true)"
+    [[ "$retained" == "$headless_generation" ]] ||
+      die "headless pilot root retains an unknown candidate"
+    pass candidate_root "reusing retained exact headless candidate"
+  fi
+  for unit in "$rollback_service" "$rollback_timer" "$apply_service"; do
+    load_state="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    [[ -z "$load_state" || "$load_state" == not-found ]] ||
+      die "desktop-switch unit is already loaded: $unit ($load_state)"
+  done
+}
+
+create_snapshot() {
+  local stamp operator_hash transaction_hash origin_boot_id
+
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  snapshot="$snapshot_root/$stamp"
+  umask 077
+  install -d -m 0700 "$snapshot" || die "could not create private snapshot"
+  operator_hash="$(sha256sum "$repo_dir/scripts/dgx-desktop" | awk '{print $1}')"
+  transaction_hash="$(sha256sum "$desktop_transaction" | awk '{print $1}')"
+  origin_boot_id="$(current_boot_id)"
+
+  {
+    printf 'schema=1\n'
+    printf 'timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'host=%s\n' "$host_name"
+    printf 'snapshot=%s\n' "$snapshot"
+    printf 'repo_commit=%s\n' "$repo_commit"
+    printf 'operator_sha256=%s\n' "$operator_hash"
+    printf 'transaction_sha256=%s\n' "$transaction_hash"
+    printf 'generation_one=%s\n' "$generation_one"
+    printf 'generation_two=%s\n' "$generation_two"
+    printf 'generation_three=%s\n' "$generation_three"
+    printf 'generation_four=%s\n' "$generation_four"
+    printf 'headless_generation=%s\n' "$headless_generation"
+    printf 'bundle=%s\n' "$switch_bundle"
+    printf 'tailscale_package=%s\n' "$tailscale_package"
+    printf 'lifecycle_test=%s\n' "$lifecycle_test"
+    printf 'switch_lifecycle_test=%s\n' "$switch_lifecycle_test"
+    printf 'identity_sha256=%s\n' "$TAILSCALE_IDENTITY_SHA256"
+    printf 'origin_boot_id=%s\n' "$origin_boot_id"
+  } >"$snapshot/context"
+
+  capture_protected_units "$snapshot/protected-services.before.txt"
+  capture_protected_fragments "$snapshot/protected-services.fragments.before.tsv"
+  systemctl show gdm.service \
+    -p LoadState -p ActiveState -p SubState -p Result -p MainPID \
+    -p ActiveEnterTimestampMonotonic -p FragmentPath -p NeedDaemonReload \
+    >"$snapshot/gdm.before.txt"
+  find "$profile_dir" -mindepth 1 -maxdepth 1 -printf '%f|%l\n' | sort \
+    >"$snapshot/system-manager-profile.before.txt"
+  find /nix/var/nix/gcroots -mindepth 1 -maxdepth 1 \
+    -name 'dgx-setup-*' -printf '%f|%l\n' | sort \
+    >"$snapshot/dgx-roots.before.txt"
+  sha256sum /etc/nix/nix.conf /etc/passwd /etc/group /etc/shadow \
+    >"$snapshot/protected-files.before.sha256"
+  sha256sum /var/lib/system-manager/state/system-manager-state.json \
+    >"$snapshot/system-manager-state.before.sha256"
+  install -m 0700 "$repo_dir/scripts/dgx-desktop" "$snapshot/dgx-desktop"
+  install -m 0700 "$desktop_transaction" \
+    "$snapshot/root-desktop-mode-transaction.sh"
+
+  (
+    cd "$snapshot" || exit 1
+    sha256sum \
+      context dgx-desktop dgx-roots.before.txt gdm.before.txt \
+      protected-files.before.sha256 protected-services.before.txt \
+      protected-services.fragments.before.tsv \
+      root-desktop-mode-transaction.sh system-manager-profile.before.txt \
+      system-manager-state.before.sha256 >SHA256SUMS
+  ) || die "could not seal snapshot checksums"
+  printf 'Snapshot creation completed.\n' >"$snapshot/SNAPSHOT_COMPLETE"
+  chmod 0600 "$snapshot"/*
+  chmod 0700 "$snapshot/dgx-desktop" \
+    "$snapshot/root-desktop-mode-transaction.sh"
+  pass snapshot "$snapshot"
+}
+
+load_context() {
+  local complete current_commit operator_hash transaction_hash
+
+  path_exists "$state_context" || die "no desktop switch is in flight"
+  [[ -d "$state_dir" && ! -L "$state_dir" &&
+    "$(stat -c %u:%a -- "$state_dir")" == 0:700 ]] ||
+    die "desktop-switch state directory ownership or mode changed"
+  [[ -f "$state_context" && ! -L "$state_context" &&
+    "$(stat -c %u:%a -- "$state_context")" == 0:600 ]] ||
+    die "desktop-switch context ownership or mode changed"
+
+  context_snapshot="$(context_value snapshot)"
+  context_host="$(context_value host)"
+  context_bundle="$(context_value bundle)"
+  context_generation_one="$(context_value generation_one)"
+  context_generation_two="$(context_value generation_two)"
+  context_generation_three="$(context_value generation_three)"
+  context_generation_four="$(context_value generation_four)"
+  context_headless="$(context_value headless_generation)"
+  context_tailscale_package="$(context_value tailscale_package)"
+  context_lifecycle_test="$(context_value lifecycle_test)"
+  context_switch_lifecycle_test="$(context_value switch_lifecycle_test)"
+  context_identity_sha256="$(context_value identity_sha256)"
+  context_origin_boot_id="$(context_value origin_boot_id)"
+  context_repo_commit="$(context_value repo_commit)"
+  context_operator_sha256="$(context_value operator_sha256)"
+  context_transaction_sha256="$(context_value transaction_sha256)"
+
+  [[ "$context_host" == "$host_name" ]] ||
+    die "desktop-switch context belongs to another host"
+  [[ "$context_repo_commit" =~ ^[a-f0-9]{40}$ &&
+    "$context_operator_sha256" =~ ^[a-f0-9]{64}$ &&
+    "$context_transaction_sha256" =~ ^[a-f0-9]{64}$ &&
+    "$context_identity_sha256" =~ ^[a-f0-9]{64}$ ]] ||
+    die "desktop-switch context contains an invalid digest"
+  [[ "$context_origin_boot_id" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] ||
+    die "desktop-switch context contains an invalid boot ID"
+  current_commit="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)"
+  [[ "$current_commit" == "$context_repo_commit" &&
+    -z "$(git -C "$repo_dir" status --porcelain=v1 2>/dev/null)" ]] ||
+    die "repository changed during the desktop switch"
+  operator_hash="$(sha256sum "$repo_dir/scripts/dgx-desktop" | awk '{print $1}')"
+  transaction_hash="$(sha256sum "$desktop_transaction" | awk '{print $1}')"
+  [[ "$operator_hash" == "$context_operator_sha256" &&
+    "$transaction_hash" == "$context_transaction_sha256" ]] ||
+    die "desktop-switch helper changed after the snapshot"
+
+  case "$context_snapshot" in
+    "$snapshot_root"/*) ;;
+    *) die "recorded snapshot is outside $snapshot_root" ;;
+  esac
+  [[ -d "$context_snapshot" && ! -L "$context_snapshot" &&
+    "$(stat -c %u:%a -- "$context_snapshot")" == 0:700 ]] ||
+    die "desktop-switch snapshot ownership or mode changed"
+  (cd "$context_snapshot" && sha256sum -c SHA256SUMS >/dev/null) ||
+    die "desktop-switch snapshot checksum validation failed"
+  complete="$(<"$context_snapshot/SNAPSHOT_COMPLETE")"
+  [[ "$complete" == "Snapshot creation completed." ]] ||
+    die "desktop-switch snapshot is incomplete"
+
+  assert_store_path "$context_bundle" dgx-desktop-switch
+  assert_store_path "$context_generation_one" system-manager
+  assert_store_path "$context_generation_two" system-manager
+  assert_store_path "$context_generation_three" system-manager
+  assert_store_path "$context_generation_four" system-manager
+  assert_store_path "$context_headless" system-manager
+  [[ "$context_tailscale_package" =~ ^/nix/store/[a-z0-9]{32}-tailscale-[0-9] ]] ||
+    die "invalid recorded Tailscale package"
+  [[ -e "$context_tailscale_package" && -e "$context_lifecycle_test" &&
+    -e "$context_switch_lifecycle_test" ]] ||
+    die "recorded desktop-switch evidence is unavailable"
+}
+
+validate_guard_link() {
+  local path="$1"
+  local target="$2"
+
+  if path_exists "$path"; then
+    [[ -L "$path" && "$(readlink -- "$path")" == "$target" ]] ||
+      die "refusing unexpected desktop-switch guard path: $path"
+  fi
+}
+
+cleanup_guard_surface() {
+  local remove_candidate="${1:-false}"
+  local rollback_state apply_state
+
+  systemctl stop "$rollback_timer" 2>/dev/null || true
+  rollback_state="$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  case "$rollback_state" in
+    "" | inactive | failed) ;;
+    *) die "rollback service is $rollback_state; refusing concurrent cleanup" ;;
+  esac
+  case "$apply_state" in
+    "" | inactive | failed) ;;
+    *) die "apply worker is $apply_state; refusing concurrent cleanup" ;;
+  esac
+
+  validate_guard_link "$rollback_wants_path" "../$rollback_timer"
+  validate_guard_link "$rollback_timer_path" \
+    "$context_bundle/lib/systemd/system/$rollback_timer"
+  validate_guard_link "$rollback_service_path" \
+    "$context_bundle/lib/systemd/system/$rollback_service"
+  validate_guard_link "$rollback_root" "$context_bundle"
+  validate_guard_link "$headless_root" "$context_headless"
+
+  rm -f -- "$rollback_wants_path" "$rollback_timer_path" \
+    "$rollback_service_path" "$rollback_root"
+  if [[ "$remove_candidate" == true ]]; then
+    rm -f -- "$headless_root"
+  fi
+  rm -f -- "$state_dir/armed" "$state_dir/applying" \
+    "$state_dir/headless" "$state_dir/rolled-back" "$state_context"
+  if [[ -d "$state_dir" ]]; then
+    [[ -z "$(find "$state_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+      die "unknown files remain in desktop-switch state directory"
+    rmdir -- "$state_dir" || die "could not remove desktop-switch state directory"
+  fi
+  systemctl daemon-reload || die "systemd daemon reload failed during cleanup"
+}
+
+install_guard() {
+  install -d -m 0700 "$state_dir" || return 1
+  install -m 0600 "$snapshot/context" "$state_context" || return 1
+  touch "$state_dir/armed" || return 1
+  if path_exists "$headless_root"; then
+    validate_guard_link "$headless_root" "$headless_generation" || return 1
+    candidate_created=false
+  else
+    ln -s -- "$headless_generation" "$headless_root" || return 1
+    candidate_created=true
+  fi
+  ln -s -- "$switch_bundle" "$rollback_root" || return 1
+  ln -s -- "$switch_bundle/lib/systemd/system/$rollback_service" \
+    "$rollback_service_path" || return 1
+  ln -s -- "$switch_bundle/lib/systemd/system/$rollback_timer" \
+    "$rollback_timer_path" || return 1
+  install -d -m 0755 /etc/systemd/system/timers.target.wants || return 1
+  ln -s -- "../$rollback_timer" "$rollback_wants_path" || return 1
+  systemctl daemon-reload || return 1
+  "$switch_bundle/bin/dgx-root-desktop-switch" verify-factory || return 1
+  systemctl start "$rollback_timer" || return 1
+  systemctl is-active --quiet "$rollback_timer" || return 1
+  systemctl is-enabled --quiet "$rollback_timer" || return 1
+}
+
+record_result() {
+  local result="$1"
+
+  printf '%s|timestamp_utc=%s\n' "$result" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >"$context_snapshot/RESULT"
+  chmod 0600 "$context_snapshot/RESULT"
+}
+
+plan_action() {
+  local live guard candidate
+
+  require_commands
+  load_repo_outputs
+  live="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
+  guard=absent
+  candidate=absent
+  path_exists "$state_dir" && guard=present
+  path_exists "$headless_root" && candidate="$(readlink -- "$headless_root" 2>/dev/null || true)"
+  info host "$host_name"
+  info live_generation "${live:-ABSENT}"
+  info factory_generation "$generation_four"
+  info headless_generation "$headless_generation"
+  info candidate_retention "$candidate"
+  info guard "$guard"
+  info current_default "$(systemctl get-default 2>/dev/null || printf UNKNOWN)"
+}
+
+headless_action() {
+  local launch_status=0
+
+  require_commands
+  [[ "$host_name" == sparkle-01 ]] ||
+    die "the current desktop pilot is declared only for sparkle-01"
+  [[ "$(uname -m)" == aarch64 ]] || die "the pilot requires aarch64"
+  cd "$repo_dir" || die "repository is unavailable"
+  [[ -z "$(git status --porcelain=v1)" ]] ||
+    die "repository must be clean before a desktop switch"
+  repo_commit="$(git rev-parse HEAD)" || die "repository commit is unavailable"
+
+  load_repo_outputs
+  assert_switch_lifecycle_evidence
+  assert_no_guard_surface
+  assert_factory_boundary
+  assert_machine_health
+  check_tailscale_health "$tailscale_package"
+  protected_baseline="$(mktemp)" || die "could not capture protected services"
+  capture_protected_units "$protected_baseline"
+  capture_protected_fragments /dev/null
+  systemd-analyze verify \
+    "$switch_bundle/lib/systemd/system/$rollback_service" \
+    "$switch_bundle/lib/systemd/system/$rollback_timer" ||
+    die "desktop-switch rollback units failed verification"
+
+  create_snapshot
+  context_snapshot="$snapshot"
+  context_bundle="$switch_bundle"
+  context_headless="$headless_generation"
+  candidate_created=false
+  if ! install_guard; then
+    context_generation_four="$generation_four"
+    cleanup_guard_surface "$candidate_created" || true
+    rm -f -- "$protected_baseline"
+    die "desktop-switch rollback guard installation failed"
+  fi
+  assert_protected_units "$protected_baseline"
+  rm -f -- "$protected_baseline"
+  pass rollback "persistent ten-minute factory-GNOME rollback is armed"
+
+  printf '%s\n' \
+    'SWITCH_LAUNCHING: a detached worker will stop GDM and enter headless mode.' \
+    'A local graphical terminal will close; Tailscale SSH should remain available.' \
+    "Check with: cd $repo_dir && ./scripts/dgx-desktop status" \
+    'Healthy status is AWAITING_CONFIRMATION.' \
+    "Keep it with: cd $repo_dir && ./scripts/dgx-desktop confirm" \
+    'Without confirmation, the ten-minute timer restores factory GNOME.'
+
+  systemd-run \
+    --unit="$apply_service" \
+    --collect --no-block \
+    --property=IgnoreOnIsolate=yes \
+    --property=TimeoutStartSec=5min \
+    "$switch_bundle/bin/dgx-root-desktop-switch" apply-guarded || launch_status=$?
+  if ((launch_status != 0)); then
+    cleanup_guard_surface "$candidate_created" || true
+    die "detached desktop-switch worker could not be launched"
+  fi
+  pass launch "headless switch worker started; no reboot was performed"
+}
+
+status_action() {
+  local timer_state apply_state
+
+  require_commands
+  if ! path_exists "$state_context"; then
+    load_repo_outputs
+    if path_exists "$headless_root" &&
+      run_repo_transaction verify-headless >/dev/null 2>&1; then
+      check_tailscale_health "$tailscale_package"
+      assert_machine_health
+      printf 'DESKTOP_STATUS=HEADLESS_CONFIRMED\n'
+      return
+    fi
+    assert_factory_boundary
+    check_tailscale_health "$tailscale_package"
+    assert_machine_health
+    printf 'DESKTOP_STATUS=FACTORY_GNOME\n'
+    return
+  fi
+
+  load_context
+  timer_state="$(systemctl show "$rollback_timer" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  info rollback_timer "${timer_state:-not-found}"
+  info apply_worker "${apply_state:-not-found}"
+  systemctl list-timers "$rollback_timer" --no-pager --no-legend 2>/dev/null || true
+
+  if path_exists "$state_dir/headless"; then
+    "$context_bundle/bin/dgx-root-desktop-switch" verify-headless ||
+      die "headless marker exists but exact generation five does not verify"
+    check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+    assert_machine_health
+    assert_protected_continuity
+    systemctl is-active --quiet "$rollback_timer" ||
+      die "headless switch is unconfirmed but rollback timer is not active"
+    printf 'DESKTOP_STATUS=AWAITING_CONFIRMATION\n'
+  elif path_exists "$state_dir/rolled-back"; then
+    "$context_bundle/bin/dgx-root-desktop-switch" verify-factory ||
+      die "rollback marker exists but factory GNOME does not verify"
+    check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+    assert_machine_health
+    assert_protected_continuity
+    printf 'DESKTOP_STATUS=ROLLED_BACK_CLEANUP_PENDING\n'
+  elif path_exists "$state_dir/applying"; then
+    printf 'DESKTOP_STATUS=APPLYING\n'
+  elif path_exists "$state_dir/armed"; then
+    printf 'DESKTOP_STATUS=ARMED_WAITING_FOR_WORKER\n'
+  else
+    die "desktop-switch context exists without a recognized state marker"
+  fi
+}
+
+confirm_action() {
+  local rollback_state
+
+  require_commands
+  load_context
+  path_exists "$state_dir/headless" ||
+    die "desktop switch is not ready to confirm; run status"
+  path_exists "$state_dir/armed" || die "rollback is not armed as expected"
+  "$context_bundle/bin/dgx-root-desktop-switch" verify-headless ||
+    die "exact headless generation does not verify"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  assert_machine_health
+  assert_protected_continuity
+
+  systemctl stop "$rollback_timer" || die "could not stop rollback timer"
+  rollback_state="$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)"
+  [[ "$rollback_state" == inactive ]] ||
+    die "rollback service is ${rollback_state:-UNKNOWN}; refusing confirmation"
+  cleanup_guard_surface false
+  run_context_transaction verify-headless ||
+    die "headless state changed during guard cleanup"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  record_result CONFIRMED_HEADLESS
+  pass confirmation "generation five retained in headless mode; rollback guard removed"
+  printf 'SNAPSHOT=%s\nNO_REBOOT: the desktop switch performed no reboot.\n' \
+    "$context_snapshot"
+}
+
+rollback_action() {
+  require_commands
+  load_context
+  path_exists "$state_dir/armed" || die "desktop rollback is not armed"
+  systemctl start --no-block "$rollback_service" ||
+    die "could not launch the desktop rollback service"
+  printf '%s\n' \
+    'ROLLBACK_LAUNCHED: systemd is restoring exact generation four and factory GNOME.' \
+    "Check with: cd $repo_dir && ./scripts/dgx-desktop status"
+}
+
+cleanup_rolled_back_action() {
+  require_commands
+  load_context
+  path_exists "$state_dir/rolled-back" ||
+    die "no verified rolled-back marker exists"
+  run_context_transaction verify-factory ||
+    die "factory generation four does not verify"
+  check_tailscale_health "$context_tailscale_package" "$context_identity_sha256"
+  assert_machine_health
+  assert_protected_continuity
+  cleanup_guard_surface false
+  record_result ROLLED_BACK_FACTORY
+  pass cleanup "desktop-switch guard removed; headless candidate root retained"
+  printf 'SNAPSHOT=%s\n' "$context_snapshot"
+}
+
+action="${1:-}"
+case "$action" in
+  -h | --help | help | "")
+    usage
+    ;;
+  plan)
+    plan_action
+    ;;
+  headless)
+    require_root "$@"
+    headless_action
+    ;;
+  status)
+    require_root "$@"
+    status_action
+    ;;
+  confirm)
+    require_root "$@"
+    confirm_action
+    ;;
+  rollback)
+    require_root "$@"
+    rollback_action
+    ;;
+  cleanup-rolled-back)
+    require_root "$@"
+    cleanup_rolled_back_action
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

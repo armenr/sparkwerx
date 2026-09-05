@@ -161,7 +161,8 @@ is now ready for the first future dependency change; no live update was needed.
       `gnome` root-controller candidates without activating them
 - [x] Pass the disposable `headless -> gnome -> headless`, reboot, access-plane,
       and factory-fallback lifecycle
-- [ ] Build and pass the guarded live switch/rollback operator
+- [ ] Pass and record the implemented guarded live switch/rollback operator's
+      disposable lifecycle
 - [ ] Validate the NVIDIA userspace bridge for Hyprland
 - [ ] Review Hyprland's portal as an independent closure
 - [ ] Add a reversible GDM session entry
