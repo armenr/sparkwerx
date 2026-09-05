@@ -103,6 +103,7 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Combined post-migration plan/lifecycle/apply regression | [scripts/test-post-tailscale-integration.sh](../../../../scripts/test-post-tailscale-integration.sh); [passing pilot evidence](../../../../docs/2026-09-05-post-tailscale-integration.md) |
 | Headless/factory-GNOME root controller | [modules/system/desktop-mode.nix](../../../../modules/system/desktop-mode.nix); [candidate evidence and gate](../../../../docs/2026-09-05-desktop-controller-candidates.md) |
 | Disposable desktop-mode lifecycle | [root/desktop/mode-lifecycle-test.nix](../../../../root/desktop/mode-lifecycle-test.nix); [root-only wrapper](../../../../scripts/test-desktop-mode-lifecycle.sh) |
+| First guarded desktop host attempt and Dashboard boundary | [root/desktop/validation/2026-09-05-host-attempt-1.md](../../../../root/desktop/validation/2026-09-05-host-attempt-1.md); [combined regression](../../../../scripts/test-desktop-stack-integration.sh) |
 | Frozen root dependency-lane identity proof | [root/system-manager/validation/2026-09-03-root-dependency-lane.md](../../../../root/system-manager/validation/2026-09-03-root-dependency-lane.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |

@@ -1,5 +1,11 @@
 # Desktop-mode lifecycle container test — 2026-09-05
 
+> **Superseded as live authority.** The first host attempt exposed that this
+> fixture omitted the factory `dgx-dashboard.service`/`default.target`
+> relationship. Preserve this as historical evidence; require a corrected
+> Dashboard-aware rerun after the
+> [host attempt](2026-09-05-host-attempt-1.md).
+
 ## Result
 
 **PASS** for the exact committed headless/factory-GNOME controller design.

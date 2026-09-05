@@ -41,6 +41,29 @@ let
     ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-gdm
   '';
 
+  # Match the factory Dashboard's important systemd behavior: its GUI service
+  # belongs to default.target, so headless isolation stops it and returning to
+  # factory GNOME starts it. The separate admin daemon remains headless-safe.
+  fakeDashboard = pkgs.writeShellScript "dgx-dashboard-desktop-fixture" ''
+    set -eu
+    printf '%s\n' factory-dashboard > /run/dgx-fake-dashboard
+    ${pkgs.systemdMinimal}/bin/systemd-notify --ready
+    exec ${pkgs.coreutils}/bin/sleep infinity
+  '';
+
+  fakeDashboardUnit = pkgs.writeText "dgx-dashboard-desktop-fixture.service" ''
+    [Unit]
+    Description=Factory DGX Dashboard disposable fixture
+
+    [Service]
+    Type=notify
+    ExecStart=${fakeDashboard}
+    ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-dashboard
+
+    [Install]
+    WantedBy=default.target
+  '';
+
   mkTestGeneration =
     mode:
     system-manager.lib.makeSystemConfig {
@@ -90,6 +113,8 @@ system-manager.lib.containerTest.makeContainerTest {
   extraPathsToRegister = [
     fakeGdm
     fakeGdmUnit
+    fakeDashboard
+    fakeDashboardUnit
     generationFour
     headlessGeneration
     gnomeGeneration
@@ -214,12 +239,18 @@ system-manager.lib.containerTest.makeContainerTest {
             inactive("dgx-gnome.target")
             inactive("graphical.target")
             inactive("gdm.service")
+            inactive("dgx-dashboard.service")
             machine.fail("test -e /run/dgx-fake-gdm")
+            machine.fail("test -e /run/dgx-fake-dashboard")
         else:
             inactive("dgx-headless.target")
             active("graphical.target")
             active("gdm.service")
+            active("dgx-dashboard.service")
             machine.succeed("grep -Fx factory-gnome /run/dgx-fake-gdm")
+            machine.succeed(
+                "grep -Fx factory-dashboard /run/dgx-fake-dashboard"
+            )
         machine.succeed("systemctl is-system-running --quiet")
         machine.succeed(
             "test -z \"$(systemctl list-units --state=failed "
@@ -244,7 +275,7 @@ system-manager.lib.containerTest.makeContainerTest {
         machine.wait_for_unit("system-manager.target")
         machine.wait_for_unit("tailscaled.service")
 
-    with subtest("Install a factory-GDM fixture and exact generation four"):
+    with subtest("Install factory GDM/Dashboard fixtures and exact generation four"):
         machine.succeed("install -d -m 0755 /usr/lib/systemd/system")
         machine.succeed(
             "install -m 0644 '${fakeGdmUnit}' "
@@ -255,15 +286,31 @@ system-manager.lib.containerTest.makeContainerTest {
             "ln -s /usr/lib/systemd/system/gdm.service "
             "/etc/systemd/system/display-manager.service"
         )
+        machine.succeed(
+            "install -m 0644 '${fakeDashboardUnit}' "
+            "/etc/systemd/system/dgx-dashboard.service"
+        )
+        machine.succeed(
+            "install -d -m 0755 /etc/systemd/system/default.target.wants"
+        )
+        machine.succeed(
+            "ln -s ../dgx-dashboard.service "
+            "/etc/systemd/system/default.target.wants/dgx-dashboard.service"
+        )
         machine.succeed("systemctl daemon-reload")
         assert machine.succeed("systemctl get-default").strip() == (
             "graphical.target"
         )
-        machine.succeed("systemctl start gdm.service")
+        machine.succeed("systemctl start gdm.service dgx-dashboard.service")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         activate(generation_four)
         active("graphical.target")
         active("gdm.service")
+        active("dgx-dashboard.service")
+        machine.succeed(
+            "grep -Fx factory-dashboard /run/dgx-fake-dashboard"
+        )
         assert_tailscale()
         assert_absent(default_alias)
         assert_absent(desktop_marker)
@@ -277,6 +324,7 @@ system-manager.lib.containerTest.makeContainerTest {
         assert_default("headless")
         active("graphical.target")
         active("gdm.service")
+        active("dgx-dashboard.service")
         inactive("dgx-headless.target")
         assert tailscale_pid() == initial_tailscale_pid
         assert_manager_state(desktop=True)
@@ -299,6 +347,7 @@ system-manager.lib.containerTest.makeContainerTest {
         active("dgx-headless.target")
         inactive("graphical.target")
         inactive("gdm.service")
+        inactive("dgx-dashboard.service")
         assert tailscale_pid() == headless_boot_tailscale_pid
         assert_manager_state(desktop=True)
 
@@ -306,6 +355,7 @@ system-manager.lib.containerTest.makeContainerTest {
         machine.succeed("systemctl isolate dgx-gnome.target")
         machine.wait_for_unit("dgx-gnome.target")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         assert_mode("gnome")
         assert tailscale_pid() == headless_boot_tailscale_pid
 
@@ -313,12 +363,14 @@ system-manager.lib.containerTest.makeContainerTest {
         restart_container()
         machine.wait_for_unit("dgx-gnome.target")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         assert_mode("gnome")
         gnome_boot_tailscale_pid = tailscale_pid()
 
     with subtest("The same controller returns from GNOME to headless"):
         activate(headless_generation)
         active("gdm.service")
+        active("dgx-dashboard.service")
         machine.succeed("systemctl isolate dgx-headless.target")
         machine.wait_for_unit("dgx-headless.target")
         assert_mode("headless")
@@ -335,6 +387,7 @@ system-manager.lib.containerTest.makeContainerTest {
         )
         machine.succeed("systemctl start system-manager.target graphical.target")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         active("system-manager.target")
         assert_tailscale()
         assert_manager_state(desktop=False)
@@ -343,11 +396,13 @@ system-manager.lib.containerTest.makeContainerTest {
         restart_container()
         machine.wait_for_unit("graphical.target")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         assert machine.succeed("systemctl get-default").strip() == (
             "graphical.target"
         )
         active("system-manager.target")
         active("gdm.service")
+        active("dgx-dashboard.service")
         assert_tailscale()
         assert_manager_state(desktop=False)
   '';

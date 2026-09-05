@@ -2,17 +2,20 @@
 
 ## Result
 
-**ALL CANDIDATE, TRANSACTION, AND GUARDED-OPERATOR LIFECYCLES PASSED; LIVE
-SWITCH NOT YET PERFORMED.**
+**CANDIDATES REMAIN VALID; PRIOR DESKTOP LIFECYCLE PROOFS ARE SUPERSEDED
+PENDING A DASHBOARD-AWARE RERUN. FIRST LIVE ATTEMPT ROLLED BACK CLEANLY.**
 
 The first root desktop-controller implementation adds only two thin systemd
 targets, one selected `default.target` dispatcher, and one non-secret mode
 marker on top of exact live System Manager generation four. It does not package,
 replace, mask, or edit factory GDM/GNOME.
 
-Nothing in this work was activated, registered, rooted, isolated, stopped, or
-rebooted on `sparkle-01`. The host remains in factory GNOME with exact
-generation four and Nix-managed Tailscale.
+This document originally recorded pre-live candidate evidence. A later guarded
+host attempt reached headless generation five, preserved Nix-managed Tailscale,
+then failed closed on an incomplete service classification. Persistent rollback
+returned the host to factory GNOME with exact generation four; no reboot was
+performed. See the
+[host-attempt record](../root/desktop/validation/2026-09-05-host-attempt-1.md).
 
 ## Host facts that shape the design
 
@@ -24,6 +27,8 @@ Read-only inspection found:
   collision;
 - `/etc/systemd/system/display-manager.service` is the factory alias to GDM;
 - `gdm.service` is active from `/usr/lib/systemd/system/gdm.service`; and
+- the user-facing `dgx-dashboard.service` is wanted by `default.target`, while
+  `dgx-dashboard-admin.service` belongs to `multi-user.target`; and
 - Tailscale is managed under `system-manager.target`.
 
 The last point matters. System Manager intentionally substitutes a service's
@@ -140,16 +145,20 @@ contains the complete authority boundary and failed-feedback history.
 
 ## Next gate
 
-The guarded live operator and its immutable ten-minute rollback bundle passed
-all seven lifecycle subtests from commit `8ab5dd8`. The proof covered
-same-boot rollback, confirmed retention, headless reboot recovery, Nix-managed
-Tailscale continuity, complete root retention, and an unchanged host boundary.
-See the
-[exact switch-lifecycle record](../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
+The old guarded lifecycle remains useful historical evidence, but it omitted a
+factory Dashboard fixture and is no longer sufficient authority. The corrected
+tests must prove all of the following before another host attempt:
 
-The remaining gate is a separately authorized live invocation of
-`./scripts/dgx-desktop headless`, followed by reconnecting over Tailscale,
-checking `status`, and running `confirm` before the persistent ten-minute
-factory-GNOME rollback fires. The operator does not reboot. The disposable
-proof itself did not authorize profile registration, target isolation, GUI
-termination, or a live desktop switch on `sparkle-01`.
+- `dgx-dashboard.service` stops with GDM in headless mode and starts with
+  factory GNOME, including same-boot rollback and reboot recovery;
+- `dgx-dashboard-admin.service`, Docker, NVIDIA persistence, and Nix-managed
+  Tailscale preserve their intended continuity;
+- the transaction, three-reboot mode lifecycle, and persistent guarded switch
+  all pass in disposable containers; and
+- the post-Tailscale live integration remains a no-op.
+
+Run the one-command regression through
+`./scripts/test-desktop-stack-integration.sh`. Exact current derivations and
+hashes must then be recorded before `scripts/dgx-desktop` becomes eligible for
+a separately authorized retry. The test does not authorize a host switch or
+reboot.

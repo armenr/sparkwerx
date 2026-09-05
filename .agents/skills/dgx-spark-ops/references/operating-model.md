@@ -242,6 +242,10 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep GNOME available as the recovery desktop during every graphical pilot.
 - In headless mode, stop desktop/display/portal services but retain factory
   packages and `tailscaled.service`.
+- Treat the factory `dgx-dashboard.service` UI as a desktop service: stop it in
+  headless and start it with factory GNOME. Keep the separate
+  `dgx-dashboard-admin.service` active in both modes. The repository does not
+  own either factory package or unit.
 - Keep the permanent base limited to `ncdu`, `lazydocker`, and `devbox`.
 - Keep Ghostty shared across graphical modes and absent from headless.
 - Keep user overlays explicit; never infer Armen's overlay for another user.
@@ -250,7 +254,9 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
 - The exact System Manager and Tailscale container tests and retained host
-  transitions passed. Preserve exact live generation four, all four numbered
+  transitions passed. The earlier desktop proofs are superseded until the
+  Dashboard-aware suite passes; the first live desktop attempt safely returned
+  to factory GNOME. Preserve exact live generation four, all four numbered
   profile links and direct pilot roots, the upstream generation-four root, the
   inherited canary plus Nix-managed Tailscale surface, its boot edge, and
   absent recovery/migration edges.

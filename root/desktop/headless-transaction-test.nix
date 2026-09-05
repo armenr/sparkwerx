@@ -42,6 +42,28 @@ let
     ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-gdm
   '';
 
+  # Reproduce the DGX Dashboard UI's real default.target ownership. This is a
+  # desktop-mode service; the independent Dashboard admin daemon is not.
+  fakeDashboard = pkgs.writeShellScript "dgx-dashboard-desktop-transaction-fixture" ''
+    set -eu
+    printf '%s\n' factory-dashboard > /run/dgx-fake-dashboard
+    ${pkgs.systemdMinimal}/bin/systemd-notify --ready
+    exec ${pkgs.coreutils}/bin/sleep infinity
+  '';
+
+  fakeDashboardUnit = pkgs.writeText "dgx-dashboard-desktop-transaction-fixture.service" ''
+    [Unit]
+    Description=Factory DGX Dashboard desktop-transaction fixture
+
+    [Service]
+    Type=notify
+    ExecStart=${fakeDashboard}
+    ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-dashboard
+
+    [Install]
+    WantedBy=default.target
+  '';
+
   mkTestGeneration =
     {
       generation,
@@ -103,6 +125,8 @@ system-manager.lib.containerTest.makeContainerTest {
   extraPathsToRegister = [
     fakeGdm
     fakeGdmUnit
+    fakeDashboard
+    fakeDashboardUnit
     generationOne
     generationTwo
     generationThree
@@ -200,7 +224,11 @@ system-manager.lib.containerTest.makeContainerTest {
         ]
         assert raw_link(profile_path) == "system-manager-4-link"
         assert raw_link(gcroot_path) == generation_four
+        machine.succeed("systemctl is-active --quiet dgx-dashboard.service")
         machine.succeed("grep -Fx factory-gnome /run/dgx-fake-gdm")
+        machine.succeed(
+            "grep -Fx factory-dashboard /run/dgx-fake-dashboard"
+        )
         assert raw_link(headless_root) == headless
         assert machine.succeed(
             "systemctl show tailscaled.service -p MainPID --value"
@@ -219,7 +247,9 @@ system-manager.lib.containerTest.makeContainerTest {
         ]
         assert raw_link(profile_path) == "system-manager-5-link"
         assert raw_link(gcroot_path) == headless
+        machine.fail("systemctl is-active --quiet dgx-dashboard.service")
         machine.fail("test -e /run/dgx-fake-gdm")
+        machine.fail("test -e /run/dgx-fake-dashboard")
         assert machine.succeed(
             "systemctl show tailscaled.service -p MainPID --value"
         ).strip() == tailscale_pid
@@ -234,9 +264,21 @@ system-manager.lib.containerTest.makeContainerTest {
         "ln -s /usr/lib/systemd/system/gdm.service "
         "/etc/systemd/system/display-manager.service"
     )
+    machine.succeed(
+        "install -m 0644 '${fakeDashboardUnit}' "
+        "/etc/systemd/system/dgx-dashboard.service"
+    )
+    machine.succeed(
+        "install -d -m 0755 /etc/systemd/system/default.target.wants"
+    )
+    machine.succeed(
+        "ln -s ../dgx-dashboard.service "
+        "/etc/systemd/system/default.target.wants/dgx-dashboard.service"
+    )
     machine.succeed("systemctl daemon-reload")
-    machine.succeed("systemctl start gdm.service")
+    machine.succeed("systemctl start gdm.service dgx-dashboard.service")
     machine.wait_for_unit("gdm.service")
+    machine.wait_for_unit("dgx-dashboard.service")
 
     for root, candidate in roots.items():
         machine.succeed(f"ln -s -- '{candidate}' '{root}'")
@@ -254,8 +296,11 @@ system-manager.lib.containerTest.makeContainerTest {
     assert "ERROR" not in activation_logs, activation_logs
     machine.wait_for_unit("system-manager.target")
     machine.wait_for_unit("tailscaled.service")
-    machine.succeed("systemctl start graphical.target gdm.service")
+    machine.succeed(
+        "systemctl start graphical.target gdm.service dgx-dashboard.service"
+    )
     machine.wait_for_unit("gdm.service")
+    machine.wait_for_unit("dgx-dashboard.service")
     protected_before = protected_snapshot()
     tailscale_pid = machine.succeed(
         "systemctl show tailscaled.service -p MainPID --value"

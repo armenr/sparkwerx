@@ -326,9 +326,9 @@
       rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
       rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
       rootDesktopModeTransactionProgram = ./scripts/root-desktop-mode-transaction.sh;
-      reviewedRootDesktopModeTransactionSha256 = "6b62ba0ee094d664ffa059c43cf1da87f39b2790ed0d93708ad9ec0432a60fe4";
+      reviewedRootDesktopModeTransactionSha256 = "46a17e0e9405b5b9fa2c7a60a9d439f07143fb7091d3b94ccbc5bf62761c878d";
       rootDesktopSwitchOperatorProgram = ./scripts/dgx-desktop;
-      reviewedRootDesktopSwitchOperatorSha256 = "5e55964f27c855af1001e7ec692db6a72408ff0f37763887fbc89b9cc0eed902";
+      reviewedRootDesktopSwitchOperatorSha256 = "341924e8648247dc32272afbb3ea9bed8e82808801edbd3de6965b3c13892621";
       rootDesktopSwitchBundle = import ./root/desktop/switch-bundle.nix {
         pkgs = rootPkgs;
         transactionProgram = rootDesktopModeTransactionProgram;
@@ -1385,7 +1385,7 @@
         };
 
         desktopController = {
-          status = "disposable-lifecycle-passed-live-switch-awaiting";
+          status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
           selectedFleetMode = sparkleHost.desktop.mode;
           liveHostMode = "factory-gnome";
           hostControllerActivated = false;
@@ -1413,6 +1413,30 @@
           ownsFactoryGdm = false;
           ownsFactoryDesktopPackages = false;
           performsRuntimeSwitchDuringActivation = false;
+          dashboardBoundary = {
+            graphicalService = "dgx-dashboard.service";
+            graphicalServiceOwnership = "factory-dgx-os";
+            graphicalServiceHeadlessState = "inactive";
+            graphicalServiceFactoryGnomeState = "active";
+            adminService = "dgx-dashboard-admin.service";
+            adminServiceHeadlessState = "active";
+            modeIndependentContinuityUnits = [
+              "docker.service"
+              "dgx-dashboard-admin.service"
+              "nvidia-persistenced.service"
+            ];
+          };
+          firstLiveAttempt = {
+            result = "rolled-back-clean";
+            snapshot = "inventory/sparkle-01/raw/desktop-mode-switch/20260905T134345Z";
+            evidence = "root/desktop/validation/2026-09-05-host-attempt-1.md";
+            reachedHeadless = true;
+            tailscaleIdentityPreserved = true;
+            rollbackRestoredGeneration = 4;
+            rollbackRestoredFactoryGnome = true;
+            hostRebootPerformed = false;
+            cause = "factory-dashboard-gui-was-correctly-stopped-but-was-misclassified-as-mode-independent";
+          };
           disposableLifecycleTest =
             let
               observedDrvPath = "/nix/store/qv3v6lglnqigqa60qs3zg4x5qkcy6hsw-container-test-dgx-desktop-mode-lifecycle.drv";
@@ -1420,7 +1444,7 @@
             in
             {
               verifiedAt = "2026-09-05T11:23:31Z";
-              result = "passed";
+              result = "superseded-awaiting-dashboard-aware-rerun";
               inherit observedDrvPath observedOutputPath;
               outputHash = "sha256:109yz2sydf0zp6sqwsqsv9pw53f7lkm0qq7dksd3vw1bys4riypv";
               outputSriHash = "sha256-+/qYifYr8D2anu1gDOqkx43Cb9oaa461uR+45rX4PoE=";
@@ -1439,7 +1463,7 @@
               hostPostflight = "clean";
             };
           guardedHeadlessTransaction = {
-            status = "guarded-operator-lifecycle-passed-live-switch-awaiting";
+            status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
             program = {
               repositoryPath = "scripts/root-desktop-mode-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
@@ -1457,7 +1481,7 @@
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
-              status = "disposable-lifecycle-passed-live-switch-awaiting";
+              status = "dashboard-boundary-fix-awaiting-disposable-revalidation";
               implemented = true;
               repositoryPath = "scripts/dgx-desktop";
               sha256 = builtins.hashFile "sha256" rootDesktopSwitchOperatorProgram;
@@ -1487,7 +1511,7 @@
                   flakeCheck = "desktop-switch-lifecycle-container";
                   verifiedAt = "2026-09-05T12:35:10Z";
                   repositoryCommit = "8ab5dd86e72322489dee41a7bedfafde38529276";
-                  result = "passed";
+                  result = "superseded-awaiting-dashboard-aware-rerun";
                   inherit observedDrvPath observedOutputPath;
                   outputHash = "sha256:0mxnvzdxr9f083f1cc0alsa01pq38y0jbfd2daaszprx2j2qx7zq";
                   outputSriHash = "sha256-+J+OhRQ936+VaqK5JYFHA98AlKYKMBbcQMCl3Nvftlc=";
@@ -1517,7 +1541,7 @@
                 flakeCheck = "desktop-headless-transaction-container";
                 verifiedAt = "2026-09-05T11:55:21Z";
                 repositoryCommit = "71bd7c409909b9be514321ac99a030cf2d536651";
-                result = "passed";
+                result = "superseded-awaiting-dashboard-aware-rerun";
                 inherit observedDrvPath observedOutputPath;
                 outputHash = "sha256:1aabbxcajx50vz49ak43ha0i7hivri6vr9q23ggl9x6crain9aa1";
                 outputSriHash = "sha256-Qalko8rM9ETfGwKnvE3MO8ITgYKDTJXI36B0qVhfS6k=";
@@ -1958,6 +1982,7 @@
               ${./scripts/test-dgx-setup-plan.sh} \
               ${./scripts/test-desktop-headless-transaction.sh} \
               ${./scripts/test-desktop-mode-lifecycle.sh} \
+              ${./scripts/test-desktop-stack-integration.sh} \
               ${./scripts/test-desktop-switch-lifecycle.sh} \
               ${./scripts/test-post-tailscale-integration.sh} \
               ${./scripts/test-tailscale-unit-lifecycle.sh} \
@@ -1990,7 +2015,8 @@
         assert rootManagerManifest.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
         assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
         assert
-          rootManagerManifest.desktopController.status == "disposable-lifecycle-passed-live-switch-awaiting";
+          rootManagerManifest.desktopController.status
+          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
         assert rootManagerManifest.desktopController.selectedFleetMode == "headless";
         assert rootManagerManifest.desktopController.liveHostMode == "factory-gnome";
         assert !rootManagerManifest.desktopController.hostControllerActivated;
@@ -2004,8 +2030,37 @@
         assert !rootManagerManifest.desktopController.ownsFactoryGdm;
         assert !rootManagerManifest.desktopController.ownsFactoryDesktopPackages;
         assert !rootManagerManifest.desktopController.performsRuntimeSwitchDuringActivation;
-        assert rootManagerManifest.desktopController.disposableLifecycleTest.result == "passed";
-        assert rootManagerManifest.desktopController.disposableLifecycleTest.matchesCurrent;
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.graphicalService == "dgx-dashboard.service";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.graphicalServiceOwnership
+          == "factory-dgx-os";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.graphicalServiceHeadlessState == "inactive";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.graphicalServiceFactoryGnomeState
+          == "active";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.adminService
+          == "dgx-dashboard-admin.service";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.adminServiceHeadlessState == "active";
+        assert
+          rootManagerManifest.desktopController.dashboardBoundary.modeIndependentContinuityUnits == [
+            "docker.service"
+            "dgx-dashboard-admin.service"
+            "nvidia-persistenced.service"
+          ];
+        assert rootManagerManifest.desktopController.firstLiveAttempt.result == "rolled-back-clean";
+        assert rootManagerManifest.desktopController.firstLiveAttempt.reachedHeadless;
+        assert rootManagerManifest.desktopController.firstLiveAttempt.tailscaleIdentityPreserved;
+        assert rootManagerManifest.desktopController.firstLiveAttempt.rollbackRestoredGeneration == 4;
+        assert rootManagerManifest.desktopController.firstLiveAttempt.rollbackRestoredFactoryGnome;
+        assert !rootManagerManifest.desktopController.firstLiveAttempt.hostRebootPerformed;
+        assert
+          rootManagerManifest.desktopController.disposableLifecycleTest.result
+          == "superseded-awaiting-dashboard-aware-rerun";
+        assert !rootManagerManifest.desktopController.disposableLifecycleTest.matchesCurrent;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.subtestCount == 10;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.disposableRestarts == 3;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.provesHeadlessPersistence;
@@ -2016,7 +2071,7 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.status
-          == "guarded-operator-lifecycle-passed-live-switch-awaiting";
+          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
           == reviewedRootDesktopModeTransactionSha256;
@@ -2036,7 +2091,7 @@
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.status
-          == "disposable-lifecycle-passed-live-switch-awaiting";
+          == "dashboard-boundary-fix-awaiting-disposable-revalidation";
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.implemented;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.sha256
@@ -2061,9 +2116,9 @@
           !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.performsReboot;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.result
-          == "passed";
+          == "superseded-awaiting-dashboard-aware-rerun";
         assert
-          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.matchesCurrent;
+          !rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.matchesCurrent;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.isolatedLifecycle.subtestCount
           == 7;
@@ -2090,8 +2145,10 @@
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
         assert
-          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.result == "passed";
-        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.matchesCurrent;
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.result
+          == "superseded-awaiting-dashboard-aware-rerun";
+        assert
+          !rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.matchesCurrent;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.provesInjectedFailureRollback;
         assert

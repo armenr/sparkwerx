@@ -103,20 +103,21 @@ independently proven Nix and headless Home transactions and verifies the
 confirmed Nix-managed Tailscale role without restarting it.
 `APPLY_STATUS=PARTIAL` now means the factory GNOME/root desktop controller is
 still untouched. Do not treat that result as authority for desktop changes.
-Exact headless and factory-GNOME controller candidates passed their
-10-subtest/three-reboot disposable lifecycle with clean host postflight, but
-remain inactive. The exact switch primitive passed its separate 12-subtest
-failure/rollback lifecycle. `scripts/dgx-desktop` and its persistent timed
-rollback bundle then passed their seven-subtest lifecycle, including automatic
-same-boot rollback, confirmed retention, reboot recovery, Tailscale continuity,
-and a clean live-host boundary. The operator is therefore eligible for a
-separately authorized live pilot; the proof itself did not activate the role or
-authorize a reboot. Read
+The first guarded headless host attempt reached exact generation five with
+Tailscale intact, then failed closed because `dgx-dashboard.service` was
+correctly stopped with the GUI but incorrectly treated as a mode-independent
+same-PID service. Persistent rollback and exact cleanup restored generation
+four/factory GNOME without a reboot. The earlier desktop test results are
+superseded until their corrected factory-Dashboard fixtures pass. Read
 [`docs/2026-09-05-desktop-controller-candidates.md`](../../../docs/2026-09-05-desktop-controller-candidates.md)
-and the exact
+and the exact host result
+[`root/desktop` host-attempt record](../../../root/desktop/validation/2026-09-05-host-attempt-1.md),
+then the historical
 [`root/desktop` switch validation record](../../../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md)
 before testing or changing that role. Use only `./scripts/dgx-desktop`; never
-activate a raw candidate or call `systemctl isolate` directly on the host.
+activate a raw candidate or call `systemctl isolate` directly on the host. Do
+not retry the live switch until `./scripts/test-desktop-stack-integration.sh`
+passes and exact current evidence is recorded.
 After changing this integration, run
 `./scripts/test-post-tailscale-integration.sh` as the declared user; it keeps
 the destructive-looking lifecycle entirely inside a disposable container and
@@ -473,6 +474,10 @@ Do not substitute a catalog-adjacent product for the workload the user selected.
   opt-in role concerns.
 - Ghostty belongs to the shared graphical role for GNOME, Hyprland, and KDE and
   is inactive in headless mode.
+- The factory `dgx-dashboard.service` GUI follows desktop mode: inactive in
+  headless and active in factory GNOME. Keep the separate
+  `dgx-dashboard-admin.service` active and continuity-protected in both modes;
+  do not take package or unit ownership from the DGX substrate.
 - Never set global `allowUnfree = true`. Permit only the exact selected package
   after it appears in the reviewed manifest.
 - Keep ChatGPT, Chromium, both 1Password browser extensions, Zed, and LM Studio

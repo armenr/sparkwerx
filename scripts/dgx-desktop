@@ -32,7 +32,6 @@ controller_paths=(
 )
 protected_units=(
   docker.service
-  dgx-dashboard.service
   dgx-dashboard-admin.service
   nvidia-persistenced.service
 )
@@ -218,7 +217,7 @@ assert_protected_units() {
     die "a protected factory service changed after the snapshot"
   fi
   rm -f -- "$current"
-  pass protected_units "four factory services remain active and unrestarted"
+  pass protected_units "three mode-independent factory services remain active and unrestarted"
 }
 
 assert_protected_units_postboot() {
@@ -236,7 +235,7 @@ assert_protected_units_postboot() {
       "$fragment" == "$expected_fragment" && "$reload" == no ]] ||
       die "protected unit failed post-reboot continuity: $unit"
   done <"$baseline"
-  pass protected_units "four factory services are active from original fragments after reboot"
+  pass protected_units "three mode-independent factory services are active from original fragments after reboot"
 }
 
 assert_protected_continuity() {
@@ -403,10 +402,14 @@ create_snapshot() {
 
   capture_protected_units "$snapshot/protected-services.before.txt"
   capture_protected_fragments "$snapshot/protected-services.fragments.before.tsv"
-  systemctl show gdm.service \
+  # GDM and the user-facing DGX Dashboard are desktop-mode services: both are
+  # expected to stop in headless mode and start again with factory GNOME. Keep
+  # their exact pre-switch state for forensic evidence, but do not compare
+  # their PIDs against the mode-independent continuity set above.
+  systemctl show gdm.service dgx-dashboard.service \
     -p LoadState -p ActiveState -p SubState -p Result -p MainPID \
     -p ActiveEnterTimestampMonotonic -p FragmentPath -p NeedDaemonReload \
-    >"$snapshot/gdm.before.txt"
+    >"$snapshot/desktop-services.before.txt"
   find "$profile_dir" -mindepth 1 -maxdepth 1 -printf '%f|%l\n' | sort \
     >"$snapshot/system-manager-profile.before.txt"
   find /nix/var/nix/gcroots -mindepth 1 -maxdepth 1 \
@@ -423,7 +426,7 @@ create_snapshot() {
   (
     cd "$snapshot" || exit 1
     sha256sum \
-      context dgx-desktop dgx-roots.before.txt gdm.before.txt \
+      context desktop-services.before.txt dgx-desktop dgx-roots.before.txt \
       protected-files.before.sha256 protected-services.before.txt \
       protected-services.fragments.before.tsv \
       root-desktop-mode-transaction.sh system-manager-profile.before.txt \

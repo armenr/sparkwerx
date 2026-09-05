@@ -38,6 +38,29 @@ let
     ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-gdm
   '';
 
+  # The real user-facing DGX Dashboard is wanted by default.target. Model that
+  # exact boundary so the test proves it stops with headless mode and restarts
+  # with factory GNOME. The Dashboard admin daemon remains headless-safe.
+  fakeDashboard = pkgs.writeShellScript "dgx-dashboard-desktop-switch-fixture" ''
+    set -eu
+    printf '%s\n' factory-dashboard > /run/dgx-fake-dashboard
+    ${pkgs.systemdMinimal}/bin/systemd-notify --ready
+    exec ${pkgs.coreutils}/bin/sleep infinity
+  '';
+
+  fakeDashboardUnit = pkgs.writeText "dgx-dashboard-desktop-switch-fixture.service" ''
+    [Unit]
+    Description=Factory DGX Dashboard desktop-switch fixture
+
+    [Service]
+    Type=notify
+    ExecStart=${fakeDashboard}
+    ExecStopPost=${pkgs.coreutils}/bin/rm -f /run/dgx-fake-dashboard
+
+    [Install]
+    WantedBy=default.target
+  '';
+
   mkTestGeneration =
     {
       generation,
@@ -112,6 +135,8 @@ system-manager.lib.containerTest.makeContainerTest {
   extraPathsToRegister = [
     fakeGdm
     fakeGdmUnit
+    fakeDashboard
+    fakeDashboardUnit
     generationOne
     generationTwo
     generationThree
@@ -171,6 +196,11 @@ system-manager.lib.containerTest.makeContainerTest {
             "systemctl show tailscaled.service -p MainPID --value"
         ).strip()
 
+    def dashboard_pid() -> str:
+        return machine.succeed(
+            "systemctl show dgx-dashboard.service -p MainPID --value"
+        ).strip()
+
     def run_bundle(action: str) -> str:
         return machine.succeed(
             f"env NIX_USER_CONF_FILES=/dev/null "
@@ -215,14 +245,20 @@ system-manager.lib.containerTest.makeContainerTest {
         assert raw_link(profile_path) == "system-manager-4-link"
         assert raw_link(gcroot_path) == generation_four
         machine.succeed("systemctl is-active --quiet gdm.service")
+        machine.succeed("systemctl is-active --quiet dgx-dashboard.service")
         machine.succeed("grep -Fx factory-gnome /run/dgx-fake-gdm")
+        machine.succeed(
+            "grep -Fx factory-dashboard /run/dgx-fake-dashboard"
+        )
         machine.succeed("systemctl is-active --quiet tailscaled.service")
 
     def assert_headless() -> None:
         run_bundle("verify-headless")
         assert raw_link(profile_path) == "system-manager-5-link"
         assert raw_link(gcroot_path) == headless
+        machine.fail("systemctl is-active --quiet dgx-dashboard.service")
         machine.fail("test -e /run/dgx-fake-gdm")
+        machine.fail("test -e /run/dgx-fake-dashboard")
         machine.succeed("systemctl is-active --quiet tailscaled.service")
 
     def restart_container() -> None:
@@ -243,6 +279,17 @@ system-manager.lib.containerTest.makeContainerTest {
             "ln -s /usr/lib/systemd/system/gdm.service "
             "/etc/systemd/system/display-manager.service"
         )
+        machine.succeed(
+            "install -m 0644 '${fakeDashboardUnit}' "
+            "/etc/systemd/system/dgx-dashboard.service"
+        )
+        machine.succeed(
+            "install -d -m 0755 /etc/systemd/system/default.target.wants"
+        )
+        machine.succeed(
+            "ln -s ../dgx-dashboard.service "
+            "/etc/systemd/system/default.target.wants/dgx-dashboard.service"
+        )
         machine.succeed("systemctl daemon-reload")
         for root, candidate in roots.items():
             machine.succeed(f"ln -s -- '{candidate}' '{root}'")
@@ -257,10 +304,14 @@ system-manager.lib.containerTest.makeContainerTest {
             machine.succeed(f"'{candidate}/bin/register-profile'")
         logs = machine.succeed(f"'{generation_four}/bin/activate'")
         assert "ERROR" not in logs, logs
-        machine.succeed("systemctl start graphical.target gdm.service")
+        machine.succeed(
+            "systemctl start graphical.target gdm.service dgx-dashboard.service"
+        )
         machine.wait_for_unit("tailscaled.service")
         machine.wait_for_unit("gdm.service")
+        machine.wait_for_unit("dgx-dashboard.service")
         original_tailscale_pid = tailscale_pid()
+        original_dashboard_pid = dashboard_pid()
         assert_factory()
 
     with subtest("Rollback units are valid and isolation-resistant"):
@@ -288,6 +339,7 @@ system-manager.lib.containerTest.makeContainerTest {
         machine.wait_until_succeeds(f"test -e '{rolled_back}'")
         machine.fail(f"test -e '{armed}'")
         assert_factory()
+        assert dashboard_pid() != original_dashboard_pid
         assert tailscale_pid() == original_tailscale_pid
         cleanup_guard()
 

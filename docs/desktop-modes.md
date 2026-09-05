@@ -5,21 +5,20 @@ loosely related booleans:
 
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
-The enum and its Home Manager package composition are implemented. Exact
-root-level `headless` and factory-`gnome` controller candidates are built,
-policy-checked, and proven through a 10-subtest/three-reboot disposable
-lifecycle. Their guarded live switch is not yet built or approved. Until that
-gate passes and a controller is activated,
-changing the user option evaluates a different Home profile but cannot change
-what the host boots or stop factory desktop services. See the
+The enum, Home Manager composition, root-level `headless` and factory-`gnome`
+candidates, and guarded switch operator are implemented. The first live switch
+reached headless safely and then rolled back because it exposed a missing DGX
+Dashboard fixture in the disposable tests. The host is back on exact generation
+four and factory GNOME. Current desktop evidence is deliberately fail-closed
+until the Dashboard-aware test suite passes. See the
 [candidate record](2026-09-05-desktop-controller-candidates.md).
 
 ## Mode behavior
 
 | Mode | Graphical boot/session | Desktop services and portals | Armen graphical overlay | Recovery/access |
 | --- | --- | --- | --- | --- |
-| `headless` | Boot to `multi-user.target`; GDM and graphical sessions inactive | Desktop portals, desktop-specific user services, and graphical autostarts inactive | Not linked into the active Home Manager profile | `tailscaled` remains enabled; factory desktop packages remain on disk |
-| `gnome` | Boot graphically through factory GDM into Ubuntu GNOME | Use the factory GNOME session and its matching portal stack | Active after its own approval | Normal local desktop; Tailscale remains independent |
+| `headless` | Boot to `multi-user.target`; GDM and graphical sessions inactive | Desktop portals, graphical autostarts, and the user-facing `dgx-dashboard.service` inactive; `dgx-dashboard-admin.service` remains active | Not linked into the active Home Manager profile | `tailscaled` remains enabled; factory desktop packages remain on disk |
+| `gnome` | Boot graphically through factory GDM into Ubuntu GNOME | Use the factory GNOME session/portal stack and user-facing DGX Dashboard | Active after its own approval | Normal local desktop; Tailscale and Dashboard Admin remain independent |
 | `hyprland` | Boot graphically through GDM; select the pinned Nix Hyprland session | Use only the reviewed Hyprland/GTK portal combination | Active after its own approval | Factory GNOME session remains available locally as fallback |
 | `kde` | Boot graphically; initially reuse GDM unless testing proves another display manager necessary | Use only the reviewed Plasma/KDE portal combination | Active after its own approval | Factory GNOME session remains available during pilot |
 
@@ -29,11 +28,11 @@ and `kde`; it is absent from the active `headless` profile. Installed desktop
 packages may coexist on disk; that costs disk space, not idle RAM. The selected
 mode controls what runs after root integration exists.
 
-The exported pilot Home profile is now active as retained user-layer
+The exported pilot Home profile is active as retained user-layer
 `headless` generation one after guarded activation, real rollback, and fresh
-reactivation. The actual host remains in factory GNOME: no code in the current
-Home Manager layer disables GDM or changes the default target. User-profile
-composition and the future host desktop-mode controller remain separate.
+reactivation. The actual host is again in factory GNOME after the root
+controller's first guarded attempt rolled back and cleaned up. User-profile
+composition and the host desktop-mode controller remain separate.
 
 ## What headless means
 
@@ -41,6 +40,8 @@ Once the root controller exists, headless is a reversible runtime state, not an
 Ubuntu-desktop uninstall:
 
 - the graphical target and display manager are inactive;
+- the factory user-facing DGX Dashboard is inactive while its headless-safe
+  admin daemon remains active;
 - GNOME, Hyprland, KDE, XDG portals, and graphical autostarts do not run;
 - the graphical part of every user overlay is inactive;
 - terminal access, networking, Nix, approved compute workloads, and
@@ -91,7 +92,7 @@ Hyprland/GTK portal graph.
 
 ## Switching contract
 
-A future switch command must:
+The implemented `scripts/dgx-desktop` command must:
 
 1. show the current and proposed mode;
 2. show the root units, session files, portals, packages, and user profiles that
@@ -110,8 +111,8 @@ not authorize the switch.
 
 ## Implementation hold points
 
-- Build the guarded live switch/rollback operator around the two candidate
-  targets without introducing contradictory booleans.
+- Pass and record the Dashboard-aware transaction, mode, guarded-switch, and
+  post-Tailscale integration suite before another live switch.
 - Keep host-level systemd/GDM ownership separate from Home Manager.
 - Review Ghostty's measured graphical closure before building it, then validate
   it under factory GNOME and each approved Wayland mode.

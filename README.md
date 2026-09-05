@@ -20,15 +20,15 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   generic `tray.target`. Factory GNOME/GDM remains running and untouched.
 - GNOME, Hyprland, and Hyprland-with-portal profile graphs evaluate separately.
   Ghostty is graphical-only, and the portal has its own independent gate.
-- Thin root-controller candidates for `headless` and factory `gnome` are built,
-  statically policy-checked, and proven through a 10-subtest/three-reboot
-  disposable lifecycle. They add no desktop package or GDM ownership,
-  explicitly preserve `system-manager.target` and Nix-managed Tailscale, and
-  are not active on the host. The exact switch primitive also passed all 12
-  failure/rollback cases. The short persistent-rollback operator then passed
-  its seven-subtest lifecycle, including same-boot rollback, confirmed
-  retention, reboot recovery, and a clean live-host boundary. It is ready for
-  a separately authorized live pilot but has not switched the host. See the
+- Thin root-controller candidates for `headless` and factory `gnome` are built
+  without taking ownership of desktop packages or GDM. The first guarded live
+  switch reached exact headless generation five with Nix-managed Tailscale
+  intact, then failed closed when it exposed that the factory Dashboard GUI
+  had been misclassified as a mode-independent service. Persistent rollback
+  and exact cleanup restored generation four/factory GNOME without a reboot.
+  Corrected disposable fixtures now model the Dashboard GUI stopping in
+  headless while its admin daemon remains active; current evidence stays
+  fail-closed until the combined suite passes. See the
   [candidate record](docs/2026-09-05-desktop-controller-candidates.md).
 - Stable Nixpkgs remains the user/fleet foundation. The live System Manager
   evidence has its own immutable root Nixpkgs lane, while a separate
@@ -342,3 +342,6 @@ a profile generation/root; or reboot without the current plan. Later recovery
 arming and reboot remain distinct gates, and the helpers expose no reboot
 action.
 GNOME remains the recovery desktop throughout every graphical pilot.
+The first live headless attempt is cleanly rolled back. Do not retry it until
+`scripts/test-desktop-stack-integration.sh` passes and its exact evidence is
+recorded; use only `scripts/dgx-desktop` for the later guarded retry.

@@ -163,7 +163,13 @@ is now ready for the first future dependency change; no live update was needed.
       and factory-fallback lifecycle
 - [x] Pass and record the implemented guarded live switch/rollback operator's
       disposable lifecycle
-- [ ] Run and confirm the separately authorized guarded live switch from
+- [x] Run the first separately authorized guarded live switch; reach exact
+      headless generation five with Tailscale intact, fail closed on the
+      Dashboard service-classification gap, and restore/clean exact generation
+      four plus factory GNOME without a reboot
+- [ ] Pass and record the corrected Dashboard-aware transaction, mode, guarded
+      switch, and post-Tailscale integration suite
+- [ ] Retry and confirm the separately authorized guarded live switch from
       factory GNOME to headless; no reboot is part of that switch
 - [ ] Validate the NVIDIA userspace bridge for Hyprland
 - [ ] Review Hyprland's portal as an independent closure

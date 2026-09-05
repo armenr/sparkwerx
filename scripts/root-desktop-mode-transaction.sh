@@ -364,7 +364,10 @@ assert_factory_runtime() {
   done
   [[ "$(systemctl get-default 2>/dev/null || true)" == graphical.target ]] ||
     fail "factory default target is not graphical.target" || return 1
-  for unit in graphical.target gdm.service; do
+  # The factory Dashboard UI is tied to default.target just like GDM. It is
+  # intentionally part of graphical mode; dgx-dashboard-admin.service remains
+  # headless-safe and is continuity-checked by the outer operator.
+  for unit in graphical.target gdm.service dgx-dashboard.service; do
     [[ "$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)" == active ]] ||
       fail "factory graphical unit is not active: $unit" || return 1
   done
@@ -389,7 +392,7 @@ assert_headless_runtime() {
     fail "linked headless dispatcher is not the reported default" || return 1
   [[ "$(systemctl show dgx-headless.target -p ActiveState --value 2>/dev/null || true)" == active ]] ||
     fail "headless target is not active" || return 1
-  for unit in dgx-gnome.target graphical.target gdm.service; do
+  for unit in dgx-gnome.target graphical.target gdm.service dgx-dashboard.service; do
     [[ "$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)" != active ]] ||
       fail "graphical unit remains active in headless mode: $unit" || return 1
   done
