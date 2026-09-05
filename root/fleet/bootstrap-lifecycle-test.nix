@@ -280,14 +280,29 @@ system-manager.lib.containerTest.makeContainerTest {
         machine.succeed(f"rm -rf '{state_dir}'")
         machine.succeed("systemctl daemon-reload")
 
+    def wait_for_rollback() -> None:
+        machine.succeed(
+            "for attempt in $(seq 1 60); do "
+            + f"test -e '{rolled_back}' && exit 0; sleep 1; done; "
+            + f"systemctl show '{rollback_timer}' "
+            + "-p LoadState -p ActiveState -p SubState -p Result "
+            + "-p NextElapseUSecMonotonic || true; "
+            + f"systemctl status '{rollback_timer}' '{rollback_service}' "
+            + "--no-pager || true; "
+            + f"journalctl -b -u '{rollback_timer}' -u '{rollback_service}' "
+            + "-n 200 --no-pager || true; exit 1"
+        )
+
     def restart_container() -> None:
         machine.shutdown()
         machine.__dict__.pop("container_pid", None)
         machine.start()
         machine.wait_for_boot()
         machine.wait_for_unit("default.target")
+        machine.succeed("test \"$(hostname -s)\" = sparkle-01")
 
     with subtest("Install factory GNOME and apt-shaped Tailscale fixtures"):
+        machine.succeed("printf 'sparkle-01\\n' > /etc/hostname")
         machine.succeed("hostname sparkle-01")
         machine.succeed("install -d /usr/lib/systemd/system /usr/sbin")
         machine.succeed("install -m 0755 '${vendorDaemon}' /usr/sbin/tailscaled")
@@ -360,7 +375,8 @@ system-manager.lib.containerTest.makeContainerTest {
         run_bundle("install-factory-guarded")
         assert_factory()
         restart_container()
-        machine.wait_until_succeeds(f"test -e '{rolled_back}'")
+        machine.wait_for_unit(rollback_timer)
+        wait_for_rollback()
         assert_pristine()
         cleanup_guard()
 
@@ -384,7 +400,7 @@ system-manager.lib.containerTest.makeContainerTest {
         install_guard("headless")
         run_bundle("install-headless-guarded")
         assert_headless()
-        machine.wait_until_succeeds(f"test -e '{rolled_back}'")
+        wait_for_rollback()
         assert_factory()
         cleanup_guard()
 
