@@ -33,9 +33,10 @@ generation_one="$(eval_output .#packages.aarch64-linux.root-system-canary.outPat
 generation_two="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-two.outPath)" || exit 1
 generation_three="$(eval_output .#packages.aarch64-linux.root-system-canary-generation-three-boot.outPath)" || exit 1
 candidate="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" || exit 1
+generation_five="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" || exit 1
 
 assert_host_boundary() {
-  local current fragment
+  local current fragment retained_status
 
   current="$(readlink -f -- /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
   systemctl is-active --quiet tailscaled.service || die "live tailscaled.service is not active"
@@ -60,8 +61,15 @@ assert_host_boundary() {
       die "generation-four/Nix-managed host boundary failed verification"
     [[ "$fragment" == "$managed_unit" ]] ||
       die "live Tailscale is not loaded from the Nix-managed unit: $fragment"
+  elif [[ "$current" == "$generation_five" ]]; then
+    retained_status="$("$repo_dir/scripts/dgx-tailscale" status 2>&1)" ||
+      die "generation-five/Nix-managed host boundary failed verification: $retained_status"
+    grep -Fx 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED' <<<"$retained_status" >/dev/null ||
+      die "generation-five Tailscale ownership is not confirmed"
+    [[ "$fragment" == "$managed_unit" ]] ||
+      die "live Tailscale is not loaded from the Nix-managed unit: $fragment"
   else
-    die "live System Manager generation is neither migration boundary: ${current:-ABSENT}"
+    die "live System Manager generation is not a supported Tailscale boundary: ${current:-ABSENT}"
   fi
 }
 
