@@ -132,8 +132,9 @@ the Nix package.
 
 Read [tailscale.md](tailscale.md) before auditing, migrating, or updating
 Tailscale. It is repository-owned fleet infrastructure, not an NVIDIA-owned
-component. On `sparkle-01`, current stable 1.102.3 and its unit are active under
-exact System Manager generation four; apt remains only as fallback.
+component. On `sparkle-01`, current stable 1.102.3 and its unit are inherited
+unchanged by exact headless System Manager generation five; apt remains only as
+fallback.
 
 The first-pass audit reports only:
 
@@ -237,15 +238,16 @@ reviewed active recovery lifecycle, not for the normal retained state.
 That classifier stops at the historical generation-three canary boundary. On
 `sparkle-01`, use `scripts/dgx-tailscale status` for the current root-level
 exact state; healthy authority is `MIGRATION_STATUS=CONFIRMED_NIX_OWNED` with
-generation four selected/live/boot-linked and the Nix unit active.
+generation five selected/live/boot-linked in headless mode and the inherited
+Nix unit active.
 
 While retained, do not run the inactive preflight, activation helper,
 first-registration helper, pre-switch snapshot/live helper, boot-persistence
 snapshot/live helper, or spent first-reboot snapshot helper. On `sparkle-01`,
-the selected profile and upstream root must select exact generation four, all
-four numbered generation links and direct pilot roots must remain, the boot
-edge and Nix-managed Tailscale unit must be exact, and recovery/migration edges
-must be absent. All six foundational
+the selected profile and upstream root must select exact generation five, all
+five numbered generation links and direct pilot roots must remain, the boot
+edge, headless dispatcher, and Nix-managed Tailscale unit must be exact, and
+recovery/migration/desktop guards must be absent. All six foundational
 exact disposable tests and their
 results are documented under `root/system-manager/validation/`. Require the
 activation, registration-lifecycle, first-registration transaction,

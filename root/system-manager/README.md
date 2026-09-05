@@ -26,13 +26,14 @@ one and two remained registered and all three pilot roots remained. The
 retry-safe restoration then passed two full postflights and automatically
 retained exact registered/live/boot-linked generation three. All three numbered
 generations and direct pilot roots remained at that milestone. The later
-guarded Tailscale migration retained exact generation four after a real reboot;
-generation four is current, all four earlier anchors remain, and recovery is
-unarmed. Exact headless and factory-GNOME generation-five candidates then
-passed their 10-subtest/three-reboot disposable lifecycle, and the exact
-generation-four-to-five transaction passed 12 failure/rollback subtests. A
-persistent-rollback live operator is implemented but awaits its own disposable
-lifecycle; the candidates remain inactive.
+guarded Tailscale migration retained exact generation four after a real reboot.
+Exact headless and factory-GNOME generation-five candidates then passed their
+10-subtest/three-reboot disposable lifecycle, the exact generation-four-to-five
+transaction passed 12 failure/rollback subtests, and the persistent-rollback
+operator passed its seven-subtest lifecycle. The separately authorized host
+retry retained generation five in headless mode without a reboot. Generation
+five is current, all five numbered generations and direct roots remain, and
+recovery is unarmed.
 
 ## Reviewed candidate
 
@@ -53,10 +54,10 @@ lifecycle; the candidates remain inactive.
 | Guarded boot-persistence transaction test | **PASS** for exact 13-subtest/two-restart derivation; test made no host change |
 | Persistent first-reboot recovery | **PASS** for exact 13-subtest/two-restart lifecycle and first real reboot; missed deadline automatically restored generation two, verification/cleanup passed, host recovery is unarmed |
 | Tailscale generation four | **ACTIVE** after guarded migration, real reboot, and fresh SSH confirmation |
-| Desktop controller | **PASS** for exact 10-subtest/three-reboot mode lifecycle and 12-subtest transaction; guarded-operator lifecycle and live authorization remain open |
-| Host registration | Exact generations one through four registered; generation four selected/upstream-rooted |
-| Host activation | Exact generation four active with Nix-managed Tailscale and its declarative boot edge |
-| Rollback anchors | All four exact direct pilot roots and numbered generations remain |
+| Desktop controller | **ACTIVE HEADLESS** as exact generation five after transaction, mode, guarded-operator, and live host gates passed |
+| Host registration | Exact generations one through five registered; generation five selected/upstream-rooted |
+| Host activation | Exact generation five active and boot-persistent with headless mode and inherited Nix-managed Tailscale |
+| Rollback anchors | All five exact direct pilot roots and numbered generations remain; superseded first-attempt candidate also retained separately |
 | Root package foundation | Exact `nixpkgs-root` revision `a9e6d84f9c2f9012f5fe7d964a7851352300e61a`; routine user/package updates cannot advance it |
 
 The release branch deliberately matches the frozen root Nixpkgs 26.05 lane;
@@ -130,8 +131,10 @@ is the authority for the first registered-generation milestone. The
 [retained generation-two host record](validation/2026-09-02-generation-switch-host-attempt-1.md)
 is the generation-two milestone authority. The
 [retained generation-three host record](validation/2026-09-02-boot-persistence-host-attempt-1.md)
-is historical recovery authority. Current live-state authority is the
-[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
+is historical recovery authority. The retained generation-four
+[Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md) is the
+inherited access-plane authority; current live-state authority is the
+[confirmed generation-five desktop record](../desktop/validation/2026-09-05-host-attempt-2.md).
 
 Do not rerun the inactive-state preflight or activation helper while this
 canary remains active. Do not rerun the first-registration helper now that its
@@ -190,9 +193,11 @@ The guarded boot-persistence pilot then added exact `system-manager-3-link`,
 selected and upstream-rooted generation three, and preserved all earlier links
 and all three direct pilot roots. The later guarded Tailscale migration added
 exact `system-manager-4-link`, selected and upstream-rooted generation four,
-and retained all four direct pilot roots. No fifth or unknown registered
-generation exists. Current authority is the
-[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
+and retained all four direct pilot roots. The corrected guarded desktop switch
+then added exact `system-manager-5-link`, selected and upstream-rooted
+generation five, and retained all five direct pilot roots. No sixth or unknown
+registered generation exists. Current authority is the
+[confirmed generation-five desktop record](../desktop/validation/2026-09-05-host-attempt-2.md).
 
 Low-level activation does not create either registration path and does not
 otherwise GC-root its store output. A live pilot must therefore retain the exact
@@ -659,8 +664,10 @@ is historical recovery authority. The
 [boot-persistence container-test result](validation/2026-09-02-boot-persistence-transaction-container-test.md)
 is repository/test evidence for the pre-activation milestone and explicitly
 records that its disposable test left the then-live host on generation two.
-Current live-state authority is the
-[retained generation-four Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md).
+The retained generation-four
+[Tailscale record](../tailscale/validation/2026-09-05-host-attempt-2.md) is the
+inherited access-plane authority. Current live-state authority is the
+[confirmed generation-five desktop record](../desktop/validation/2026-09-05-host-attempt-2.md).
 
 Review missing builds without realizing anything:
 
@@ -839,19 +846,22 @@ preflight, and a fresh same-window snapshot.
 
 ## Desktop-controller boundary
 
-Exact generation four remains the live factory-GNOME rollback boundary. The
+Exact generation four remains the factory-GNOME rollback boundary, while exact
+generation five is now the selected/live headless generation. The
 headless/factory-GNOME candidates, low-level transaction, and guarded operator
-have all passed their independent disposable lifecycles. The final operator
+all passed their independent disposable lifecycles. The final operator
 proof included persistent isolation-resistant rollback, confirmation,
 same-boot rollback, one reboot recovery, Tailscale continuity, complete root
 retention, and a clean live-host postflight. See the
-[desktop switch validation](../desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
+[Dashboard-aware validation](../desktop/validation/2026-09-05-dashboard-aware-stack.md)
+and [successful host result](../desktop/validation/2026-09-05-host-attempt-2.md).
 
-Any live desktop transition must use `scripts/dgx-desktop`; never invoke a raw
+Any future desktop transition must use `scripts/dgx-desktop`; never invoke a raw
 candidate's activation program or `systemctl isolate` directly. A live switch
 can close the graphical session and therefore remains separately authorized.
-The operator arms its ten-minute factory-GNOME rollback before mutation and
-never performs a reboot.
+The completed headless transaction armed its ten-minute factory-GNOME rollback
+before mutation, confirmed successfully, removed the guard, and performed no
+reboot.
 
 ## Updates
 

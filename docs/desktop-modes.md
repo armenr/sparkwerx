@@ -8,12 +8,14 @@ loosely related booleans:
 The enum, Home Manager composition, root-level `headless` and factory-`gnome`
 candidates, and guarded switch operator are implemented. The first live switch
 reached headless safely and then rolled back because it exposed a missing DGX
-Dashboard fixture in the disposable tests. The host is back on exact generation
-four and factory GNOME. The corrected Dashboard-aware transaction, mode,
-guarded-switch, and post-Tailscale integration stack now passes with exact
-current evidence. The guarded operator is eligible for a separately authorized
-retry. See the [candidate record](2026-09-05-desktop-controller-candidates.md)
-and [current validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
+Dashboard fixture in the disposable tests. That rollback returned the host to
+exact generation four and factory GNOME. The corrected Dashboard-aware transaction, mode,
+guarded-switch, and post-Tailscale integration stack then passed with exact
+evidence. A separately authorized retry retained exact generation five in
+headless mode without rebooting. See the
+[candidate record](2026-09-05-desktop-controller-candidates.md),
+[current test validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md),
+and [current host result](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 ## Mode behavior
 
@@ -41,9 +43,11 @@ mode controls what runs after root integration exists.
 
 The exported pilot Home profile is active as retained user-layer
 `headless` generation one after guarded activation, real rollback, and fresh
-reactivation. The actual host is again in factory GNOME after the root
-controller's first guarded attempt rolled back and cleaned up. User-profile
-composition and the host desktop-mode controller remain separate.
+reactivation. The root controller's first guarded attempt returned the host to
+factory GNOME and cleaned up; the corrected retry then retained host-level
+headless generation five. User-profile
+composition and the host desktop-mode controller remain separate even though
+both now select headless behavior.
 
 ## What headless means
 
@@ -122,8 +126,9 @@ not authorize the switch.
 
 ## Implementation hold points
 
-- Preserve the passed Dashboard-aware transaction, mode, guarded-switch, and
-  post-Tailscale integration evidence for any live retry.
+- Preserve the passed Dashboard-aware transaction, mode, guarded-switch,
+  post-Tailscale integration evidence, and confirmed live headless host record
+  for any future transition.
 - Keep host-level systemd/GDM ownership separate from Home Manager.
 - Review Ghostty's measured graphical closure before building it, then validate
   it under factory GNOME and each approved Wayland mode.

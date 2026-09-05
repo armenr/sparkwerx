@@ -108,7 +108,10 @@ postboot state and expose a short operator route but no reboot action.
 That was the exact pre-migration authority. The later guarded Tailscale
 transaction added generation four, preserved generations one through three as
 rollback anchors, survived its real reboot and fresh SSH reconnect, and is now
-the current live authority.
+the inherited access boundary. The corrected guarded desktop transaction then
+added generation five and retained headless mode without rebooting. All five
+generations and direct roots remain; generation five is selected, upstream-
+rooted, live, and boot-persistent with Nix-managed Tailscale unchanged.
 
 Hyprland and its portal had already been build-tested earlier in the pilot.
 Their existing local store closures were measured read-only; they were not
@@ -121,8 +124,8 @@ rebuilt in Phase 1.
 | Fleet base | lazydocker | CURRENT; ACTIVE | Stable pin `lazydocker` 0.25.2 is current and active; account groups/socket ACLs are unchanged, so it grants no Docker daemon permission | Do not add Docker group membership, socket ACLs, a service, or autostart |
 | Fleet base | Devbox | CURRENT; NIX-MANAGED ACTIVE | Exact adapter pins current upstream 0.18.0 source and Go vendor hashes because both Nixpkgs branches still expose 0.17.5. The active ARM64 binary resolves through `~/.nix-profile`; its 8-path runtime closure is 65.8 MiB NAR. The old `/usr/local/bin/devbox` copy remains on disk but no longer wins normal command resolution | Never invoke Devbox's bootstrap installer or let Devbox replace/update Nix; retain the adapter until stock catches up and treat removal of the old copy as separate cleanup |
 | Dev shell | Git, jq, nixfmt-tree, ripgrep | Repository work only | Direct versions are Git 2.55.0 and ripgrep 15.2.0 from apps, jq 1.8.2 and nixfmt-tree 2.6.0 from stable; manifest-only, never permanent | Keep out of the user profile unless separately selected |
-| Factory desktop | Ubuntu GNOME/GDM | Recovery and future `gnome` host mode | Factory-owned, installed, and still running | Never replace or remove during another desktop pilot |
-| Root desktop controller | Headless/factory-GNOME targets | DASHBOARD-AWARE STACK PASSED; GUARDED LIVE RETRY READY FOR SEPARATE AUTHORIZATION | The thin candidates add no desktop package or daemon. Attempt one reached exact headless generation five with Tailscale intact, then failed closed because the factory `dgx-dashboard.service` GUI was correctly stopped but incorrectly classified as mode-independent. Persistent rollback restored exact generation four/GNOME, and exact cleanup passed. Disposable feedback then proved both missing dependency edges: headless must conflict with the GUI to defeat its cold-boot `default.target.wants` link, while the named GNOME target must non-fatally want the GUI because a direct isolate does not traverse that factory link. The corrected 12-subtest transaction, 10-subtest/three-reboot mode lifecycle, 7-subtest persistent rollback lifecycle, and post-Tailscale live no-op integration all pass against exact commit `abb852d`. `dgx-dashboard-admin.service`, Docker, NVIDIA persistence, and Tailscale remain active. The operator preserves the superseded candidate under a separate GC root while atomically selecting the current candidate during the next guarded switch | Use only `scripts/dgx-desktop` for a separately authorized retry; never activate a raw output or isolate directly. See the [current evidence](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md) and [host attempt](../root/desktop/validation/2026-09-05-host-attempt-1.md) |
+| Factory desktop | Ubuntu GNOME/GDM | Recovery and reversible `gnome` host mode | Factory-owned and installed; GDM/graphical target are intentionally inactive under current headless generation five | Never replace or remove; return only through the reviewed guarded desktop operator |
+| Root desktop controller | Headless/factory-GNOME targets | ACTIVE; CONFIRMED HEADLESS GENERATION FIVE | The thin controller adds no desktop package or daemon. Attempt one safely rolled back and exposed the Dashboard classification/fixture gap. The corrected 12-subtest transaction, 10-subtest/three-reboot mode lifecycle, 7-subtest persistent rollback lifecycle, and post-Tailscale live no-op integration passed against exact commit `abb852d`. The separately authorized retry from `fc82217` preserved the superseded candidate, armed rollback first, selected/registered/activated exact `djp7…` generation five, and confirmed headless with Tailscale identity/SSH, Dashboard Admin, Docker, and NVIDIA persistence intact. Factory GDM and Dashboard GUI are inactive but remain installed. All five generations/roots are retained; no rollback timer is armed; no reboot occurred | Use only `scripts/dgx-desktop` for status or future reviewed transitions; never activate a raw output or isolate directly. A real generation-five reboot, GNOME return, Hyprland activation, and cleanup remain separate. See the [host result](../root/desktop/validation/2026-09-05-host-attempt-2.md) and [test evidence](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md) |
 | Desktop role | Hyprland | Optional `hyprland` mode | v0.56.2 is pinned and ARM64 build-tested; Home Manager profile is evaluable and inactive | Review graphics bridge, GDM entry, portal choice, and rollback |
 | Desktop role | KDE Plasma | Supported future mode | Enum value exists; no package set or root integration is selected | Approve role, closure, portal, display-manager integration, and ARM64 test |
 | Shared graphical role | Ghostty | SELECTED terminal for every graphical mode | Stable pin `ghostty` 1.3.1 is current, free, and ARM64-available; its large GTK/GStreamer closure is quantified below | Decide whether the roughly 1.1 GiB Ghostty closure is acceptable, then validate GTK/GPU behavior; keep out of headless |
@@ -132,11 +135,11 @@ rebuilt in Phase 1.
 | Armen graphical overlay | ChatGPT desktop | SELECTED; currently manual | Debian package `chatgpt` 26.818.41705 owns the current launcher; repository pin is absent | Verify official artifact/provenance, ARM64 support, update behavior, collisions, and rollback |
 | Armen graphical overlay | 1Password for Firefox | SELECTED; currently manual | Existing extension `{d634138d-c276-4fc8-924b-40a0ea21d284}` is version 8.12.32.33; repository policy/pin is absent | Choose reproducible extension policy without storing account/browser state |
 | Armen graphical overlay | 1Password for Chromium | SELECTED | Not yet declared | Choose reproducible extension policy without storing account/browser state |
-| Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; CURRENT; NIX-MANAGED ACTIVE ON `sparkle-01` | Repository pins current stable official ARM64 1.102.3; its one-path 67.7 MiB runtime contains byte-identical client/daemon binaries. Exact System Manager generation four owns the loaded unit and running daemon. The guarded migration preserved identity and `RunSSH=true`, survived a deliberate disconnect plus real reboot, and was confirmed after fresh SSH reconnect. Apt 1.102.3 and its repository remain installed only as inactive fallback material | Audit/update through the pinned source and guarded role. Do not manually restart/replace the service, delete mutable identity, or remove apt fallback without a separate reviewed cleanup |
+| Access overlay | Tailscale/Tailscale SSH | OPTIONAL PER HOST; CURRENT; NIX-MANAGED ACTIVE ON `sparkle-01` | Repository pins current stable official ARM64 1.102.3; its one-path 67.7 MiB runtime contains byte-identical client/daemon binaries. Exact System Manager generation five inherits the loaded Nix-managed unit and running daemon unchanged from generation four. The guarded migration preserved identity and `RunSSH=true`, survived a deliberate disconnect plus real reboot, and was confirmed after fresh SSH reconnect; the later desktop switch preserved the same access plane. Apt 1.102.3 and its repository remain installed only as inactive fallback material | Audit/update through the pinned source and guarded role. Do not manually restart/replace the service, delete mutable identity, or remove apt fallback without a separate reviewed cleanup |
 | Developer tools | Codex CLI + Armen permission policy | CURRENT; NIX-MANAGED ACTIVE | Armen's all-modes overlay pins OpenAI's official 0.153.0 ARM64 release bundle at SHA-256 `076b2b75...99be4`. The 278.2 MiB one-path closure contains `codex`, code-mode host, bundled ripgrep, sandbox helper, and package manifest. Home generation one owns the higher-precedence `~/.local/bin/codex` launcher and disables startup self-update while preserving auth/plugin/MCP/history state; real rollback and reactivation passed. The old standalone 0.152.0 tree is retained but no longer resolves | Continue auditing through `scripts/update-codex.sh`; keep the standalone tree temporarily as rollback input and remove it only through separate cleanup evidence |
 | Bootstrap | Official Nix installer | CURRENT PIN; EXACT ADOPTION AND CLEAN-INSTALL LIFECYCLES PASSED; NIX-ONLY FRESH-HOST USE READY | `bootstrap/nix/source.json` pins official `NixOS/nix-installer` 2.35.1 for ARM64 Linux at 32,536,352 bytes and SHA-256 `7e6e2f75...e0e0e649`. The installed `/nix/nix-installer` matches it byte-for-byte. `scripts/update-nix-installer.sh --check` validates latest GitHub metadata/downloaded bytes. `scripts/dgx-setup bootstrap` adopts the pilot with zero mutation. Exact disposable derivation `81pb42...` passed clean install, injected post-runtime failure with receipt rollback to the clean boundary, retry at runtime 2.35.2 with persistent flakes, and second no-mutation adoption; [full evidence](2026-09-03-nix-bootstrap-lifecycle.md) includes the hash-valid output and clean host postflight | Use only `scripts/dgx-setup bootstrap` on a clean committed, declared ARM64 host; keep runtime updates separate and do not infer unified apply or optional-role authority |
 | Root runtime | Nix | CURRENT; ACTIVATED/VERIFIED | Active client and daemon are 2.35.2 from the exact signed-cache path under `root/nix/`; default environment is `9lznxxcs…-user-environment`. The installer artifact and separately rooted rollback environment retain 2.35.1. Default fallback target 2.34.8 remains blocked | For each future release/host, re-run exact provenance, downgrade, profile, daemon, and rollback gates; do not garbage-collect the retained 2.35.1 environment yet |
-| Root integration | System Manager | SELECTED; GENERATION FOUR LIVE/REGISTERED/BOOT-LINKED; NIX-MANAGED TAILSCALE ACTIVE; ALL FOUR GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; its private wrapper is verified Nix 2.35.2. The foundational canary/recovery tests, real recovery reboot, and retry-safe generation-three restoration passed. The later generation-four migration adds only reviewed Tailscale ownership, preserved identity/SSH, and passed its own disposable and real-reboot gates. `system-manager -> system-manager-4-link -> vjw…` and `system-manager-current -> vjw…`; no recovery or migration rollback timer is armed | Preserve all four generations and direct roots while broadening root ownership one reviewed role at a time. Do not reuse spent helpers, remove a generation/root, arm recovery, reboot, or add another managed service without its current gate |
+| Root integration | System Manager | GENERATION FIVE LIVE/REGISTERED/BOOT-PERSISTENT HEADLESS; NIX-MANAGED TAILSCALE ACTIVE; ALL FIVE GENERATIONS AND DIRECT ROOTS RETAINED; RECOVERY CLEAN/UNARMED | Exact 1.1.0 pin on matching `release-26.05`; its private wrapper is verified Nix 2.35.2. The foundational canary/recovery tests, real recovery reboot, generation-three restoration, generation-four Tailscale migration/reboot, and generation-five desktop transaction all passed. `system-manager -> system-manager-5-link -> djp7…` and `system-manager-current -> djp7…`; state contains 12 paths/four services; no recovery, migration, or desktop rollback timer is armed | Preserve all five generations and direct roots while broadening ownership one reviewed role at a time. Do not reuse spent helpers, remove a generation/root, reboot, or add another managed service without its current gate |
 | Workload | LM Studio `llmster` | OPEN, separate from desktop app | NVIDIA's Spark playbook currently uses the headless daemon | Do not infer selection; decide service, API exposure, models, storage, and update pin |
 | Workload | Isaac Sim/Lab | SELECTED | NVIDIA's Spark playbook calls for a source build on GB10 and at least 50 GB for build artifacts/dependencies | Pin playbook and source commits, enumerate downloads, estimate full disk use, then build without activation |
 | Workload | Omniverse robotics/simulation platform | SELECTED; exact app/component scope OPEN | Isaac Sim is built on Omniverse; additional desired Omniverse tooling is not yet enumerated | Start with the pinned Isaac path, then manifest each additional app, Kit component, service, and data requirement separately |
@@ -152,9 +155,10 @@ profile or install them.
 ## Phase 1 evaluated profiles
 
 These are Home Manager package graphs, not host desktop modes. The pilot's
-exported user-layer `headless` profile is now active as exact generation one.
-Factory GNOME/GDM remains untouched and running because no approved root
-desktop controller is active yet.
+exported user-layer `headless` profile is active as exact generation one. That
+Home activation originally left factory GNOME/GDM untouched and running. The
+later confirmed root generation five now runs the same Home profile in actual
+host-level headless mode, with factory GNOME still installed but inactive.
 
 | Profile | Effective direct Home Manager additions | Build validation | Realized closure |
 | --- | --- | --- | --- |
@@ -283,10 +287,11 @@ Low-level activation writes
 `/var/lib/system-manager/state/system-manager-state.json`; deactivation removes
 the managed links/units and leaves an empty state record. The original isolated
 activation test registers no profile or GC root. Separately, the live host now
-has exact generations one through four registered and directly pilot-rooted.
-Generation four is selected, upstream-rooted, live, and boot-linked after the
-successful retry-safe generation-three restoration and guarded Tailscale
-migration; both recovery surfaces are absent and no rollback timer is armed.
+has exact generations one through five registered and directly pilot-rooted.
+Generation five is selected, upstream-rooted, live, boot-linked, and headless
+after the successful retry-safe generation-three restoration, guarded Tailscale
+migration, and guarded desktop switch; every recovery/transition surface is
+absent and no rollback timer is armed.
 The helper supplies temporary root-local
 `auto-allocate-uids`/`cgroups` flags and isolates root's personal Nix config
 with `NIX_USER_CONF_FILES=/dev/null`; it does not persist daemon settings. Nix
@@ -329,8 +334,10 @@ proves that its disposable test left that then-live state unchanged. The
 historical
 [retained generation-three host record](../root/system-manager/validation/2026-09-02-boot-persistence-host-attempt-1.md)
 and [successful restoration record](../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md)
-are historical recovery authorities. Current live-state authority is the
-[retained generation-four Tailscale record](../root/tailscale/validation/2026-09-05-host-attempt-2.md).
+are historical recovery authorities. The retained generation-four
+[Tailscale record](../root/tailscale/validation/2026-09-05-host-attempt-2.md)
+is inherited access-plane authority. Current live-state authority is the
+[confirmed generation-five desktop record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 The evaluation-only invariant suite is:
 

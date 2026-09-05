@@ -169,7 +169,7 @@ is now ready for the first future dependency change; no live update was needed.
       four plus factory GNOME without a reboot
 - [x] Pass and record the corrected Dashboard-aware transaction, mode, guarded
       switch, and post-Tailscale integration suite
-- [ ] Retry and confirm the separately authorized guarded live switch from
+- [x] Retry and confirm the separately authorized guarded live switch from
       factory GNOME to headless; no reboot is part of that switch
 - [ ] Validate the NVIDIA userspace bridge for Hyprland
 - [ ] Review Hyprland's portal as an independent closure

@@ -29,7 +29,7 @@ remote-access daemon. Building the adapter did not migrate service ownership.
 | Concern | Owner and location |
 | --- | --- |
 | `tailscale` and `tailscaled` binaries | This repository, through a pinned Nix package |
-| `tailscaled.service` and headless boot behavior | Explicit System Manager role in `modules/system/tailscale.nix`; generation four is built and lifecycle-tested but is not yet active on the host |
+| `tailscaled.service` and headless boot behavior | Explicit System Manager role in `modules/system/tailscale.nix`; generation four took ownership and current generation five inherits it unchanged in active headless mode |
 | Node identity and daemon state | Mutable root-owned state under `/var/lib/tailscale`; never copy into Git or the Nix store |
 | Tailscale SSH preference | Declarative desired state applied without embedding an auth key |
 | Tailnet ACLs, grants, SSH policy, and device approval | Tailscale control-plane state; document and manage separately from the host package |
@@ -141,12 +141,14 @@ Before an update or the initial apt-to-Nix migration:
 9. Keep the previous package and root configuration generation until remote
    access, reboot, and headless-mode tests pass.
 
-These gates passed on `sparkle-01` on 2026-09-05. Exact generation four is now
-selected, live, and boot-linked; its Nix unit owns the running daemon, node
+These gates passed on `sparkle-01` on 2026-09-05. Exact generation four took
+ownership, and current headless generation five inherits its Nix unit and
+running daemon unchanged. Node
 identity and Tailscale SSH were preserved, a fresh SSH connection succeeded
 after the real reboot, and no rollback is armed. The apt package/repository are
-retained only as inactive fallback material. The current authority is
-`root/tailscale/validation/2026-09-05-host-attempt-2.md`.
+retained only as inactive fallback material. Access-plane authority is
+`root/tailscale/validation/2026-09-05-host-attempt-2.md`; current host authority
+is `root/desktop/validation/2026-09-05-host-attempt-2.md`.
 
 For the one-time migration, do not remove the apt package or repository first.
 The reviewed operator is now the runbook:

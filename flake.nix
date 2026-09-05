@@ -1385,10 +1385,10 @@
         };
 
         desktopController = {
-          status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+          status = "headless-generation-five-active-confirmed";
           selectedFleetMode = sparkleHost.desktop.mode;
-          liveHostMode = "factory-gnome";
-          hostControllerActivated = false;
+          liveHostMode = "headless";
+          hostControllerActivated = true;
           supportedModes = [
             "headless"
             "gnome"
@@ -1466,7 +1466,7 @@
               evidence = "root/desktop/validation/2026-09-05-dashboard-aware-stack.md";
             };
           guardedHeadlessTransaction = {
-            status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+            status = "completed-headless-generation-five-retained";
             program = {
               repositoryPath = "scripts/root-desktop-mode-transaction.sh";
               sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
@@ -1482,7 +1482,7 @@
             rollbackMode = "factory-gnome-generation-four";
             retainsAllFivePilotRoots = true;
             candidateRollover = {
-              state = "pending-next-guarded-switch";
+              state = "completed-during-confirmed-live-retry";
               from = "/nix/store/20qw0af0jwfqi5spgg3b1nrc0yydhlc1-system-manager";
               to = rootDesktopHeadlessGeneration.outPath;
               supersededRetentionRoot = "/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot";
@@ -1492,7 +1492,7 @@
             preservesTailscaleProcess = true;
             performsReboot = false;
             liveOperator = {
-              status = "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+              status = "completed-headless-generation-five-retained";
               implemented = true;
               repositoryPath = "scripts/dgx-desktop";
               sha256 = builtins.hashFile "sha256" rootDesktopSwitchOperatorProgram;
@@ -1571,6 +1571,42 @@
                 hostPostflight = "clean";
                 evidence = "root/desktop/validation/2026-09-05-dashboard-aware-stack.md";
               };
+          };
+          liveRetry = {
+            stateClass = "ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED";
+            result = "confirmed-headless";
+            host = "sparkle-01";
+            snapshot = "inventory/sparkle-01/raw/desktop-mode-switch/20260905T153316Z";
+            repositoryCommit = "fc82217c7b85ed8ea42b2e08783dbfe2b9a05385";
+            startedAt = "2026-09-05T15:32:55Z";
+            activatedAt = "2026-09-05T15:33:19Z";
+            confirmedAt = "2026-09-05T15:39:27Z";
+            fromGeneration = 4;
+            toGeneration = 5;
+            exactCandidate = rootDesktopHeadlessGeneration.outPath;
+            profileSelected = true;
+            upstreamRootSelected = true;
+            liveActivationExact = true;
+            bootPersistent = true;
+            candidateRolloverCompleted = true;
+            supersededCandidateRetained = true;
+            factoryGnomePackagesPreserved = true;
+            factoryGdmActive = false;
+            factoryDashboardGuiActive = false;
+            dashboardAdminActive = true;
+            tailscaleIdentityPreserved = true;
+            tailscaleSshPreserved = true;
+            protectedServicesUnchanged = true;
+            systemdState = "running";
+            failedUnitCount = 0;
+            rollbackArmedBeforeMutation = true;
+            rollbackDisarmed = true;
+            rollbackServiceRan = false;
+            hostRebootPerformed = false;
+            managedPathCount = 12;
+            managedServiceCount = 4;
+            stateFileSha256 = "e8c8aa8aed797fdd44d087225e66ebf061a50b159d45f84ec5620714fec61f74";
+            evidence = "root/desktop/validation/2026-09-05-host-attempt-2.md";
           };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
@@ -2041,12 +2077,10 @@
         assert rootManagerManifest.foundationNixpkgs.policy == "frozen-live-root-lane";
         assert rootManagerManifest.foundationNixpkgs.rev == "a9e6d84f9c2f9012f5fe7d964a7851352300e61a";
         assert !rootManagerManifest.foundationNixpkgs.advancesWithUserPackages;
-        assert
-          rootManagerManifest.desktopController.status
-          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+        assert rootManagerManifest.desktopController.status == "headless-generation-five-active-confirmed";
         assert rootManagerManifest.desktopController.selectedFleetMode == "headless";
-        assert rootManagerManifest.desktopController.liveHostMode == "factory-gnome";
-        assert !rootManagerManifest.desktopController.hostControllerActivated;
+        assert rootManagerManifest.desktopController.liveHostMode == "headless";
+        assert rootManagerManifest.desktopController.hostControllerActivated;
         assert
           rootManagerManifest.desktopController.supportedModes == [
             "headless"
@@ -2096,7 +2130,7 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.status
-          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+          == "completed-headless-generation-five-retained";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
           == reviewedRootDesktopModeTransactionSha256;
@@ -2118,7 +2152,7 @@
           == rootDesktopHeadlessGeneration.outPath;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.state
-          == "pending-next-guarded-switch";
+          == "completed-during-confirmed-live-retry";
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.preservesSupersededCandidate;
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.candidateRollover.atomic;
@@ -2128,7 +2162,7 @@
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.status
-          == "dashboard-aware-disposable-lifecycle-passed-live-retry-ready";
+          == "completed-headless-generation-five-retained";
         assert rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.implemented;
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.sha256
@@ -2196,6 +2230,37 @@
         assert
           rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.hostPostflight
           == "clean";
+        assert
+          rootManagerManifest.desktopController.liveRetry.stateClass
+          == "ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED";
+        assert rootManagerManifest.desktopController.liveRetry.result == "confirmed-headless";
+        assert rootManagerManifest.desktopController.liveRetry.host == "sparkle-01";
+        assert
+          rootManagerManifest.desktopController.liveRetry.exactCandidate
+          == rootDesktopHeadlessGeneration.outPath;
+        assert rootManagerManifest.desktopController.liveRetry.fromGeneration == 4;
+        assert rootManagerManifest.desktopController.liveRetry.toGeneration == 5;
+        assert rootManagerManifest.desktopController.liveRetry.profileSelected;
+        assert rootManagerManifest.desktopController.liveRetry.upstreamRootSelected;
+        assert rootManagerManifest.desktopController.liveRetry.liveActivationExact;
+        assert rootManagerManifest.desktopController.liveRetry.bootPersistent;
+        assert rootManagerManifest.desktopController.liveRetry.candidateRolloverCompleted;
+        assert rootManagerManifest.desktopController.liveRetry.supersededCandidateRetained;
+        assert rootManagerManifest.desktopController.liveRetry.factoryGnomePackagesPreserved;
+        assert !rootManagerManifest.desktopController.liveRetry.factoryGdmActive;
+        assert !rootManagerManifest.desktopController.liveRetry.factoryDashboardGuiActive;
+        assert rootManagerManifest.desktopController.liveRetry.dashboardAdminActive;
+        assert rootManagerManifest.desktopController.liveRetry.tailscaleIdentityPreserved;
+        assert rootManagerManifest.desktopController.liveRetry.tailscaleSshPreserved;
+        assert rootManagerManifest.desktopController.liveRetry.protectedServicesUnchanged;
+        assert rootManagerManifest.desktopController.liveRetry.systemdState == "running";
+        assert rootManagerManifest.desktopController.liveRetry.failedUnitCount == 0;
+        assert rootManagerManifest.desktopController.liveRetry.rollbackArmedBeforeMutation;
+        assert rootManagerManifest.desktopController.liveRetry.rollbackDisarmed;
+        assert !rootManagerManifest.desktopController.liveRetry.rollbackServiceRan;
+        assert !rootManagerManifest.desktopController.liveRetry.hostRebootPerformed;
+        assert rootManagerManifest.desktopController.liveRetry.managedPathCount == 12;
+        assert rootManagerManifest.desktopController.liveRetry.managedServiceCount == 4;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;

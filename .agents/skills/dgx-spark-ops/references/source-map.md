@@ -99,11 +99,12 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Verified first-reboot automatic-rollback authority | [root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-reboot-recovery-host-attempt-1.md) |
 | Historical restoration-attempt rollback authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-1.md) |
 | Historical successful generation-three restoration authority | [root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md](../../../../root/system-manager/validation/2026-09-03-restoration-host-attempt-2.md) |
-| Current retained generation-four/Nix-managed Tailscale authority | [root/tailscale/validation/2026-09-05-host-attempt-2.md](../../../../root/tailscale/validation/2026-09-05-host-attempt-2.md) |
+| Retained generation-four/Nix-managed Tailscale access-plane authority | [root/tailscale/validation/2026-09-05-host-attempt-2.md](../../../../root/tailscale/validation/2026-09-05-host-attempt-2.md) |
 | Combined post-migration plan/lifecycle/apply regression | [scripts/test-post-tailscale-integration.sh](../../../../scripts/test-post-tailscale-integration.sh); [passing pilot evidence](../../../../docs/2026-09-05-post-tailscale-integration.md) |
 | Headless/factory-GNOME root controller | [modules/system/desktop-mode.nix](../../../../modules/system/desktop-mode.nix); [candidate evidence and gate](../../../../docs/2026-09-05-desktop-controller-candidates.md) |
 | Disposable desktop-mode lifecycle | [root/desktop/mode-lifecycle-test.nix](../../../../root/desktop/mode-lifecycle-test.nix); [root-only wrapper](../../../../scripts/test-desktop-mode-lifecycle.sh) |
 | First guarded desktop host attempt and Dashboard boundary | [root/desktop/validation/2026-09-05-host-attempt-1.md](../../../../root/desktop/validation/2026-09-05-host-attempt-1.md); [combined regression](../../../../scripts/test-desktop-stack-integration.sh) |
+| Current confirmed generation-five/headless host authority | [root/desktop/validation/2026-09-05-host-attempt-2.md](../../../../root/desktop/validation/2026-09-05-host-attempt-2.md) |
 | Frozen root dependency-lane identity proof | [root/system-manager/validation/2026-09-03-root-dependency-lane.md](../../../../root/system-manager/validation/2026-09-03-root-dependency-lane.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |

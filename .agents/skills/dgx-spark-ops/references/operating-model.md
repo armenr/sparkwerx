@@ -127,11 +127,13 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   remains a separate GC-rooted rollback anchor;
 - System Manager 1.1.0 is the selected root manager. Its exact
   six-path/three-service generation-three canary was retained after the
-  successful retry-safe restoration; generation four now inherits that
-  boundary and adds only Nix-managed Tailscale. Generations one through four
-  are registered and directly pilot-rooted; generation four is selected,
-  upstream-rooted, live, and linked by the reviewed `default.target` edge.
-  Recovery and migration guards are absent and no rollback timer is armed. Its
+  successful retry-safe restoration; generation four inherits that boundary
+  and adds only Nix-managed Tailscale, while generation five inherits the
+  access plane and adds only the thin desktop controller. Generations one
+  through five are registered and directly pilot-rooted; generation five is
+  selected, upstream-rooted, live in headless mode, and linked by the reviewed
+  `default.target` edge. Recovery, migration, and desktop guards are absent and
+  no rollback timer is armed. Its
   109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
   rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
   registration surfaces documented in `root/system-manager/README.md`;
@@ -198,9 +200,11 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
   mistyped phrase; retry-safe attempt two used one Enter, passed two automatic
   postflights, and retained generation three without rebooting. That was the
   exact pre-migration recovery authority. The later guarded Tailscale handoff
-  and reboot retained generation four; all four numbered generations and
-  direct roots remain, generation four is selected/upstream-rooted/live, its
-  boot edge exists, and no recovery or rollback timer exists. Postboot checks
+  and reboot retained generation four, and the corrected guarded desktop
+  switch retained headless generation five without rebooting. All five
+  numbered generations and direct roots remain, generation five is selected/
+  upstream-rooted/live, its boot edge and headless dispatcher exist, and no
+  recovery or rollback timer exists. Postboot checks
   must accept a cleanly idle
   `nix-daemon.service` behind active `nix-daemon.socket` while preserving strict
   same-boot process continuity. `scripts/dgx-recovery` supplies the short
@@ -215,10 +219,10 @@ fact. Re-audit before acting. The initial 2026-08-23 pilot established:
 - Hyprland is pinned and build-tested for ARM64 but remains disabled;
 - exact headless Home generation one is active after two guarded activations
   and a successful real rollback to pre-Home state. It contains the three-tool
-  fleet base plus Armen's Codex overlay and no Home Manager user-systemd units;
-  GDM/host desktop state remains factory GNOME. Snapshot
-  `20260903T120519Z` and `docs/2026-09-03-home-headless-host.md` are current
-  authority. Later reviewed dependency commits use guarded
+  fleet base plus Armen's Codex overlay and no Home Manager user-systemd units.
+  The later root-controller switch now makes the host itself headless while GDM
+  remains installed and inactive. Snapshot `20260903T120519Z` and
+  `docs/2026-09-03-home-headless-host.md` remain user-profile authority. Later reviewed dependency commits use guarded
   `scripts/dgx-home update-headless`; its disposable rollback passed and its
   current-candidate path is a mutation-free no-op;
 - Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
@@ -255,13 +259,13 @@ effectively root-equivalent and belongs in the reviewed host bootstrap.
   nearby catalog products.
 - Keep old Nix generations, old container digests, and prior configuration
   revisions until validation is complete.
-- The exact System Manager and Tailscale container tests and retained host
-  transitions passed. The earlier desktop proofs are superseded until the
-  Dashboard-aware suite passes; the first live desktop attempt safely returned
-  to factory GNOME. Preserve exact live generation four, all four numbered
-  profile links and direct pilot roots, the upstream generation-four root, the
-  inherited canary plus Nix-managed Tailscale surface, its boot edge, and
-  absent recovery/migration edges.
+- The exact System Manager, Tailscale, and Dashboard-aware desktop tests and
+  retained host transitions passed. The first desktop attempt safely returned
+  to factory GNOME; the corrected retry retained generation five/headless.
+  Preserve exact live generation five, all five numbered profile links and
+  direct pilot roots, the upstream generation-five root, the inherited canary
+  plus Nix-managed Tailscale surface, its boot/headless edges, and absent
+  recovery/migration/desktop guards.
   Snapshots `20260902T110421Z`, `20260902T204546Z`, and every earlier live
   snapshot are spent; do not rerun their wrappers. Read the boot-persistence
   records and first-reboot result before touching this state. The persistent

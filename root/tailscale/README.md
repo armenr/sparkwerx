@@ -24,7 +24,8 @@ and this repository does not enable them implicitly. A future workload may opt
 into `tailscale-online.target` only after its boot-order requirement is
 reviewed; ordinary headless reachability does not need it.
 
-Generation four is now the confirmed live configuration on `sparkle-01`. Its
+Generation four is the confirmed Tailscale ownership boundary on `sparkle-01`;
+current headless generation five inherits it unchanged. Its
 disposable container test passed the complete vendor-to-Nix handoff,
 injected-failure rollback, candidate reboot, rollback to the vendor unit,
 vendor reboot, and persistent unconfirmed-reboot rollback while preserving the
@@ -74,7 +75,8 @@ unit, use `cleanup-rolled-back` only after `status` reports the verified rollbac
 Neither path removes the apt package, its repository, or mutable node state.
 
 `migrate` is now a completed one-time operation on `sparkle-01`; do not rerun it
-while generation four is exact. For a new host, do not run it until independent
+while current generation five inherits exact generation-four ownership. For a
+new host, do not run it until independent
 local console access has been verified. The deliberate daemon restart will
 terminate the current Tailscale SSH connection. The apt package and repository
 remain installed on `sparkle-01` as inactive rollback material; their removal

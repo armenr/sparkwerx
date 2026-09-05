@@ -25,14 +25,16 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `docs/2026-09-03-guarded-staged-apply.md`. `APPLY_STATUS=PARTIAL` is expected
   while the root desktop controller remains untouched;
   never interpret it as full desired-state convergence or bypass those gates.
-- The current Dashboard-aware headless/factory-GNOME candidates passed the
+- The Dashboard-aware headless/factory-GNOME candidates passed the
   12-subtest transaction, 10-subtest/three-reboot mode lifecycle, 7-subtest
   persistent rollback lifecycle, and post-Tailscale live no-op integration
   against exact commit `abb852d320a01192236d862336bf60c31943714a`. Read
-  `root/desktop/validation/2026-09-05-dashboard-aware-stack.md`. This makes
-  `scripts/dgx-desktop` eligible for a separately authorized guarded retry;
-  never activate a raw candidate or call `systemctl isolate` directly on the
-  host, and never infer live-switch or reboot authority from a test PASS.
+  `root/desktop/validation/2026-09-05-dashboard-aware-stack.md`. The separately
+  authorized retry from commit `fc82217` retained exact generation five in
+  headless mode with Tailscale intact and no reboot; current authority is
+  `root/desktop/validation/2026-09-05-host-attempt-2.md`. Use only
+  `scripts/dgx-desktop` for future transitions; never activate a raw candidate
+  or call `systemctl isolate` directly on the host.
 - Read `docs/decision-register.md` before changing packages, profiles, desktop
   modes, user overlays, or workloads; ACCEPTED/SELECTED is not activation
   authorization.
@@ -93,7 +95,8 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   unless the exact transition has its reviewed rollback path.
 - Never expose secrets or place mutable model/application data in the Nix store.
 - Tailscale 1.102.3 and `tailscaled.service` are Nix-managed and active through
-  System Manager generation four; its identity, online state, SSH setting, and
+  System Manager generation five, inherited unchanged from generation four;
+  its identity, online state, SSH setting, and
   real reboot persistence are confirmed. The apt package/repository remain
   installed only as reviewed fallback and do not own the loaded unit. Read the
   skill's Tailscale reference before changing package, unit, state, SSH,
@@ -122,16 +125,18 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   two postflights and automatically retained generation three. The later
   guarded Tailscale handoff registered, selected, activated, and boot-linked
   exact generation four, preserving the node identity and Tailscale SSH across
-  a real reboot. Current classifier authority is
-  `ACTIVE_REGISTERED_GENERATION_FOUR_TAILSCALE_NIX_MANAGED`: all four
-  generations are registered and directly rooted, generation four is
-  selected/upstream-rooted/live, its declarative boot edge exists, Nix owns the
-  running Tailscale unit, and recovery is unarmed. Read the
+  a real reboot. The later guarded desktop retry retained exact generation five
+  in headless mode without rebooting. Current classifier authority is
+  `ACTIVE_REGISTERED_GENERATION_FIVE_HEADLESS_TAILSCALE_NIX_MANAGED`: all five
+  generations are registered and directly rooted, generation five is
+  selected/upstream-rooted/live and boot-persistent, Nix owns the running
+  Tailscale unit, factory GNOME remains installed but inactive, and recovery is
+  unarmed. Read the
   generation-switch, boot-persistence, reboot-recovery, and
   `2026-09-03-restoration-host-attempt-1.md` and
   `2026-09-03-restoration-host-attempt-2.md` records plus
-  `root/tailscale/validation/2026-09-05-host-attempt-2.md` before touching this
-  state.
+  `root/tailscale/validation/2026-09-05-host-attempt-2.md` and
+  `root/desktop/validation/2026-09-05-host-attempt-2.md` before touching this state.
   Do not rerun the one-time activation, registration, snapshot, switch, or
   boot-persistence helpers; reboot; change boot linkage; select or remove a
   generation; remove any current root; or broaden ownership without a separate
@@ -143,7 +148,7 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   with respect to host configuration but created private root-owned evidence.
   Their distinct live wrappers completed under separate authorization. Never
   rerun any of those helpers against the current post-state or infer new
-  authority from their spent snapshots. Preserve all four numbered pilot roots;
+  authority from their spent snapshots. Preserve all five numbered pilot roots;
   generation cleanup, rollback, and any future reboot are exact reviewed
   actions, not automatic tidying.
 - Do not run the root-canary helper or any System Manager activation merely to
@@ -153,12 +158,12 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
 - Low-level System Manager activation does not register or GC-root its output.
   The live pilot therefore still requires the documented
   `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot` symlink. The guarded
-  registration, switch, boot-persistence, and Tailscale migration retained four
-  direct numbered pilot roots. The current state has all four numbered
-  generations, selects generation four, points
-  `/nix/var/nix/gcroots/system-manager-current` to generation four, and keeps
-  generation four's declarative boot edge. Preserve that exact surface plus all
-  four direct numbered pilot roots; never infer
+  registration, switch, boot-persistence, Tailscale migration, and desktop
+  switch retained five direct numbered pilot roots. The current state has all
+  five numbered generations, selects generation five, points
+  `/nix/var/nix/gcroots/system-manager-current` to generation five, and keeps
+  the declarative boot edge plus headless dispatcher. Preserve that exact
+  surface plus all five direct numbered pilot roots; never infer
   permission to rerun upstream
   `register-profile`, remove registration, select a different generation, or
   retire any pilot root.

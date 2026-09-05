@@ -53,13 +53,15 @@ validates the declaration using only factory Python, classifies the pinned Nix
 bootstrap, and—when Nix exists—evaluates the exact Home candidate and live
 drift. Nix evaluation may fetch absent locked sources, but the plan does not
 build/install packages, mutate profiles, change services, enroll Tailscale,
-switch desktops, or reboot. The staged `scripts/dgx-setup apply` half now
+switch desktops, or reboot. The staged `scripts/dgx-setup apply` half currently
 composes the independently proven Nix bootstrap/adoption and headless Home
 lifecycle, refusing unsupported host or declaration drift before mutation and
 using each layer's own retention, health, and rollback checks. It also verifies
-the already Nix-managed Tailscale role without restarting it. It reports
-`APPLY_STATUS=PARTIAL` while the root desktop controller remains an explicit
-untouched hold. Secrets, browser/account state, Tailscale node
+the already Nix-managed Tailscale role without restarting it. The separately
+guarded desktop operator has now retained exact headless generation five; the
+fleet-level apply front door is being advanced to recognize that completed
+controller state as convergence rather than its historical explicit hold.
+Secrets, browser/account state, Tailscale node
 identity, models, and other mutable data remain external inputs rather than
 Nix-store contents.
 
@@ -73,8 +75,10 @@ path is host-tested, and the exact clean install, injected-failure rollback,
 clean retry, and second-adoption lifecycle passed in disposable Ubuntu on
 2026-09-03. Once adopted, Nix version/update/rollback ownership belongs to this
 repository. The guarded configuration apply orchestrator is implemented for
-the Nix and headless Home stages; complete optional-role convergence is not yet
-implemented.
+the Nix and headless Home stages. Nix-managed Tailscale and the headless root
+controller have also completed their independent live gates; fresh-host
+composition of those one-time transitions remains the next orchestration
+milestone.
 
 ## Managed by Nix
 
@@ -130,8 +134,9 @@ closure. The pilot therefore keeps the direct root
 registered/live/boot-linked generation three after the first real reboot's
 verified automatic rollback and the later verified restoration. It is now the
 inherited foundation of generation four, which adds the Nix-managed Tailscale
-service. All four generations remain registered and directly retained by their
-pilot roots. The foundational six disposable tests and guarded live activation,
+service, and generation five, which adds only the thin headless/factory-GNOME
+desktop controller. All five generations remain registered and directly
+retained by their pilot roots. The foundational six disposable tests and guarded live activation,
 registration, generation-switch, boot-link, and first-reboot milestones passed.
 Generation three differs from generation two only by its marker and one
 declarative `default.target` edge; its activation used a fresh private snapshot,
@@ -141,7 +146,9 @@ recovery then survived a real host reboot and restored exact generation two
 when the confirmation deadline expired; verification and exact cleanup
 passed. Restoration attempt one safely exercised its own rollback; retry-safe
 attempt two passed two postflights and automatically retained generation three.
-The later Tailscale migration and guarded reboot retained generation four.
+The later Tailscale migration and guarded reboot retained generation four. The
+corrected guarded desktop switch then retained generation five in headless mode
+without rebooting.
 Hash-pinned lifecycle helpers accept Nix's normal postboot socket-idle state,
 and short operator routers avoid long private paths. The host is unarmed.
 Read
@@ -152,8 +159,8 @@ testing, registering, or activating it.
 
 Tailscale is a repository-owned overlay, not factory substrate. The official
 current-stable ARM64 package and unit are exactly pinned, no-link built, and
-SBOM-reviewed. Exact System Manager generation four now owns the loaded unit
-and running daemon without replacing its mutable identity. Locked stable/apps
+SBOM-reviewed. Exact System Manager generation five inherits generation four's
+loaded unit and running daemon without replacing its mutable identity. Locked stable/apps
 packages remain older. The apt package and repository remain installed only as
 inactive fallback material.
 
@@ -186,13 +193,13 @@ not entries in System Manager's active-service map; the guarded operator owns
 every runtime transition.
 
 These candidates are built, statically checked, and proven through an exact
-10-subtest/three-reboot disposable lifecycle, but are not live. Headless will
-stop graphical services without removing factory packages after the guarded
-switch gate passes. Later graphical modes activate their
+10-subtest/three-reboot disposable lifecycle. The corrected headless candidate
+is now live as confirmed generation five: graphical services are stopped while
+factory packages remain installed. Later graphical modes activate their
 matching session and portal set plus the shared Ghostty terminal; Armen's
 personal graphical overlay composes above that shared role. The current pilot
-Home profile is user-layer headless while the actual host remains in factory
-GNOME. See the [desktop-mode contract](desktop-modes.md) and
+Home profile and host controller both select headless mode. See the
+[desktop-mode contract](desktop-modes.md) and
 [candidate record](2026-09-05-desktop-controller-candidates.md).
 
 ## Hyprland pilot safety model
@@ -232,18 +239,19 @@ correctly rolled generation three back; snapshot-bound verification and exact
 cleanup passed. A first restoration attempt also exercised its timed rollback,
 then the retry-safe second attempt restored generation three, passed two full
 postflights, and automatically disarmed rollback. The guarded Tailscale handoff
-then advanced the host to exact generation four. All four generations and
-direct pilot roots remain, the upstream root selects generation four, the
-declarative boot edge exists, both recovery surfaces are absent, and no
-countdown is active. The reviewed
+then advanced the host to exact generation four, and the corrected guarded
+desktop switch advanced it to exact generation five/headless. All five
+generations and direct pilot roots remain, the upstream root selects generation
+five, the declarative boot edge and headless dispatcher exist, every recovery
+or transition guard is absent, and no countdown is active. The reviewed
 transactions, live pilots, disposable recovery lifecycle, real reboot
 rollback, restoration, and Tailscale migration all passed. Hash-pinned helpers
 deliberately contain no reboot action.
 
-Desktop-mode root candidates passed their disposable lifecycle but remain
-inactive; personal app packages,
-workload roles, and all graphical/desktop/workload activation remain
-deliberately inactive. Tailscale ownership migration is complete. The first minimal Home transaction passed
+The desktop-mode root candidate and guarded host transition passed and exact
+headless generation five is active. Personal app packages, workload roles, and
+all graphical application/workload activation remain deliberately inactive.
+Tailscale ownership migration is complete. The first minimal Home transaction passed
 disposable and real rollback, then retained exact generation one; its headless profile
 emits no Home Manager user units. Its later-generation operator is also
 implemented and disposable-rollback-tested, with a true no-op when Git already
@@ -251,9 +259,9 @@ matches the live generation. The separately gated pilot Nix runtime update to
 2.35.2 is complete. The declarative fleet selection and read-only plan are also
 implemented and host-tested. Exact Nix adoption and the complete disposable
 clean-install/rollback lifecycle are host-tested. The staged guarded apply
-front door converges Nix plus headless Home and now verifies the already managed
-Tailscale role; it reports partial convergence because the root desktop
-controller remains untouched. The active Home generation does not authorize a
-raw `home-manager switch`, a systemd service
-link/restart, or another root-runtime change. Host mode switching and service
-changes require their own later approval.
+front door converges Nix plus headless Home and verifies the already managed
+Tailscale role. Its desktop-state recognition is being updated to match the
+separately completed generation-five controller. The active Home generation
+does not authorize a raw `home-manager switch`, a systemd service link/restart,
+or another root-runtime change. Future host-mode switching and service changes
+still require their own approval.

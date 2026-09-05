@@ -527,8 +527,9 @@ no longer wins command resolution.
 
 **Status:** ACCEPTED AND ACTIVE ON `sparkle-01`
 
-Exact current-stable ARM64 Tailscale 1.102.3 and its `tailscaled.service` are
-owned by System Manager generation four. The guarded handoff preserved the
+Exact current-stable ARM64 Tailscale 1.102.3 and its `tailscaled.service` were
+taken over by System Manager generation four and are inherited unchanged by
+current headless generation five. The guarded handoff preserved the
 existing `/var/lib/tailscale` identity and `RunSSH=true`, survived the expected
 SSH disconnect, passed one real reboot, and was confirmed only after a fresh
 Tailscale SSH connection and repeated health checks. The migration rollback
@@ -537,13 +538,15 @@ guard is gone and no timer is armed.
 The apt package and repository remain installed but do not own the loaded unit
 or running daemon. They are deliberate rollback material, not configuration
 drift. Removing that fallback is a separate reviewed cleanup and is not part of
-ordinary `plan`, `apply`, or dependency updates. The current authority is
-[host attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md).
+ordinary `plan`, `apply`, or dependency updates. Access-plane authority is
+[Tailscale host attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md);
+current host authority is the later
+[desktop host attempt 2](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 ### D-018: desktop modes use thin targets and never own factory GDM
 
-**Status:** ACCEPTED; DASHBOARD-AWARE DISPOSABLE REVALIDATION PASSED; GUARDED
-LIVE RETRY READY FOR SEPARATE AUTHORIZATION
+**Status:** ACCEPTED AND ACTIVE AS CONFIRMED HEADLESS GENERATION FIVE ON
+`sparkle-01`
 
 The first root desktop controller supports only `headless` and factory `gnome`.
 It adds two mutually exclusive, isolatable systemd targets. The headless target
@@ -606,12 +609,20 @@ The original disposable proofs are superseded because their fixtures omitted
 the factory Dashboard's `default.target` relationship. The Dashboard-aware
 transaction, mode, guarded-switch, and post-Tailscale integration lifecycles
 now pass against exact commit `abb852d320a01192236d862336bf60c31943714a` and
-are recorded as current. This makes the guarded operator eligible for a
-separately authorized live retry; it does not itself authorize that switch or
-a reboot. The candidate record and historical proofs remain useful context:
+are recorded as current. That evidence made the guarded operator eligible for
+the separately authorized live retry; it did not itself authorize the switch
+or a reboot. The candidate record and historical proofs remain useful context:
 [desktop-controller candidates](2026-09-05-desktop-controller-candidates.md),
 [current Dashboard-aware stack](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md),
 [historical switch lifecycle](../root/desktop/validation/2026-09-05-switch-lifecycle-container-test.md).
+
+The separately authorized retry from commit `fc82217` then preserved the old
+candidate under its historical root, armed rollback before mutation, selected/
+registered/activated the corrected generation five, and reached headless with
+Tailscale identity/SSH and all mode-independent services intact. Confirmation
+repeated postflight and removed the rollback guard without a reboot. Exact
+current authority is the
+[successful host record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 ## Explicit non-selections
 

@@ -2,9 +2,8 @@
 
 ## Result
 
-**CURRENT DASHBOARD-AWARE CANDIDATES AND ALL DISPOSABLE LIFECYCLES PASS. FIRST
-LIVE ATTEMPT ROLLED BACK CLEANLY; A GUARDED RETRY IS READY FOR SEPARATE
-AUTHORIZATION.**
+**CURRENT DASHBOARD-AWARE CANDIDATES AND ALL DISPOSABLE LIFECYCLES PASS. THE
+GUARDED RETRY IS CONFIRMED LIVE AS GENERATION FIVE IN HEADLESS MODE.**
 
 The first root desktop-controller implementation adds only two thin systemd
 targets, one selected `default.target` dispatcher, and one non-secret mode
@@ -21,6 +20,9 @@ The corrected two-way Dashboard boundary then passed the complete transaction,
 three-reboot mode, persistent rollback, and post-Tailscale integration stack.
 See the
 [current validation record](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
+The separately authorized retry then retained exact generation five in
+headless mode without rebooting. See the
+[successful host record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
 ## Host facts that shape the design
 
@@ -190,15 +192,17 @@ now proves all of the following:
   all pass in disposable containers; and
 - the post-Tailscale live integration remains a no-op.
 
-`sparkle-01` still retains the superseded first-attempt headless candidate at
-the normal headless pilot root. On the next guarded switch, the operator first
-preserves that exact output at
+Before the successful retry, `sparkle-01` retained the superseded first-attempt
+headless candidate at the normal headless pilot root. The guarded operator
+preserved that exact output at
 `/nix/var/nix/gcroots/dgx-setup-desktop-headless-pre-dashboard-pilot`, then
-atomically selects the corrected candidate at the normal pilot root. A fresh
+atomically selected the corrected candidate at the normal pilot root. A fresh
 Spark with no historical candidate skips this rollover entirely, and does not
 need the old output in its Nix store.
 
-The regression and exact evidence gate are complete. `scripts/dgx-desktop` is
-now eligible for a separately authorized live retry. The proof does not itself
-authorize a switch or reboot; the host remains on exact generation four with
-factory GNOME until the guarded operator is explicitly invoked.
+The regression/evidence gate and separately authorized retry are complete.
+`sparkle-01` now runs exact generation five/headless with factory GNOME still
+installed as rollback material, Nix-managed Tailscale intact, all five
+generations retained, and no rollback timer armed. A real generation-five
+reboot, a return to GNOME, Hyprland activation, and generation/root cleanup
+remain separate actions.
