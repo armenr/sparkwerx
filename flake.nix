@@ -325,6 +325,8 @@
       reviewedRootRebootRecoverySnapshotSha256 = "89a2ec821eb58169510c208965e546ad8311521f6534bc090d7d9799b8ebf0c4";
       rootRebootRecoveryPilotProgram = ./scripts/root-reboot-recovery-pilot.sh;
       rootTailscaleMigrationTransactionProgram = ./scripts/root-tailscale-migration-transaction.sh;
+      rootDesktopModeTransactionProgram = ./scripts/root-desktop-mode-transaction.sh;
+      reviewedRootDesktopModeTransactionSha256 = "6b62ba0ee094d664ffa059c43cf1da87f39b2790ed0d93708ad9ec0432a60fe4";
       rootTailscaleMigrationBundle = import ./root/tailscale/migration-bundle.nix {
         pkgs = rootPkgs;
         transactionProgram = rootTailscaleMigrationTransactionProgram;
@@ -1425,6 +1427,35 @@
               hostMutation = false;
               hostPostflight = "clean";
             };
+          guardedHeadlessTransaction = {
+            status = "transaction-primitive-designed-disposable-test-awaiting";
+            program = {
+              repositoryPath = "scripts/root-desktop-mode-transaction.sh";
+              sha256 = builtins.hashFile "sha256" rootDesktopModeTransactionProgram;
+              actions = [
+                "apply-headless"
+                "rollback-factory"
+                "verify-factory"
+                "verify-headless"
+              ];
+            };
+            exactFromGeneration = 4;
+            exactToGeneration = 5;
+            rollbackMode = "factory-gnome-generation-four";
+            retainsAllFivePilotRoots = true;
+            preservesTailscaleProcess = true;
+            performsReboot = false;
+            liveOperator = {
+              implemented = false;
+              requiresPersistentRollbackBeforeMutation = true;
+            };
+            isolatedTest = {
+              flakeCheck = "desktop-headless-transaction-container";
+              result = "awaiting-root-local-run";
+              subtestCount = 12;
+              hostMutation = false;
+            };
+          };
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
 
@@ -1819,6 +1850,7 @@
               ${./scripts/dgx-tailscale} \
               ${./scripts/test-dgx-setup-apply.sh} \
               ${./scripts/test-dgx-setup-plan.sh} \
+              ${./scripts/test-desktop-headless-transaction.sh} \
               ${./scripts/test-desktop-mode-lifecycle.sh} \
               ${./scripts/test-post-tailscale-integration.sh} \
               ${./scripts/test-tailscale-unit-lifecycle.sh} \
@@ -1827,7 +1859,8 @@
             # next to its unit set; the assertions below consume the paths
             # individually rather than iterating that documentation array.
             shellcheck --exclude=SC2034 \
-              ${rootTailscaleMigrationTransactionProgram}
+              ${rootTailscaleMigrationTransactionProgram} \
+              ${rootDesktopModeTransactionProgram}
             touch "$out"
           '';
 
@@ -1874,6 +1907,29 @@
         assert rootManagerManifest.desktopController.disposableLifecycleTest.provesTailscaleContinuity;
         assert !rootManagerManifest.desktopController.disposableLifecycleTest.hostMutation;
         assert rootManagerManifest.desktopController.disposableLifecycleTest.hostPostflight == "clean";
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.status
+          == "transaction-primitive-designed-disposable-test-awaiting";
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.program.sha256
+          == reviewedRootDesktopModeTransactionSha256;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.program.actions == [
+            "apply-headless"
+            "rollback-factory"
+            "verify-factory"
+            "verify-headless"
+          ];
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.exactFromGeneration == 4;
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.exactToGeneration == 5;
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.retainsAllFivePilotRoots;
+        assert rootManagerManifest.desktopController.guardedHeadlessTransaction.preservesTailscaleProcess;
+        assert !rootManagerManifest.desktopController.guardedHeadlessTransaction.performsReboot;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.liveOperator.requiresPersistentRollbackBeforeMutation;
+        assert
+          rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.subtestCount == 12;
+        assert !rootManagerManifest.desktopController.guardedHeadlessTransaction.isolatedTest.hostMutation;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;
@@ -1948,6 +2004,9 @@
         assert
           builtins.hashFile "sha256" rootGenerationSwitchPilotProgram
           == reviewedRootGenerationSwitchPilotSha256;
+        assert
+          builtins.hashFile "sha256" rootDesktopModeTransactionProgram
+          == reviewedRootDesktopModeTransactionSha256;
         assert
           builtins.hashFile "sha256" systemdSnapshotPropertyProgram == reviewedSystemdSnapshotPropertySha256;
         assert
@@ -2717,6 +2776,16 @@
           ;
       };
 
+      desktopHeadlessTransactionContainerTest = import ./root/desktop/headless-transaction-test.nix {
+        pkgs = rootPkgs;
+        inherit
+          rootCanary
+          rootDesktopModeTransactionProgram
+          rootManagerOverlays
+          system-manager
+          ;
+      };
+
       nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
         mkdir -p \
           "$out/bootstrap/nix" \
@@ -2957,6 +3026,7 @@
         devbox-package = devboxPackage;
         devbox-policy = devboxPolicyCheck;
         desktop-controller-policy = desktopControllerPolicyCheck;
+        desktop-headless-transaction-container = desktopHeadlessTransactionContainerTest;
         desktop-mode-lifecycle-container = desktopModeLifecycleContainerTest;
         home-sparkle-01 = sparkleHome.activationPackage;
         home-base = baseProfile.activationPackage;
