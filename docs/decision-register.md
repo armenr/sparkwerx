@@ -500,10 +500,19 @@ live no-op regression now reports `PLAN_STATUS=READY` and
 `root/desktop/validation/2026-09-05-confirmed-headless-integration.md`.
 
 The older `APPLY_STATUS=PARTIAL` result remains valid historical evidence from
-before those live ownership transitions. Complete retained-state convergence
-does not yet authorize a pristine host to perform the one-time Tailscale or
-desktop transitions implicitly; composing their proven guarded operators is a
-separate remaining milestone.
+before those live ownership transitions.
+
+Implemented as a candidate on 2026-09-05: `scripts/dgx-setup converge` now
+composes a new host's independently guarded layers without replaying the
+pilot's manual five-generation history. It is rerunnable after disconnects,
+never reboots, and advances through exact Nix bootstrap, a first factory-GNOME
+System Manager generation with optional Nix-owned Tailscale, a required
+separately initiated reboot, a second headless generation, and the generic
+Home composition. Both root phases arm exact persistent rollback before
+mutation. A newly enrolled Tailscale identity remains external mutable state;
+disabling the role omits its package and unit. The implementation remains
+ineligible for another DGX until the combined root-assisted disposable gate in
+`docs/fresh-host-convergence.md` passes and is recorded.
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 

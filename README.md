@@ -78,8 +78,11 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   transactions and verifies retained Nix-managed Tailscale plus the System
   Manager headless role without restarting or switching them. Exact
   `sparkle-01` now returns `PLAN_STATUS=READY` and `APPLY_STATUS=COMPLETE` as a
-  true no-op. The one-time Tailscale and desktop transitions still need to be
-  composed before a pristine host has the same one-command experience.
+  true no-op. A separate resumable `scripts/dgx-setup converge` candidate now
+  composes the pristine-host Nix, optional Tailscale, factory/reboot, headless,
+  and generic Home stages without replaying the pilot history or performing a
+  reboot. Its combined root-assisted disposable gate remains required before
+  another DGX may use it.
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -117,6 +120,8 @@ Start with the [decision register](docs/decision-register.md), then review the
 [user-overlay contract](docs/user-overlays.md). See
 [docs/architecture.md](docs/architecture.md) for the ownership boundary,
 [docs/roadmap.md](docs/roadmap.md) for sequencing, and the
+[fresh-host convergence contract](docs/fresh-host-convergence.md) for the
+resumable clone-to-headless candidate. Read the
 [Tailscale operations reference](.agents/skills/dgx-spark-ops/references/tailscale.md)
 before auditing, packaging, migrating, restarting, or updating Tailscale. Read
 [the Nix runtime diagnosis](root/nix/README.md) before running `upgrade-nix`,
@@ -156,10 +161,9 @@ The fresh-host front door starts with the read-only plan:
 It reads the plain-JSON host and bootstrap declarations before requiring Nix.
 On a host with Nix, evaluation may fetch missing locked flake sources, but it
 does not build/install packages, mutate a profile, change a service, enroll
-Tailscale, switch the desktop, or reboot. On the pilot it also verifies that the
-declared Nix-managed Tailscale role matches exact live generation four.
-`PLAN_STATUS=PARTIAL_READY` means the declared layers are usable while a
-separately guarded root role, currently the desktop controller, remains open.
+Tailscale, switch the desktop, or reboot. On the pilot it also verifies the
+exact live generation-five headless controller and its inherited Nix-managed
+Tailscale role.
 
 The corresponding bootstrap-only operator is:
 
@@ -177,6 +181,20 @@ disarming. Its exact disposable-host lifecycle passed; read the
 on another declared clean ARM64 Spark. This is a Nix-only bootstrap, not
 authorization for unified apply or any optional role.
 
+The candidate clone-to-headless operator is:
+
+```bash
+./scripts/dgx-setup converge <hostname>
+```
+
+It is the one command to rerun after an expected graphical/Tailscale
+disconnect and after the separately initiated first reboot. It never reboots.
+It advances only when the exact previous phase verifies, and both root phases
+start with persistent rollback. A normal new host is composed directly from
+`fleet/hosts.json` through generic Home and System Manager modules. This lane
+is not deployment-approved until its combined gate is recorded as passed; see
+the [fresh-host convergence contract](docs/fresh-host-convergence.md).
+
 The guarded staged apply operator is:
 
 ```bash
@@ -185,12 +203,11 @@ The guarded staged apply operator is:
 
 It first prints the complete plan, then runs the exact install-or-adopt Nix
 transaction and the exact headless Home first-activation or update transaction.
-On the current declaration it verifies exact confirmed Nix-managed Tailscale
-without restarting it, leaves factory GNOME/GDM untouched, and ends with
-`APPLY_STATUS=PARTIAL`. That status is a successful convergence of every
-implemented selected layer; only the root desktop controller remains open. The
+On the current pilot it verifies confirmed Nix-managed Tailscale and the
+generation-five headless controller without restarting or switching either
+one, and ends with `APPLY_STATUS=COMPLETE` as a true no-op. The
 [original guarded staged apply record](docs/2026-09-03-guarded-staged-apply.md)
-is historical pre-migration evidence.
+and its `PARTIAL` result are historical pre-migration evidence.
 
 After changing the fleet/apply/Tailscale integration, run the single combined
 regression as the declared user:

@@ -16,7 +16,7 @@ nix_bin=/nix/var/nix/profiles/default/bin/nix
 nix_args=(--extra-experimental-features "nix-command flakes")
 
 usage() {
-  printf 'Usage: %s <plan | bootstrap | apply> [HOSTNAME]\n' "$(basename "$0")" >&2
+  printf 'Usage: %s <plan | bootstrap | apply | converge> [HOSTNAME]\n' "$(basename "$0")" >&2
 }
 
 die() {
@@ -131,6 +131,8 @@ plan_host() {
   local runtime_version features candidate live_candidate closure status
   local tailscale_version tailscale_package tailscale_plan tailscale_generation
   local desktop_plan desktop_live desktop_candidate desktop_retained desktop_guard desktop_default
+  local root_live="" fleet_factory="" fleet_headless="" fleet_guard=false
+  local managed_fragment status_json prefs_json
   local partial=false
 
   validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
@@ -228,12 +230,46 @@ plan_host() {
     status=READY
     [[ "$candidate" != "$live_candidate" ]] || status=CURRENT
     emit "$status" home "candidate=$candidate;live=${live_candidate:-ABSENT};closure=$closure"
+
+    if [[ "$host_controller" == system-manager ]]; then
+      fleet_factory="$(cd "$repo_dir" && "$nix_bin" "${nix_args[@]}" \
+        eval --raw --no-write-lock-file \
+        ".#lib.dgxFleetRootOutputs.aarch64-linux.\"$target_host\".factory")"
+      fleet_headless="$(cd "$repo_dir" && "$nix_bin" "${nix_args[@]}" \
+        eval --raw --no-write-lock-file \
+        ".#lib.dgxFleetRootOutputs.aarch64-linux.\"$target_host\".headless")"
+      root_live="$(readlink -f \
+        /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
+      [[ ! -e /var/lib/dgx-setup/fleet-bootstrap &&
+        ! -L /var/lib/dgx-setup/fleet-bootstrap ]] || fleet_guard=true
+    fi
   else
     emit HOLD home 'Nix bootstrap and exact 2.35.2 runtime must complete first'
   fi
 
   if [[ "$tailscale_selected" == true ]]; then
-    if [[ "$tailscale_owner" == nix-managed && -x "$nix_bin" ]] &&
+    if [[ "$tailscale_owner" == nix-managed &&
+      ( "$root_live" == "$fleet_factory" || "$root_live" == "$fleet_headless" ) ]]; then
+      tailscale_package="$(cd "$repo_dir" && "$nix_bin" "${nix_args[@]}" \
+        eval --raw --no-write-lock-file .#packages.aarch64-linux.tailscale.outPath)"
+      managed_fragment="$(jq -er '.["tailscaled.service"].storePath' \
+        "$root_live/services/services.json")"
+      [[ "$(systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true)" == \
+        "$managed_fragment" && "$(systemctl is-active tailscaled.service 2>/dev/null || true)" == active ]] ||
+        die 'declared fresh-host generation does not own a healthy tailscaled.service'
+      status_json="$("$tailscale_package/bin/tailscale" status --json 2>/dev/null)" ||
+        die 'fresh-host Tailscale status is unavailable'
+      prefs_json="$("$tailscale_package/bin/tailscale" debug prefs 2>/dev/null)" ||
+        die 'fresh-host Tailscale preferences are unavailable'
+      [[ "$(jq -r '.BackendState' <<<"$status_json")" == Running &&
+        "$(jq -r '.Self.Online' <<<"$status_json")" == true &&
+        "$(jq -r '.WantRunning' <<<"$prefs_json")" == true &&
+        "$(jq -r '.RunSSH' <<<"$prefs_json")" == "$tailscale_ssh" ]] ||
+        die 'fresh-host Nix-managed Tailscale is not online with declared preferences'
+      tailscale_version="$("$tailscale_package/bin/tailscale" version --json 2>/dev/null | python3 -c \
+        'import json,sys; value=json.load(sys.stdin); print(value.get("majorMinorPatch") or value.get("short") or value.get("long") or "UNKNOWN")')"
+      emit PASS tailscale_apply "ownership=nix-managed;installed=$tailscale_version;managed_generation=$root_live;live and boot-linked"
+    elif [[ "$tailscale_owner" == nix-managed && -x "$nix_bin" ]] &&
       tailscale_plan="$("$repo_dir/scripts/dgx-tailscale" plan 2>&1)" &&
       grep -Fq 'PASS|ownership|confirmed-nix-managed;generation=' <<<"$tailscale_plan"; then
       tailscale_package="$(sed -n 's/^INFO|tailscale_package|//p' <<<"$tailscale_plan")"
@@ -255,6 +291,14 @@ plan_host() {
     fi
   fi
   if [[ "$desktop_mode" == headless && "$host_controller" == system-manager && -x "$nix_bin" ]] &&
+    [[ "$root_live" == "$fleet_headless" && "$fleet_guard" == false ]] &&
+    [[ "$(systemctl get-default 2>/dev/null || true)" == default.target ]] &&
+    systemctl is-active --quiet dgx-headless.target &&
+    ! systemctl is-active --quiet graphical.target &&
+    ! systemctl is-active --quiet gdm.service &&
+    ! systemctl is-active --quiet dgx-dashboard.service; then
+    emit PASS desktop_apply "mode=headless;controller=system-manager;generation=$fleet_headless;confirmed live and boot-persistent"
+  elif [[ "$desktop_mode" == headless && "$host_controller" == system-manager && -x "$nix_bin" ]] &&
     desktop_plan="$("$repo_dir/scripts/dgx-desktop" plan 2>&1)"; then
     desktop_live="$(sed -n 's/^INFO|live_generation|//p' <<<"$desktop_plan" | head -n 1)"
     desktop_candidate="$(sed -n 's/^INFO|headless_generation|//p' <<<"$desktop_plan" | head -n 1)"
@@ -403,6 +447,141 @@ apply_host() {
   fi
 }
 
+converge_host() {
+  local target_host=$1 actual_host actual_user declared_user declared_home
+  local desktop_mode host_controller tailscale_selected tailscale_owner
+  local isaac_enabled llmster_enabled current legacy_headless fleet_output fleet_status
+  local home_profile home_action
+
+  validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
+  actual_host="$(hostname -s)"
+  actual_user="$(id -un)"
+  declared_user="$(json_value "$fleet_file" "hosts.$target_host.users.armen.unixName")"
+  declared_home="$(json_value "$fleet_file" "hosts.$target_host.users.armen.homeDirectory")"
+  desktop_mode="$(json_value "$fleet_file" "hosts.$target_host.desktop.mode")"
+  host_controller="$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")"
+  tailscale_selected="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.selected")"
+  tailscale_owner="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.ownership")"
+  isaac_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.isaacOmniverse.enabled")"
+  llmster_enabled="$(json_value "$fleet_file" "hosts.$target_host.workloads.lmstudioDaemon.enabled")"
+
+  [[ "$target_host" == "$actual_host" ]] ||
+    die "converge can target only the local host ($actual_host)"
+  [[ "$actual_user" == "$declared_user" && "$HOME" == "$declared_home" ]] ||
+    die "converge must run as declared user $declared_user with HOME=$declared_home"
+  [[ "$(uname -m)" == aarch64 ]] || die 'converge supports only aarch64 hosts'
+  [[ -z "$(git -C "$repo_dir" status --porcelain=v1)" ]] ||
+    die 'repository must be clean so converge binds one committed design'
+  [[ "$desktop_mode" == headless && "$host_controller" == system-manager ]] ||
+    die 'the guarded fresh-host workflow currently supports System Manager headless mode'
+  [[ "$isaac_enabled" == false && "$llmster_enabled" == false ]] ||
+    die 'enabled workload deployment is not yet part of fresh-host converge'
+  if [[ "$tailscale_selected" == true && "$tailscale_owner" != nix-managed ]]; then
+    die 'fresh-host converge treats access.tailscale.ownership=nix-managed as the desired state'
+  fi
+
+  printf '# DGX resumable fresh-host convergence\n'
+  printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  emit INFO target "$target_host"
+  emit INFO contract 'rerun this same command after disconnects/reboot; it never reboots and never bypasses a rollback guard'
+
+  "$repo_dir/scripts/bootstrap-nix.sh" "$target_host"
+  [[ -x "$nix_bin" ]] || die 'Nix bootstrap returned without the required runtime'
+  emit PASS converge_nix 'exact bootstrap/runtime transaction converged'
+
+  current="$(readlink -f \
+    /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
+  legacy_headless="$(cd "$repo_dir" && "$nix_bin" "${nix_args[@]}" \
+    eval --raw --no-write-lock-file .#packages.aarch64-linux.root-system-desktop-headless.outPath)"
+  if [[ "$target_host" == sparkle-01 && "$current" == "$legacy_headless" ]]; then
+    emit INFO root_lifecycle 'recognized retained historical sparkle-01 generation five'
+    apply_host "$target_host"
+    printf 'CONVERGE_STATUS=COMPLETE\n'
+    return
+  fi
+
+  if [[ -z "$current" && ! -e /var/lib/dgx-setup/fleet-bootstrap &&
+    ! -L /var/lib/dgx-setup/fleet-bootstrap ]]; then
+    "$repo_dir/scripts/dgx-fleet-bootstrap" factory
+    printf 'CONVERGE_STATUS=FACTORY_TRANSITION_LAUNCHED\n'
+    printf 'NEXT_ACTION=reconnect if needed, then rerun ./scripts/dgx-setup converge %s\n' "$target_host"
+    return
+  fi
+
+  fleet_output="$("$repo_dir/scripts/dgx-fleet-bootstrap" status)" ||
+    die 'fresh-host root state could not be classified'
+  printf '%s\n' "$fleet_output"
+  fleet_status="$(sed -n 's/^FLEET_BOOTSTRAP_STATUS=//p' <<<"$fleet_output" | tail -n 1)"
+  case "$fleet_status" in
+    AWAITING_TAILSCALE_LOGIN)
+      printf 'CONVERGE_STATUS=AWAITING_TAILSCALE_LOGIN\n'
+      return
+      ;;
+    AWAITING_REBOOT)
+      printf 'CONVERGE_STATUS=AWAITING_REBOOT\n'
+      printf 'NEXT_ACTION=after local recovery is available, separately run sudo systemctl reboot; reconnect and rerun ./scripts/dgx-setup converge %s\n' "$target_host"
+      return
+      ;;
+    AWAITING_FACTORY_CONFIRMATION)
+      "$repo_dir/scripts/dgx-fleet-bootstrap" confirm
+      emit PASS converge_factory 'first managed generation survived reboot and was confirmed'
+      "$repo_dir/scripts/dgx-fleet-bootstrap" headless
+      printf 'CONVERGE_STATUS=HEADLESS_TRANSITION_LAUNCHED\n'
+      printf 'NEXT_ACTION=reconnect if needed, then rerun ./scripts/dgx-setup converge %s\n' "$target_host"
+      return
+      ;;
+    FACTORY_CONFIRMED)
+      "$repo_dir/scripts/dgx-fleet-bootstrap" headless
+      printf 'CONVERGE_STATUS=HEADLESS_TRANSITION_LAUNCHED\n'
+      printf 'NEXT_ACTION=reconnect if needed, then rerun ./scripts/dgx-setup converge %s\n' "$target_host"
+      return
+      ;;
+    AWAITING_HEADLESS_CONFIRMATION)
+      "$repo_dir/scripts/dgx-fleet-bootstrap" confirm
+      emit PASS converge_headless 'headless transition verified and confirmed'
+      ;;
+    HEADLESS_CONFIRMED)
+      ;;
+    APPLYING | ARMED_WAITING_FOR_WORKER)
+      printf 'CONVERGE_STATUS=%s\n' "$fleet_status"
+      printf 'NEXT_ACTION=wait for the detached worker, then rerun ./scripts/dgx-setup converge %s\n' "$target_host"
+      return
+      ;;
+    ROLLED_BACK_CLEANUP_PENDING)
+      "$repo_dir/scripts/dgx-fleet-bootstrap" cleanup-rolled-back
+      printf 'CONVERGE_STATUS=ROLLED_BACK_CLEAN\n'
+      printf 'NEXT_ACTION=inspect the recorded snapshot, then rerun ./scripts/dgx-setup converge %s to retry\n' "$target_host"
+      return
+      ;;
+    NOT_STARTED)
+      "$repo_dir/scripts/dgx-fleet-bootstrap" factory
+      printf 'CONVERGE_STATUS=FACTORY_TRANSITION_LAUNCHED\n'
+      return
+      ;;
+    *) die "unknown fleet bootstrap state: ${fleet_status:-MISSING}" ;;
+  esac
+
+  home_profile=$declared_home/.local/state/nix/profiles/home-manager
+  if [[ -L "$home_profile" ]]; then
+    home_action=update-headless
+  elif [[ ! -e "$home_profile" ]]; then
+    home_action=activate-headless
+  else
+    die "Home Manager profile is a non-symlink: $home_profile"
+  fi
+  emit INFO home_action "$home_action"
+  "$repo_dir/scripts/dgx-home" "$home_action"
+  emit PASS converge_home 'exact headless Home transaction converged'
+
+  fleet_output="$("$repo_dir/scripts/dgx-fleet-bootstrap" status)" ||
+    die 'final fleet root verification failed'
+  printf '%s\n' "$fleet_output"
+  grep -Fx 'FLEET_BOOTSTRAP_STATUS=HEADLESS_CONFIRMED' <<<"$fleet_output" >/dev/null ||
+    die 'final fleet root state is not confirmed headless'
+  emit PASS converge 'Nix, root access/desktop, and Home layers match the declaration'
+  printf 'CONVERGE_STATUS=COMPLETE\n'
+}
+
 [[ "$#" -le 2 ]] || {
   usage
   exit 2
@@ -416,6 +595,9 @@ case "${1:-}" in
     ;;
   apply)
     apply_host "${2:-$(hostname -s)}"
+    ;;
+  converge)
+    converge_host "${2:-$(hostname -s)}"
     ;;
   *)
     usage

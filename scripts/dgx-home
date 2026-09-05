@@ -166,11 +166,6 @@ assert_headless_candidate_structure() {
     die 'headless activation unexpectedly contains Home Manager systemd reload'
 }
 
-manifest_deployment_field() {
-  local field=$1
-  profile_manifest_json | jq -er ".deployments.sparkle01Home.${field} // empty"
-}
-
 capture_symlink_inventory() {
   local directory=$1 entry name
   [[ -d "$directory" && ! -L "$directory" ]] ||
@@ -222,13 +217,90 @@ assert_root_lane_unchanged() {
 EOF
 }
 
-assert_sparkle_root_state() {
-  [[ "$(host_name)" == sparkle-01 ]] || return 0
-
-  local generation_four generation_five desktop_plan tailscale_plan
-  local unit_source unit_tree marker_source canary_source path unit
+assert_managed_root_state() {
+  local host generation_four generation_five fleet_factory fleet_headless current
+  local desktop_plan tailscale_plan unit_source unit_tree marker_source canary_source
+  local path unit profile_entries
+  host="$(host_name)"
   generation_four=/nix/store/vjw778sf95r42a1zbivlk8z4p45y7qhx-system-manager
   generation_five=/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager
+  fleet_factory="$($nix_bin "${nix_args[@]}" eval --raw --no-write-lock-file \
+    ".#lib.dgxFleetRootOutputs.aarch64-linux.\"$host\".factory")" ||
+    die 'could not evaluate the fresh-host factory candidate'
+  fleet_headless="$($nix_bin "${nix_args[@]}" eval --raw --no-write-lock-file \
+    ".#lib.dgxFleetRootOutputs.aarch64-linux.\"$host\".headless")" ||
+    die 'could not evaluate the fresh-host headless candidate'
+  current="$(readlink -f -- \
+    /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
+
+  # A freshly provisioned host reaches the declared root boundary in two
+  # generations. sparkle-01's already-live historical five-generation lane is
+  # accepted separately below and never rewritten into this newer topology.
+  if [[ "$current" == "$fleet_headless" ]]; then
+    [[ "$(readlink -- /nix/var/nix/profiles/system-manager-profiles/system-manager)" == \
+      system-manager-2-link &&
+      "$(readlink -- /nix/var/nix/profiles/system-manager-profiles/system-manager-1-link)" == \
+      "$fleet_factory" &&
+      "$(readlink -- /nix/var/nix/profiles/system-manager-profiles/system-manager-2-link)" == \
+      "$fleet_headless" &&
+      "$(readlink -- /nix/var/nix/gcroots/system-manager-current)" == "$fleet_headless" &&
+      "$(readlink -- /nix/var/nix/gcroots/dgx-setup-fleet-factory)" == "$fleet_factory" &&
+      "$(readlink -- /nix/var/nix/gcroots/dgx-setup-fleet-headless)" == "$fleet_headless" ]] ||
+      die 'fresh-host headless profile or retention root changed'
+    profile_entries="$(find /nix/var/nix/profiles/system-manager-profiles \
+      -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort)"
+    [[ "$profile_entries" == $'system-manager\nsystem-manager-1-link\nsystem-manager-2-link' ]] ||
+      die 'fresh-host System Manager generation inventory changed'
+    canary_source="$(jq -er '.entries["dgx-setup/canary"].source' \
+      "$fleet_headless/etcFiles/etcFiles.json")" ||
+      die 'fresh-host canary source is unavailable'
+    marker_source="$(jq -er '.entries["dgx-setup/desktop-mode"].source' \
+      "$fleet_headless/etcFiles/etcFiles.json")" ||
+      die 'fresh-host desktop marker source is unavailable'
+    unit_source="$(jq -er '.entries["systemd/system"].source' \
+      "$fleet_headless/etcFiles/etcFiles.json")" ||
+      die 'fresh-host unit source is unavailable'
+    unit_tree="$(readlink -f -- "$unit_source/systemd/system")"
+    [[ "$(readlink -f -- /etc/dgx-setup/canary)" == \
+      "$(readlink -f -- "$canary_source/dgx-setup/canary")" &&
+      "$(readlink -f -- /etc/dgx-setup/desktop-mode)" == \
+      "$(readlink -f -- "$marker_source/dgx-setup/desktop-mode")" ]] ||
+      die 'fresh-host live markers differ from the candidate'
+    while IFS= read -r path; do
+      [[ "$(readlink -f -- "/etc/systemd/system/$path")" == \
+        "$(readlink -f -- "$unit_tree/$path")" ]] ||
+        die "fresh-host live unit path differs from candidate: $path"
+    done < <(find -L "$unit_tree" -type f -printf '%P\n' | sort)
+    while IFS= read -r unit; do
+      [[ "$(systemctl show "$unit" -p FragmentPath --value 2>/dev/null || true)" == \
+        "$(jq -er --arg unit "$unit" '.[$unit].storePath' \
+          "$fleet_headless/services/services.json")" ]] ||
+        die "fresh-host managed service differs from candidate: $unit"
+      systemctl is-active --quiet "$unit" ||
+        die "fresh-host managed service is inactive: $unit"
+    done < <(jq -r 'keys[]' "$fleet_headless/services/services.json")
+    for unit in dgx-headless.target system-manager.target dgx-setup-canary.service; do
+      systemctl is-active --quiet "$unit" || die "required fresh-host unit is inactive: $unit"
+    done
+    if grep -Fx 'tailscale-selected=true' /etc/dgx-setup/canary >/dev/null; then
+      systemctl is-active --quiet tailscaled.service ||
+        die 'selected fresh-host Tailscale service is inactive'
+    fi
+    for unit in dgx-gnome.target graphical.target gdm.service dgx-dashboard.service; do
+      ! systemctl is-active --quiet "$unit" || die "graphical unit is active in fresh-host headless mode: $unit"
+    done
+    grep -Fx 'lifecycle=fresh-host' /etc/dgx-setup/canary >/dev/null ||
+      die 'fresh-host lifecycle marker is incomplete'
+    grep -Fx 'desktop-mode=headless' /etc/dgx-setup/canary >/dev/null ||
+      die 'fresh-host headless marker is incomplete'
+    jq -e '.version == 1 and (.fileTree.backedUpFiles == [])' \
+      /var/lib/system-manager/state/system-manager-state.json >/dev/null ||
+      die 'fresh-host System Manager state is invalid'
+    return 0
+  fi
+
+  [[ "$host" == sparkle-01 ]] ||
+    die 'root lane is neither the exact declared fresh-host headless generation nor a supported legacy state'
 
   desktop_plan="$("$repo_dir/scripts/dgx-desktop" plan 2>&1)" ||
     die 'could not inspect the retained headless controller'
@@ -316,7 +388,6 @@ assert_sparkle_root_state() {
 }
 
 active_protected_units=(
-  tailscaled.service
   docker.service
   dgx-dashboard-admin.service
   nvidia-persistenced.service
@@ -328,7 +399,11 @@ inactive_protected_units=(
 
 capture_protected_units() {
   local unit load active substate result fragment pid started reload
-  for unit in "${active_protected_units[@]}"; do
+  local -a observed_active_units=("${active_protected_units[@]}")
+  if systemctl is-active --quiet tailscaled.service; then
+    observed_active_units=(tailscaled.service "${observed_active_units[@]}")
+  fi
+  for unit in "${observed_active_units[@]}"; do
     load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
     active="$(systemctl show "$unit" -p ActiveState --value 2>/dev/null || true)"
     substate="$(systemctl show "$unit" -p SubState --value 2>/dev/null || true)"
@@ -363,15 +438,31 @@ capture_protected_units() {
 }
 
 assert_host_health() {
-  local state failed tailscale_json
+  local state failed tailscale_json tailscale_required=false daemon_path tailscale_client
   state="$(systemctl is-system-running 2>/dev/null || true)"
   [[ "$state" == running ]] || die "systemd state is ${state:-UNKNOWN}"
   failed="$(systemctl --failed --no-legend --plain 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
   [[ -z "$failed" ]] || die 'systemd reports failed units'
   capture_protected_units >/dev/null
 
-  if [[ "$(host_name)" == sparkle-01 ]]; then
-    tailscale_json="$(tailscale status --json 2>/dev/null)" ||
+  if grep -Eq '^(tailscale-selected=true|tailscale-migration-generation=)' \
+    /etc/dgx-setup/canary 2>/dev/null; then
+    tailscale_required=true
+  elif [[ -n "$repo_dir" ]] && jq -e --arg host "$(host_name)" \
+    '.hosts[$host].access.tailscale.selected == true' \
+    "$repo_dir/fleet/hosts.json" >/dev/null 2>&1; then
+    tailscale_required=true
+  fi
+
+  if [[ "$tailscale_required" == true ]]; then
+    daemon_path="$(systemctl show tailscaled.service -p ExecStart --value 2>/dev/null |
+      sed -n 's#.*path=\([^ ;}]*\/bin\/tailscaled\).*#\1#p')"
+    tailscale_client="${daemon_path%/tailscaled}/tailscale"
+    if [[ ! -x "$tailscale_client" ]]; then
+      tailscale_client="$(command -v tailscale 2>/dev/null || true)"
+    fi
+    [[ -x "$tailscale_client" ]] || die 'Tailscale client is unavailable'
+    tailscale_json="$("$tailscale_client" status --json 2>/dev/null)" ||
       die 'Tailscale status is unavailable'
     jq -e '
       .BackendState == "Running" and
@@ -443,13 +534,13 @@ run_preflight() {
   candidate="$(activation_candidate)"
   info candidate "$candidate"
   "$nix_bin" "${nix_args[@]}" build --no-link \
-    '.#checks.aarch64-linux.home-sparkle-01' \
+    "$(activation_attr)" \
     '.#checks.aarch64-linux.profile-policy' \
     '.#checks.aarch64-linux.codex-cli-policy' \
     '.#checks.aarch64-linux.devbox-policy'
   assert_profile_policy
   assert_root_lane_unchanged
-  assert_sparkle_root_state
+  assert_managed_root_state
   assert_host_health
   assert_first_activation_surface "$candidate"
 
@@ -783,33 +874,23 @@ smoke_current_manifest_versions() {
     die "Devbox $devbox_version smoke test failed"
 }
 
-assert_recorded_headless_live() {
-  local home profiles candidate home_path home_files user_environment
-  local declared_host declared_user declared_mode declared_status
+assert_current_headless_live() {
+  local candidate="$1" home profiles home_path home_files user_environment
   local hm_selected profile_selected
   home="$(home_directory)"
   profiles=$home/.local/state/nix/profiles
-  declared_host="$(manifest_deployment_field hostName)"
-  declared_user="$(manifest_deployment_field userName)"
-  declared_mode="$(manifest_deployment_field mode)"
-  declared_status="$(manifest_deployment_field status)"
-  candidate="$(manifest_deployment_field observedCandidate)"
-  home_files="$(manifest_deployment_field observedHomeFiles)"
-  user_environment="$(manifest_deployment_field observedUserEnvironment)"
+
+  [[ "$candidate" == /nix/store/*-home-manager-generation ]] ||
+    die 'live Home Manager candidate is not an exact store generation'
   home_path="$(readlink -e "$candidate/home-path" 2>/dev/null || true)"
+  home_files="$(readlink -e "$candidate/home-files" 2>/dev/null || true)"
+  user_environment="$(readlink -e "$profiles/profile" 2>/dev/null || true)"
   hm_selected="$(readlink -- "$profiles/home-manager" 2>/dev/null || true)"
   profile_selected="$(readlink -- "$profiles/profile" 2>/dev/null || true)"
-
-  [[ "$declared_host" == "$(host_name)" && "$declared_user" == "$(user_name)" ]] ||
-    die 'the deployment record belongs to another host or user'
-  [[ "$declared_mode" == headless && "$declared_status" =~ ^active-generation-[a-z0-9-]+-retained$ ]] ||
-    die 'the deployment record is not a retained headless generation'
-  [[ "$(readlink -e "$candidate/home-files" 2>/dev/null || true)" == "$home_files" ]] ||
-    die 'recorded Home files do not match the recorded candidate'
-  [[ "$(readlink -e "$profiles/home-manager" 2>/dev/null || true)" == "$candidate" ]] ||
-    die 'live Home Manager candidate differs from the deployment record'
-  [[ "$(readlink -e "$profiles/profile" 2>/dev/null || true)" == "$user_environment" ]] ||
-    die 'live user environment differs from the deployment record'
+  [[ "$home_path" == /nix/store/*-home-manager-path &&
+    "$home_files" == /nix/store/*-home-manager-files &&
+    "$user_environment" == /nix/store/*-user-environment ]] ||
+    die 'live Home Manager generation has incomplete resolved outputs'
   [[ "$hm_selected" =~ ^home-manager-[0-9]+-link$ &&
     "$profile_selected" =~ ^profile-[0-9]+-link$ ]] ||
     die 'selected Home generation names are invalid'
@@ -857,14 +938,7 @@ run_postflight() {
   "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \
     --check "$home/.codex/config.toml" >/dev/null || die 'Codex permission policy check failed'
 
-  [[ "$("$home/.local/bin/codex" --version 2>/dev/null)" == 'codex-cli 0.153.0' ]] ||
-    die 'Nix-managed Codex 0.153.0 is not visible at the owned launcher'
-  "$home/.nix-profile/bin/ncdu" --version | grep -Fx 'ncdu 2.9.2' >/dev/null ||
-    die 'ncdu 2.9.2 smoke test failed'
-  "$home/.nix-profile/bin/lazydocker" --version | grep -F 'Version: 0.25.2' >/dev/null ||
-    die 'lazydocker 0.25.2 smoke test failed'
-  [[ "$("$home/.nix-profile/bin/devbox" version)" == 0.18.0 ]] ||
-    die 'Devbox 0.18.0 smoke test failed'
+  smoke_current_manifest_versions
   for forbidden in chromium ghostty home-manager lmstudio zed; do
     path_is_absent "$home/.nix-profile/bin/$forbidden" ||
       die "forbidden headless launcher entered the profile: $forbidden"
@@ -876,7 +950,7 @@ run_postflight() {
   [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
     die 'a protected factory/access service restarted during Home activation'
   assert_host_health
-  assert_sparkle_root_state
+  assert_managed_root_state
   pass postflight 'exact four-package headless generation one is active; root, services, and graphical boundary are unchanged'
 }
 
@@ -1341,7 +1415,7 @@ rollback_update_snapshot() {
   [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
     die 'a protected factory/access service restarted during Home update rollback'
   assert_host_health
-  [[ -z "$repo_dir" ]] || assert_sparkle_root_state
+  [[ -z "$repo_dir" ]] || assert_managed_root_state
   printf 'Rollback completed.\n' >"$snapshot/ROLLED_BACK"
   pass rollback 'previous exact headless Home generation restored; failed candidate history removed'
 }
@@ -1371,7 +1445,7 @@ run_update_postflight() {
   [[ "$current_units" == "$(cat "$snapshot/protected-units.before.tsv")" ]] ||
     die 'a protected factory/access service restarted during Home update'
   assert_host_health
-  assert_sparkle_root_state
+  assert_managed_root_state
   pass postflight 'new exact headless Home generation is active; prior generation, root lane, services, and graphical boundary are unchanged'
 }
 
@@ -1380,25 +1454,22 @@ run_update_preflight() {
   require_repository
   require_clean_repository
 
-  local candidate old_candidate declared_candidate dry_run
+  local candidate old_candidate dry_run
   candidate="$(activation_candidate)"
   old_candidate="$(readlink -e "$(home_directory)/.local/state/nix/profiles/home-manager" 2>/dev/null || true)"
-  declared_candidate="$(manifest_deployment_field currentCandidate)"
   info live_candidate "$old_candidate"
   info repository_candidate "$candidate"
 
-  [[ "$declared_candidate" == "$candidate" ]] ||
-    die 'deployment manifest currentCandidate differs from the evaluated Home configuration'
   "$nix_bin" "${nix_args[@]}" build --no-link \
-    '.#checks.aarch64-linux.home-sparkle-01' \
+    "$(activation_attr)" \
     '.#checks.aarch64-linux.profile-policy' \
     '.#checks.aarch64-linux.codex-cli-policy' \
     '.#checks.aarch64-linux.devbox-policy'
   assert_profile_policy
   assert_root_lane_unchanged
-  assert_recorded_headless_live
+  assert_current_headless_live "$old_candidate"
   assert_host_health
-  assert_sparkle_root_state
+  assert_managed_root_state
 
   if [[ "$candidate" == "$old_candidate" ]]; then
     "$repo_dir/scripts/reconcile-codex-relaxed-defaults.sh" \

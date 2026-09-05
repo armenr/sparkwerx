@@ -94,7 +94,18 @@ bootstrap and grants no authority for unified apply, Tailscale, desktop,
 workload, or reboot actions. Do not rerun the root-assisted lifecycle test
 during an ordinary audit.
 
-If the user explicitly requests configuration application, use
+If the user explicitly requests initial convergence of a newly declared host,
+read
+[`docs/fresh-host-convergence.md`](../../../docs/fresh-host-convergence.md)
+and use `./scripts/dgx-setup converge [HOSTNAME]`. The candidate is resumable,
+never reboots, and owns exactly the guarded Nix, optional Tailscale,
+factory-generation, real-reboot checkpoint, headless-generation, and generic
+Home sequence. Do not replay `sparkle-01`'s historical pilot scripts or invoke
+raw System Manager/Home activation. Do not use this lane on another DGX until
+its root-assisted combined disposable gate is recorded as passed. When it
+reports `AWAITING_REBOOT`, only a separately initiated reboot may advance it.
+
+For retained historical `sparkle-01` configuration application, use
 `./scripts/dgx-setup apply [HOSTNAME]` rather than invoking Home Manager
 directly. Read
 [`docs/2026-09-03-guarded-staged-apply.md`](../../../docs/2026-09-03-guarded-staged-apply.md)
@@ -106,9 +117,7 @@ regression now returns `PLAN_STATUS=READY` and `APPLY_STATUS=COMPLETE` as a true
 live-host no-op.
 The historical `APPLY_STATUS=PARTIAL` result predates the separately guarded
 desktop activation; do not treat it as current host truth or as authority for a
-new desktop change. A pristine host still requires the separately guarded
-one-time Tailscale migration and desktop transition because the top-level apply
-operator deliberately does not initiate either transition yet.
+new desktop change.
 The first guarded headless host attempt reached exact generation five with
 Tailscale intact, then failed closed because `dgx-dashboard.service` was
 correctly stopped with the GUI but incorrectly treated as a mode-independent

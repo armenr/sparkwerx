@@ -1,0 +1,804 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Guarded first System Manager deployment for a declared DGX fleet host.  This
+# is intentionally separate from sparkle-01's historical five-generation pilot
+# operators.  It installs the host-specific factory candidate, requires a real
+# reboot before confirmation, and only then permits the independently guarded
+# factory-GNOME -> headless transition.  It never reboots the host.
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+fleet_file=$repo_dir/fleet/hosts.json
+host_name="$(hostname -s)"
+nix_bin=/nix/var/nix/profiles/default/bin/nix
+transaction=$repo_dir/scripts/root-fleet-bootstrap-transaction.sh
+state_dir=/var/lib/dgx-setup/fleet-bootstrap
+state_context=$state_dir/context
+factory_root=/nix/var/nix/gcroots/dgx-setup-fleet-factory
+headless_root=/nix/var/nix/gcroots/dgx-setup-fleet-headless
+rollback_root=/nix/var/nix/gcroots/dgx-setup-fleet-bootstrap-rollback
+rollback_service=dgx-fleet-bootstrap-rollback.service
+rollback_timer=dgx-fleet-bootstrap-rollback.timer
+apply_service=dgx-fleet-bootstrap-apply.service
+rollback_service_path=/etc/systemd/system/$rollback_service
+rollback_timer_path=/etc/systemd/system/$rollback_timer
+rollback_wants_path=/etc/systemd/system/timers.target.wants/$rollback_timer
+snapshot_root=$repo_dir/inventory/$host_name/raw/fleet-bootstrap
+
+NIX_USER_CONF_FILES=/dev/null
+export NIX_USER_CONF_FILES
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/dgx-fleet-bootstrap plan|factory|headless|status|confirm|rollback|cleanup-rolled-back
+
+  plan                Read-only candidate/current-state summary
+  factory             Guarded pristine -> managed factory transition; no reboot
+  headless            Guarded managed factory -> headless transition; no reboot
+  status              Verify current or in-flight state
+  confirm             Confirm the exact ready phase and remove its rollback guard
+  rollback            Launch the exact rollback for the in-flight phase
+  cleanup-rolled-back Remove guard residue after a verified rollback
+
+The factory phase must survive one separately initiated reboot before confirm.
+The headless phase requires no reboot.  No action in this operator reboots.
+EOF
+}
+
+info() {
+  printf 'INFO|%s|%s\n' "$1" "$2"
+}
+
+pass() {
+  printf 'PASS|%s|%s\n' "$1" "$2"
+}
+
+die() {
+  printf 'FAIL|dgx_fleet_bootstrap|%s\n' "$1" >&2
+  exit 1
+}
+
+path_exists() {
+  [[ -e "$1" || -L "$1" ]]
+}
+
+require_root() {
+  if [[ "$EUID" -ne 0 ]]; then
+    exec sudo -- "$repo_dir/scripts/dgx-fleet-bootstrap" "$@"
+  fi
+}
+
+require_commands() {
+  local command_name
+
+  for command_name in \
+    awk cmp date find git grep hostname install jq ln mktemp mv nvidia-smi \
+    readlink rm sed sha256sum sort stat systemctl systemd-analyze systemd-run \
+    timeout touch uname; do
+    command -v "$command_name" >/dev/null 2>&1 ||
+      die "required command is unavailable: $command_name"
+  done
+  [[ -x "$nix_bin" ]] || die "root-profile Nix is unavailable at $nix_bin"
+}
+
+json_value() {
+  jq -er --arg host "$host_name" ".hosts[\$host].$1" "$fleet_file"
+}
+
+eval_output() {
+  "$nix_bin" --extra-experimental-features "nix-command flakes" \
+    eval --raw --no-write-lock-file "$1"
+}
+
+load_outputs() {
+  local prefix
+
+  prefix=".#lib.dgxFleetRootOutputs.aarch64-linux.\"$host_name\""
+  factory="$(eval_output "$prefix.factory")" || die "could not evaluate factory candidate"
+  headless="$(eval_output "$prefix.headless")" || die "could not evaluate headless candidate"
+  bundle="$(eval_output "$prefix.bundle")" || die "could not evaluate rollback bundle"
+  tailscale_package="$(eval_output .#packages.aarch64-linux.tailscale.outPath)" ||
+    die "could not evaluate Tailscale package"
+  lifecycle_test="$(eval_output .#checks.aarch64-linux.fleet-root-bootstrap-lifecycle-container.outPath)" ||
+    die "could not evaluate fleet bootstrap lifecycle test"
+
+  for value in "$factory" "$headless"; do
+    [[ "$value" =~ ^/nix/store/[a-z0-9]{32}-system-manager$ ]] ||
+      die "invalid System Manager candidate: $value"
+  done
+  [[ "$bundle" =~ ^/nix/store/[a-z0-9]{32}-dgx-fleet-bootstrap-${host_name}$ ]] ||
+    die "invalid fleet bootstrap bundle: $bundle"
+}
+
+realize_outputs() {
+  local prefix
+
+  prefix=".#legacyPackages.aarch64-linux.dgxFleetRootOutputs.\"$host_name\""
+  "$nix_bin" --extra-experimental-features "nix-command flakes" \
+    build --no-link --no-write-lock-file \
+    "$prefix.factory" "$prefix.headless" "$prefix.bundle" ||
+    die "could not realize the declared fleet root outputs"
+  [[ -e "$factory" && -e "$headless" && -e "$bundle" ]] ||
+    die "fleet root realization returned without its exact outputs"
+}
+
+load_declaration() {
+  jq -e --arg host "$host_name" '.hosts[$host] != null' "$fleet_file" >/dev/null ||
+    die "host is not declared in fleet/hosts.json: $host_name"
+  declared_system="$(json_value system)" || die "missing declared system"
+  desktop_mode="$(json_value desktop.mode)" || die "missing desktop mode"
+  host_controller="$(json_value desktop.hostController)" ||
+    die "missing host controller"
+  tailscale_selected="$(json_value access.tailscale.selected)" ||
+    die "missing Tailscale selection"
+  tailscale_ssh="$(json_value access.tailscale.sshDesired)" ||
+    die "missing Tailscale SSH selection"
+
+  [[ "$declared_system" == aarch64-linux && "$(uname -m)" == aarch64 ]] ||
+    die "fleet root bootstrap requires a declared aarch64-linux host"
+  [[ "$host_controller" == system-manager ]] ||
+    die "fleet root bootstrap requires desktop.hostController=system-manager"
+  [[ "$desktop_mode" == headless || "$desktop_mode" == gnome ]] ||
+    die "fleet root bootstrap currently supports only headless or gnome"
+  if [[ "$tailscale_selected" == true && "$tailscale_ssh" != true ]]; then
+    die "the selected fleet Tailscale role currently requires sshDesired=true"
+  fi
+}
+
+context_value() {
+  local key="$1"
+  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$state_context"
+}
+
+current_boot_id() {
+  local value
+  value="$(</proc/sys/kernel/random/boot_id)"
+  [[ "$value" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] ||
+    die "kernel boot ID is invalid"
+  printf '%s\n' "$value"
+}
+
+assert_machine_health() {
+  local system_state failed gpu
+
+  system_state="$(systemctl is-system-running 2>/dev/null || true)"
+  [[ "$system_state" == running ]] || die "systemd state is ${system_state:-UNKNOWN}"
+  failed="$(systemctl --failed --no-legend --plain 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
+  [[ -z "$failed" ]] || die "systemd reports failed units"
+  gpu="$(nvidia-smi --query-gpu=name,driver_version,pstate,temperature.gpu \
+    --format=csv,noheader 2>/dev/null || true)"
+  [[ -n "$gpu" ]] || die "nvidia-smi health query failed"
+  pass health "systemd=running;failed_units=0;gpu=$gpu"
+}
+
+tailscale_observation() {
+  local status_json prefs_json backend online want_running run_ssh identity
+
+  TAILSCALE_OBSERVED_STATE=disabled
+  TAILSCALE_IDENTITY_SHA256=ABSENT
+  [[ "$tailscale_selected" == true ]] || return 0
+  [[ -x "$tailscale_package/bin/tailscale" ]] || {
+    TAILSCALE_OBSERVED_STATE=unavailable
+    return 0
+  }
+  status_json="$(timeout 15s "$tailscale_package/bin/tailscale" status --json 2>/dev/null || true)"
+  prefs_json="$(timeout 15s "$tailscale_package/bin/tailscale" debug prefs 2>/dev/null || true)"
+  if ! jq -e . >/dev/null 2>&1 <<<"$status_json" ||
+    ! jq -e . >/dev/null 2>&1 <<<"$prefs_json"; then
+    TAILSCALE_OBSERVED_STATE=unavailable
+    return 0
+  fi
+  backend="$(jq -r '.BackendState // "UNKNOWN"' <<<"$status_json")"
+  online="$(jq -r 'if .Self.Online == null then "UNKNOWN" else (.Self.Online | tostring) end' <<<"$status_json")"
+  want_running="$(jq -r 'if .WantRunning == null then "UNKNOWN" else (.WantRunning | tostring) end' <<<"$prefs_json")"
+  run_ssh="$(jq -r 'if .RunSSH == null then "UNKNOWN" else (.RunSSH | tostring) end' <<<"$prefs_json")"
+  identity="$(jq -er '.Self.ID' <<<"$status_json" 2>/dev/null || true)"
+  if [[ -n "$identity" ]]; then
+    TAILSCALE_IDENTITY_SHA256="$(printf '%s' "$identity" | sha256sum | awk '{print $1}')"
+  fi
+  if [[ "$backend" == Running && "$online" == true &&
+    "$want_running" == true && "$run_ssh" == "$tailscale_ssh" &&
+    "$TAILSCALE_IDENTITY_SHA256" != ABSENT ]]; then
+    TAILSCALE_OBSERVED_STATE=healthy
+  elif [[ "$backend" == NeedsLogin || "$backend" == NoState ]]; then
+    TAILSCALE_OBSERVED_STATE=needs-login
+  else
+    TAILSCALE_OBSERVED_STATE="unhealthy:$backend/$online/$want_running/$run_ssh"
+  fi
+}
+
+assert_tailscale() {
+  local expected_identity="${1:-ABSENT}" allow_needs_login="${2:-false}"
+
+  tailscale_observation
+  if [[ "$tailscale_selected" != true ]]; then
+    pass tailscale "role disabled by declaration"
+    return
+  fi
+  if [[ "$TAILSCALE_OBSERVED_STATE" == healthy ]]; then
+    if [[ "$expected_identity" != ABSENT &&
+      "$TAILSCALE_IDENTITY_SHA256" != "$expected_identity" ]]; then
+      die "Tailscale node identity changed"
+    fi
+    if [[ "$expected_identity" == ABSENT ]]; then
+      pass tailscale "healthy;RunSSH=$tailscale_ssh;identity=present-new-node"
+    else
+      pass tailscale "healthy;RunSSH=$tailscale_ssh;identity=unchanged"
+    fi
+    return
+  fi
+  if [[ "$allow_needs_login" == true && "$TAILSCALE_OBSERVED_STATE" == needs-login &&
+    "$expected_identity" == ABSENT ]]; then
+    info tailscale "needs-login;new node has no prior identity"
+    return
+  fi
+  die "Tailscale is not healthy: $TAILSCALE_OBSERVED_STATE"
+}
+
+capture_units() {
+  local phase="$1" output="$2" unit units
+  if [[ "$phase" == factory ]]; then
+    units="gdm.service dgx-dashboard.service docker.service dgx-dashboard-admin.service nvidia-persistenced.service"
+  else
+    units="tailscaled.service docker.service dgx-dashboard-admin.service nvidia-persistenced.service"
+  fi
+  : >"$output"
+  for unit in $units; do
+    printf '%s|' "$unit" >>"$output"
+    systemctl show "$unit" -p LoadState -p ActiveState -p SubState -p MainPID \
+      -p ExecMainStartTimestampMonotonic -p FragmentPath -p NeedDaemonReload \
+      --value | paste -sd '|' >>"$output"
+  done
+}
+
+assert_protected_units() {
+  local baseline="$1" unit load active sub pid started fragment reload
+  while IFS='|' read -r unit load active sub pid started fragment reload; do
+    [[ "$(systemctl show "$unit" -p LoadState --value)" == "$load" &&
+      "$(systemctl show "$unit" -p ActiveState --value)" == "$active" &&
+      "$(systemctl show "$unit" -p SubState --value)" == "$sub" &&
+      "$(systemctl show "$unit" -p MainPID --value)" == "$pid" &&
+      "$(systemctl show "$unit" -p ExecMainStartTimestampMonotonic --value)" == "$started" &&
+      "$(systemctl show "$unit" -p FragmentPath --value)" == "$fragment" &&
+      "$(systemctl show "$unit" -p NeedDaemonReload --value)" == "$reload" ]] ||
+      die "protected unit changed on the same boot: $unit"
+  done <"$baseline"
+  pass protected_units "phase-independent services are unchanged on the same boot"
+}
+
+assert_protected_units_postboot() {
+  local baseline="$1" unit load active _sub _pid _started fragment _reload
+  while IFS='|' read -r unit load active _sub _pid _started fragment _reload; do
+    [[ "$(systemctl show "$unit" -p LoadState --value)" == "$load" &&
+      "$(systemctl show "$unit" -p ActiveState --value)" == "$active" &&
+      "$(systemctl show "$unit" -p FragmentPath --value)" == "$fragment" &&
+      "$(systemctl show "$unit" -p NeedDaemonReload --value)" == no ]] ||
+      die "protected unit failed post-reboot continuity: $unit"
+  done <"$baseline"
+  pass protected_units "phase-independent services are active from original fragments after reboot"
+}
+
+run_transaction() {
+  "$transaction" "$1" "$factory" "$headless"
+}
+
+run_bundle() {
+  "$bundle/bin/dgx-root-fleet-bootstrap" "$1"
+}
+
+assert_no_guard() {
+  local path unit load
+  for path in "$state_dir" "$rollback_root" "$rollback_service_path" \
+    "$rollback_timer_path" "$rollback_wants_path"; do
+    ! path_exists "$path" || die "fleet bootstrap guard already exists: $path"
+  done
+  for unit in "$rollback_service" "$rollback_timer" "$apply_service"; do
+    load="$(systemctl show "$unit" -p LoadState --value 2>/dev/null || true)"
+    [[ -z "$load" || "$load" == not-found ]] || die "guard unit is already loaded: $unit"
+  done
+}
+
+ensure_lifecycle_evidence() {
+  if [[ ! -e "$lifecycle_test" ]]; then
+    info disposable_test "running pristine/reboot/headless lifecycle before host mutation"
+    "$repo_dir/scripts/test-fleet-root-bootstrap-lifecycle.sh" ||
+      die "disposable fleet bootstrap lifecycle failed"
+  fi
+  [[ -e "$lifecycle_test" ]] || die "passed lifecycle output is unavailable"
+  [[ "$(git -C "$repo_dir" rev-parse HEAD)" == "$repo_commit" &&
+    -z "$(git -C "$repo_dir" status --porcelain=v1)" ]] ||
+    die "repository changed while the disposable lifecycle ran"
+}
+
+create_snapshot() {
+  local phase="$1" stamp operator_hash transaction_hash origin identity
+
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  snapshot="$snapshot_root/$stamp"
+  umask 077
+  install -d -m 0700 "$snapshot" || die "could not create private snapshot"
+  operator_hash="$(sha256sum "$repo_dir/scripts/dgx-fleet-bootstrap" | awk '{print $1}')"
+  transaction_hash="$(sha256sum "$transaction" | awk '{print $1}')"
+  origin="$(current_boot_id)"
+  tailscale_observation
+  identity=$TAILSCALE_IDENTITY_SHA256
+  if [[ "$phase" == factory && "$tailscale_selected" == true ]]; then
+    case "$TAILSCALE_OBSERVED_STATE" in
+      healthy) ;;
+      unavailable | needs-login)
+        [[ ! -e /var/lib/tailscale/tailscaled.state &&
+          ! -L /var/lib/tailscale/tailscaled.state ]] ||
+          die "an unverified existing Tailscale state file blocks first deployment"
+        identity=ABSENT
+        ;;
+      *) die "existing Tailscale state is not safe to adopt: $TAILSCALE_OBSERVED_STATE" ;;
+    esac
+  fi
+
+  {
+    printf 'schema=1\n'
+    printf 'timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'host=%s\n' "$host_name"
+    printf 'phase=%s\n' "$phase"
+    printf 'snapshot=%s\n' "$snapshot"
+    printf 'repo_commit=%s\n' "$repo_commit"
+    printf 'operator_sha256=%s\n' "$operator_hash"
+    printf 'transaction_sha256=%s\n' "$transaction_hash"
+    printf 'factory=%s\n' "$factory"
+    printf 'headless=%s\n' "$headless"
+    printf 'bundle=%s\n' "$bundle"
+    printf 'tailscale_package=%s\n' "$tailscale_package"
+    printf 'tailscale_selected=%s\n' "$tailscale_selected"
+    printf 'tailscale_ssh=%s\n' "$tailscale_ssh"
+    printf 'identity_sha256=%s\n' "$identity"
+    printf 'origin_boot_id=%s\n' "$origin"
+    printf 'lifecycle_test=%s\n' "$lifecycle_test"
+  } >"$snapshot/context"
+  capture_units "$phase" "$snapshot/protected-services.before.tsv"
+  sha256sum /etc/nix/nix.conf /etc/passwd /etc/group /etc/shadow \
+    >"$snapshot/protected-files.before.sha256"
+  if [[ -f /var/lib/tailscale/tailscaled.state ]]; then
+    sha256sum /var/lib/tailscale/tailscaled.state >"$snapshot/tailscale-state.before.sha256"
+  else
+    printf 'ABSENT|/var/lib/tailscale/tailscaled.state\n' >"$snapshot/tailscale-state.before.sha256"
+  fi
+  install -m 0700 "$repo_dir/scripts/dgx-fleet-bootstrap" "$snapshot/dgx-fleet-bootstrap"
+  install -m 0700 "$transaction" "$snapshot/root-fleet-bootstrap-transaction.sh"
+  (
+    cd "$snapshot" || exit 1
+    sha256sum context dgx-fleet-bootstrap protected-files.before.sha256 \
+      protected-services.before.tsv root-fleet-bootstrap-transaction.sh \
+      tailscale-state.before.sha256 >SHA256SUMS
+  ) || die "could not seal snapshot"
+  printf 'Snapshot creation completed.\n' >"$snapshot/SNAPSHOT_COMPLETE"
+  chmod 0600 "$snapshot"/*
+  chmod 0700 "$snapshot/dgx-fleet-bootstrap" \
+    "$snapshot/root-fleet-bootstrap-transaction.sh"
+  pass snapshot "$snapshot"
+}
+
+load_context() {
+  local complete current_commit operator_hash transaction_hash key
+
+  [[ -d "$state_dir" && ! -L "$state_dir" &&
+    "$(stat -c %u:%a "$state_dir")" == 0:700 ]] || die "guard directory changed"
+  [[ -f "$state_context" && ! -L "$state_context" &&
+    "$(stat -c %u:%a "$state_context")" == 0:600 ]] || die "guard context changed"
+  context_host="$(context_value host)"
+  context_phase="$(context_value phase)"
+  context_snapshot="$(context_value snapshot)"
+  context_repo_commit="$(context_value repo_commit)"
+  context_operator_hash="$(context_value operator_sha256)"
+  context_transaction_hash="$(context_value transaction_sha256)"
+  context_factory="$(context_value factory)"
+  context_headless="$(context_value headless)"
+  context_bundle="$(context_value bundle)"
+  context_tailscale_package="$(context_value tailscale_package)"
+  context_tailscale_selected="$(context_value tailscale_selected)"
+  context_tailscale_ssh="$(context_value tailscale_ssh)"
+  context_identity="$(context_value identity_sha256)"
+  context_origin_boot="$(context_value origin_boot_id)"
+  context_lifecycle_test="$(context_value lifecycle_test)"
+  [[ "$context_host" == "$host_name" && "$context_phase" =~ ^(factory|headless)$ ]] ||
+    die "guard context belongs to another host or phase"
+  for key in "$context_operator_hash" "$context_transaction_hash"; do
+    [[ "$key" =~ ^[a-f0-9]{64}$ ]] || die "guard context digest is invalid"
+  done
+  [[ "$context_identity" == ABSENT || "$context_identity" =~ ^[a-f0-9]{64}$ ]] ||
+    die "guard identity digest is invalid"
+  current_commit="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)"
+  [[ "$current_commit" == "$context_repo_commit" &&
+    -z "$(git -C "$repo_dir" status --porcelain=v1 2>/dev/null)" ]] ||
+    die "repository changed during guarded deployment"
+  operator_hash="$(sha256sum "$repo_dir/scripts/dgx-fleet-bootstrap" | awk '{print $1}')"
+  transaction_hash="$(sha256sum "$transaction" | awk '{print $1}')"
+  [[ "$operator_hash" == "$context_operator_hash" &&
+    "$transaction_hash" == "$context_transaction_hash" ]] ||
+    die "fleet bootstrap helper changed during deployment"
+  [[ "$factory" == "$context_factory" && "$headless" == "$context_headless" &&
+    "$bundle" == "$context_bundle" && "$tailscale_package" == "$context_tailscale_package" &&
+    "$tailscale_selected" == "$context_tailscale_selected" &&
+    "$tailscale_ssh" == "$context_tailscale_ssh" &&
+    "$lifecycle_test" == "$context_lifecycle_test" ]] ||
+    die "declaration or immutable outputs changed during deployment"
+  case "$context_snapshot" in "$snapshot_root"/*) ;; *) die "snapshot is outside $snapshot_root" ;; esac
+  [[ -d "$context_snapshot" && ! -L "$context_snapshot" &&
+    "$(stat -c %u:%a "$context_snapshot")" == 0:700 ]] || die "snapshot changed"
+  (cd "$context_snapshot" && sha256sum -c SHA256SUMS >/dev/null) ||
+    die "snapshot checksum validation failed"
+  complete="$(<"$context_snapshot/SNAPSHOT_COMPLETE")"
+  [[ "$complete" == "Snapshot creation completed." ]] || die "snapshot is incomplete"
+  cmp -s "$state_context" "$context_snapshot/context" || die "guard context differs from snapshot"
+}
+
+validate_guard_link() {
+  [[ -L "$1" && "$(readlink -- "$1")" == "$2" ]] ||
+    die "guard link changed: $1"
+}
+
+validate_optional_guard_link() {
+  ! path_exists "$1" ||
+    [[ -L "$1" && "$(readlink -- "$1")" == "$2" ]]
+}
+
+cleanup_failed_guard() {
+  local phase="$1" candidate_created="$2" candidate_root candidate
+  local rollback_state apply_state unknown
+
+  if [[ "$phase" == factory ]]; then
+    candidate_root=$factory_root
+    candidate=$factory
+  else
+    candidate_root=$headless_root
+    candidate=$headless
+  fi
+  systemctl stop "$rollback_timer" 2>/dev/null || true
+  rollback_state="$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  case "$rollback_state" in "" | inactive | failed) ;; *) return 1 ;; esac
+  case "$apply_state" in "" | inactive | failed) ;; *) return 1 ;; esac
+  validate_optional_guard_link "$rollback_root" "$bundle" || return 1
+  validate_optional_guard_link "$rollback_service_path" \
+    "$bundle/lib/systemd/system/$rollback_service" || return 1
+  validate_optional_guard_link "$rollback_timer_path" \
+    "$bundle/lib/systemd/system/$rollback_timer" || return 1
+  validate_optional_guard_link "$rollback_wants_path" "../$rollback_timer" || return 1
+  validate_optional_guard_link "$candidate_root" "$candidate" || return 1
+  if [[ -e "$state_dir" || -L "$state_dir" ]]; then
+    [[ -d "$state_dir" && ! -L "$state_dir" ]] || return 1
+    unknown="$(find "$state_dir" -mindepth 1 -maxdepth 1 \
+      ! -name context ! -name phase ! -name armed ! -name applying \
+      ! -name factory ! -name headless ! -name rolled-back -print -quit)"
+    [[ -z "$unknown" ]] || return 1
+  fi
+  rm -f -- "$rollback_wants_path" "$rollback_timer_path" \
+    "$rollback_service_path" "$rollback_root"
+  [[ "$candidate_created" != true ]] || rm -f -- "$candidate_root"
+  if [[ -d "$state_dir" && ! -L "$state_dir" ]]; then
+    rm -f -- "$state_dir/context" "$state_dir/phase" "$state_dir/armed" \
+      "$state_dir/applying" "$state_dir/factory" "$state_dir/headless" \
+      "$state_dir/rolled-back"
+    rmdir -- "$state_dir" || return 1
+  fi
+  systemctl daemon-reload || return 1
+}
+
+install_guard() {
+  local phase="$1" candidate_root candidate
+
+  if [[ "$phase" == factory ]]; then
+    candidate_root=$factory_root
+    candidate=$factory
+  else
+    candidate_root=$headless_root
+    candidate=$headless
+  fi
+  install -d -m 0700 "$state_dir" || return 1
+  install -m 0600 "$snapshot/context" "$state_context" || return 1
+  printf '%s\n' "$phase" >"$state_dir/phase" || return 1
+  touch "$state_dir/armed" || return 1
+  if path_exists "$candidate_root"; then
+    [[ -L "$candidate_root" && "$(readlink -- "$candidate_root")" == "$candidate" ]] || return 1
+  else
+    ln -s -- "$candidate" "$candidate_root" || return 1
+  fi
+  ln -s -- "$bundle" "$rollback_root" || return 1
+  ln -s -- "$bundle/lib/systemd/system/$rollback_service" "$rollback_service_path" || return 1
+  ln -s -- "$bundle/lib/systemd/system/$rollback_timer" "$rollback_timer_path" || return 1
+  install -d -m 0755 /etc/systemd/system/timers.target.wants || return 1
+  ln -s -- "../$rollback_timer" "$rollback_wants_path" || return 1
+  systemctl daemon-reload || return 1
+  if [[ "$phase" == factory ]]; then
+    run_bundle verify-pristine || return 1
+  else
+    run_bundle verify-factory || return 1
+  fi
+  systemctl start "$rollback_timer" || return 1
+  systemctl is-active --quiet "$rollback_timer" || return 1
+  systemctl is-enabled --quiet "$rollback_timer" || return 1
+}
+
+cleanup_guard() {
+  local rollback_state apply_state
+
+  systemctl stop "$rollback_timer" 2>/dev/null || true
+  rollback_state="$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  [[ -z "$rollback_state" || "$rollback_state" == inactive || "$rollback_state" == failed ]] ||
+    die "rollback service is still $rollback_state"
+  [[ -z "$apply_state" || "$apply_state" == inactive || "$apply_state" == failed ]] ||
+    die "apply worker is still $apply_state"
+  validate_guard_link "$rollback_root" "$context_bundle"
+  validate_guard_link "$rollback_service_path" \
+    "$context_bundle/lib/systemd/system/$rollback_service"
+  validate_guard_link "$rollback_timer_path" \
+    "$context_bundle/lib/systemd/system/$rollback_timer"
+  validate_guard_link "$rollback_wants_path" "../$rollback_timer"
+  rm -f -- "$rollback_wants_path" "$rollback_timer_path" \
+    "$rollback_service_path" "$rollback_root"
+  rm -f -- "$state_dir/armed" "$state_dir/applying" "$state_dir/factory" \
+    "$state_dir/headless" "$state_dir/rolled-back" "$state_dir/phase" "$state_context"
+  [[ -z "$(find "$state_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] ||
+    die "unknown files remain in guard directory"
+  rmdir -- "$state_dir" || die "could not remove guard directory"
+  systemctl daemon-reload || die "daemon reload failed during cleanup"
+}
+
+record_result() {
+  printf '%s|timestamp_utc=%s\n' "$1" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    >"$context_snapshot/RESULT"
+  chmod 0600 "$context_snapshot/RESULT"
+}
+
+plan_action() {
+  local live guard
+  require_commands
+  load_declaration
+  load_outputs
+  live="$(readlink -f /nix/var/nix/profiles/system-manager-profiles/system-manager 2>/dev/null || true)"
+  guard=absent
+  path_exists "$state_dir" && guard=present
+  info host "$host_name"
+  info declared "desktop=$desktop_mode;tailscale=$tailscale_selected;ssh=$tailscale_ssh"
+  info live_generation "${live:-ABSENT}"
+  info factory_generation "$factory"
+  info headless_generation "$headless"
+  info bundle "$bundle"
+  info guard "$guard"
+  info lifecycle_evidence "$lifecycle_test"
+}
+
+start_action() {
+  local phase="$1" baseline launch_action candidate_root
+  local candidate_created=false launch_status=0
+
+  require_commands
+  load_declaration
+  cd "$repo_dir" || die "repository is unavailable"
+  [[ -z "$(git status --porcelain=v1)" ]] || die "repository must be clean before deployment"
+  repo_commit="$(git rev-parse HEAD)" || die "repository commit is unavailable"
+  load_outputs
+  realize_outputs
+  assert_no_guard
+  ensure_lifecycle_evidence
+  assert_machine_health
+  baseline="$(mktemp)" || die "could not create service baseline"
+
+  if [[ "$phase" == factory ]]; then
+    candidate_root=$factory_root
+    run_transaction verify-pristine >/dev/null || die "host is not at the pristine root boundary"
+    if path_exists "$factory_root"; then
+      [[ -L "$factory_root" && "$(readlink -- "$factory_root")" == "$factory" ]] ||
+        die "factory retention root is an unknown collision"
+      pass candidate_root "reusing retained exact factory candidate"
+    fi
+    capture_units factory "$baseline"
+    launch_action=install-factory-guarded
+  else
+    candidate_root=$headless_root
+    [[ "$desktop_mode" == headless ]] || die "host declaration does not select headless mode"
+    run_transaction verify-factory >/dev/null || die "host is not at the confirmed managed-factory boundary"
+    assert_tailscale
+    if path_exists "$headless_root"; then
+      [[ -L "$headless_root" && "$(readlink -- "$headless_root")" == "$headless" ]] ||
+        die "headless retention root is an unknown collision"
+      pass candidate_root "reusing retained exact headless candidate"
+    fi
+    capture_units headless "$baseline"
+    launch_action=install-headless-guarded
+  fi
+
+  systemd-analyze verify "$bundle/lib/systemd/system/$rollback_service" \
+    "$bundle/lib/systemd/system/$rollback_timer" || die "rollback units failed verification"
+  create_snapshot "$phase"
+  context_snapshot=$snapshot
+  context_bundle=$bundle
+  ! path_exists "$candidate_root" && candidate_created=true
+  if ! install_guard "$phase"; then
+    rm -f -- "$baseline"
+    cleanup_failed_guard "$phase" "$candidate_created" ||
+      die "rollback guard installation and exact cleanup both failed; inspect the guard surface"
+    die "rollback guard installation failed; no transition was launched"
+  fi
+  assert_protected_units "$baseline"
+  rm -f -- "$baseline"
+  pass rollback "persistent ten-minute $phase rollback is armed before mutation"
+
+  if [[ "$phase" == factory ]]; then
+    printf '%s\n' \
+      'FACTORY_LAUNCHING: a detached worker will install the first root generation.' \
+      'If Tailscale is already active, SSH may disconnect while unit ownership changes.' \
+      "Reconnect and rerun: cd $repo_dir && ./scripts/dgx-setup converge" \
+      'The operator never reboots; a healthy factory phase must later survive one reboot.'
+  else
+    printf '%s\n' \
+      'HEADLESS_LAUNCHING: a detached worker will stop GDM/Dashboard and enter headless mode.' \
+      'A local graphical terminal will close; Tailscale SSH should remain available.' \
+      "Reconnect and rerun: cd $repo_dir && ./scripts/dgx-setup converge"
+  fi
+  systemd-run --unit="$apply_service" --collect --no-block \
+    --property=IgnoreOnIsolate=yes --property=TimeoutStartSec=5min \
+    "$bundle/bin/dgx-root-fleet-bootstrap" "$launch_action" || launch_status=$?
+  if ((launch_status != 0)); then
+    cleanup_failed_guard "$phase" "$candidate_created" ||
+      die "detached worker failed and exact guard cleanup also failed"
+    die "detached $phase worker could not be launched; guard cleanup completed"
+  fi
+  pass launch "$phase transition worker started; no reboot was performed"
+}
+
+status_action() {
+  local timer_state apply_state expected_identity
+
+  require_commands
+  load_declaration
+  load_outputs
+  if ! path_exists "$state_context"; then
+    if run_transaction verify-headless >/dev/null 2>&1; then
+      assert_tailscale
+      assert_machine_health
+      printf 'FLEET_BOOTSTRAP_STATUS=HEADLESS_CONFIRMED\n'
+      return
+    fi
+    if run_transaction verify-factory >/dev/null 2>&1; then
+      assert_tailscale
+      assert_machine_health
+      printf 'FLEET_BOOTSTRAP_STATUS=FACTORY_CONFIRMED\n'
+      return
+    fi
+    if run_transaction verify-pristine >/dev/null 2>&1; then
+      assert_machine_health
+      printf 'FLEET_BOOTSTRAP_STATUS=NOT_STARTED\n'
+      return
+    fi
+    die "host is not pristine or an exact fleet-managed state"
+  fi
+
+  load_context
+  timer_state="$(systemctl show "$rollback_timer" -p ActiveState --value 2>/dev/null || true)"
+  apply_state="$(systemctl show "$apply_service" -p ActiveState --value 2>/dev/null || true)"
+  info rollback_timer "${timer_state:-not-found}"
+  info apply_worker "${apply_state:-not-found}"
+  systemctl list-timers "$rollback_timer" --no-pager --no-legend 2>/dev/null || true
+  expected_identity=$context_identity
+
+  if path_exists "$state_dir/factory"; then
+    run_bundle verify-factory || die "factory marker exists but state does not verify"
+    assert_tailscale "$expected_identity" true
+    assert_machine_health
+    if [[ "$(current_boot_id)" == "$context_origin_boot" ]]; then
+      if [[ "$TAILSCALE_OBSERVED_STATE" == needs-login ]]; then
+        printf 'FLEET_BOOTSTRAP_STATUS=AWAITING_TAILSCALE_LOGIN\n'
+        printf 'NEXT_ACTION=sudo %s/bin/tailscale up --ssh\n' "$tailscale_package"
+      else
+        printf 'FLEET_BOOTSTRAP_STATUS=AWAITING_REBOOT\n'
+      fi
+    else
+      assert_tailscale "$expected_identity"
+      assert_protected_units_postboot "$context_snapshot/protected-services.before.tsv"
+      printf 'FLEET_BOOTSTRAP_STATUS=AWAITING_FACTORY_CONFIRMATION\n'
+    fi
+  elif path_exists "$state_dir/headless"; then
+    run_bundle verify-headless || die "headless marker exists but state does not verify"
+    assert_tailscale "$expected_identity"
+    assert_machine_health
+    assert_protected_units "$context_snapshot/protected-services.before.tsv"
+    printf 'FLEET_BOOTSTRAP_STATUS=AWAITING_HEADLESS_CONFIRMATION\n'
+  elif path_exists "$state_dir/rolled-back"; then
+    if [[ "$context_phase" == factory ]]; then
+      run_bundle verify-pristine || die "factory rollback marker does not verify pristine state"
+    else
+      run_bundle verify-factory || die "headless rollback marker does not verify factory state"
+    fi
+    assert_machine_health
+    printf 'FLEET_BOOTSTRAP_STATUS=ROLLED_BACK_CLEANUP_PENDING\n'
+  elif path_exists "$state_dir/applying"; then
+    printf 'FLEET_BOOTSTRAP_STATUS=APPLYING\n'
+  elif path_exists "$state_dir/armed"; then
+    printf 'FLEET_BOOTSTRAP_STATUS=ARMED_WAITING_FOR_WORKER\n'
+  else
+    die "guard context exists without a recognized marker"
+  fi
+}
+
+confirm_action() {
+  local phase rollback_state
+
+  require_commands
+  load_declaration
+  load_outputs
+  load_context
+  phase=$context_phase
+  path_exists "$state_dir/armed" || die "rollback is not armed"
+  if [[ "$phase" == factory ]]; then
+    path_exists "$state_dir/factory" || die "factory transition is not ready"
+    [[ "$(current_boot_id)" != "$context_origin_boot" ]] ||
+      die "the first managed generation must survive one separately initiated reboot"
+    run_bundle verify-factory || die "factory state does not verify"
+    assert_tailscale "$context_identity"
+    assert_protected_units_postboot "$context_snapshot/protected-services.before.tsv"
+  else
+    path_exists "$state_dir/headless" || die "headless transition is not ready"
+    run_bundle verify-headless || die "headless state does not verify"
+    assert_tailscale "$context_identity"
+    assert_protected_units "$context_snapshot/protected-services.before.tsv"
+  fi
+  assert_machine_health
+  systemctl stop "$rollback_timer" || die "could not stop rollback timer"
+  rollback_state="$(systemctl show "$rollback_service" -p ActiveState --value 2>/dev/null || true)"
+  [[ "$rollback_state" != active && "$rollback_state" != activating ]] ||
+    die "rollback service already started"
+  record_result "CONFIRMED_${phase^^}"
+  cleanup_guard
+  if [[ "$phase" == factory ]]; then
+    run_transaction verify-factory >/dev/null || die "factory state changed during cleanup"
+  else
+    run_transaction verify-headless >/dev/null || die "headless state changed during cleanup"
+  fi
+  pass confirmation "$phase fleet transition retained; rollback guard removed"
+  printf 'SNAPSHOT=%s\nNO_REBOOT: this confirmation command performed no reboot.\n' \
+    "$context_snapshot"
+}
+
+rollback_action() {
+  require_commands
+  load_declaration
+  load_outputs
+  load_context
+  path_exists "$state_dir/armed" || die "rollback is not armed"
+  systemctl start --no-block "$rollback_service" || die "could not launch rollback"
+  printf 'ROLLBACK_LAUNCHED: restoring the exact %s fallback boundary.\n' "$context_phase"
+}
+
+cleanup_rolled_back_action() {
+  local phase
+  require_commands
+  load_declaration
+  load_outputs
+  load_context
+  phase=$context_phase
+  path_exists "$state_dir/rolled-back" || die "no verified rollback marker exists"
+  if [[ "$phase" == factory ]]; then
+    run_bundle verify-pristine || die "pristine rollback does not verify"
+  else
+    run_bundle verify-factory || die "factory rollback does not verify"
+  fi
+  assert_machine_health
+  record_result "ROLLED_BACK_${phase^^}"
+  cleanup_guard
+  pass cleanup "$phase rollback guard removed; candidate roots retained"
+  printf 'SNAPSHOT=%s\n' "$context_snapshot"
+}
+
+action="${1:-}"
+case "$action" in
+  -h | --help | help | "") usage ;;
+  plan) plan_action ;;
+  factory) require_root "$@"; start_action factory ;;
+  headless) require_root "$@"; start_action headless ;;
+  status) require_root "$@"; status_action ;;
+  confirm) require_root "$@"; confirm_action ;;
+  rollback) require_root "$@"; rollback_action ;;
+  cleanup-rolled-back) require_root "$@"; cleanup_rolled_back_action ;;
+  *) usage >&2; exit 2 ;;
+esac

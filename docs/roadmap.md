@@ -118,9 +118,11 @@ the measured software manifest; evaluation did not authorize realization.
 - [x] Extend `apply` to verify the separately proven root desktop role; pass
       exact retained generation-five `PLAN_STATUS=READY` and
       `APPLY_STATUS=COMPLETE` no-op integration
-- [ ] Compose the proven one-time Tailscale migration and desktop transition
-      into a guarded pristine-host workflow without weakening either rollback
-      boundary
+- [x] Compose the proven one-time optional Tailscale ownership and desktop
+      transition into a guarded, resumable pristine-host candidate without
+      weakening either rollback boundary
+- [ ] Pass and record the combined root-assisted disposable fresh-host gate
+      before using that candidate on another DGX
 - [ ] Decide how the other Sparks receive first-boot configuration
 
 ## Phase 3: Tailscale migration
@@ -226,11 +228,12 @@ approval, graphical validation, activation approval, and rollback.
 - [x] Define one declarative per-host selection surface for the exact base,
       optional Tailscale/access role, desktop mode, named user overlays,
       developer tools, and workload roles
-- [ ] Make the supported new-host path: factory update, clone, declare roles,
-      review plan/SBOM, guarded apply, and health verification
+- [ ] Promote the implemented new-host candidate—factory update, clone, declare
+      roles, review plan/SBOM, guarded converge, and health verification—after
+      its combined disposable gate passes
 - [ ] Add the remaining host definitions and explicit user-overlay mappings
-- [ ] Add bootstrap and Tailscale enrollment automation with bounded,
-      auditable output and external secret delivery
+- [x] Add bounded Nix bootstrap plus optional Tailscale ownership/enrollment
+      handoff; keep authentication and node identity external
 - [ ] Establish pilot and rollout rings
 - [ ] Add drift checks for the DGX substrate, Nix generations, desktop mode,
       overlays, and workload pins

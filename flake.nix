@@ -254,6 +254,64 @@
       rootDesktopHeadlessGeneration = mkRootDesktopModeGeneration "headless";
       rootDesktopGnomeGeneration = mkRootDesktopModeGeneration "gnome";
 
+      # Fleet bootstrap candidates are deliberately separate from the five
+      # historical sparkle-01 pilot generations above.  A new host registers
+      # its selected factory candidate as its first generation, then (when
+      # selected) adds headless mode as its second generation.  This avoids
+      # replaying experimental marker-only generations while keeping the exact
+      # live pilot and all of its rollback roots unchanged.
+      mkFleetRootModeGeneration =
+        hostName: hostSpec: mode:
+        system-manager.lib.makeSystemConfig {
+          overlays = rootManagerOverlays;
+          specialArgs = {
+            dgxHostName = hostName;
+          };
+          modules = [
+            ./modules/system/fleet-host.nix
+            {
+              dgx.root = {
+                bootPersistence.enable = true;
+                tailscale = {
+                  enable = hostSpec.access.tailscale.selected;
+                  package = if hostSpec.access.tailscale.selected then tailscalePackage else null;
+                  sshDesired = hostSpec.access.tailscale.sshDesired;
+                };
+                desktop = {
+                  enable = hostSpec.desktop.hostController == "system-manager";
+                  inherit mode;
+                };
+              };
+              environment.etc."dgx-setup/canary".text = rootLib.mkForce ''
+                schema=1
+                host=${hostName}
+                owner=DGX-setup
+                purpose=declarative fleet root controller
+                lifecycle=fresh-host
+                tailscale-selected=${rootLib.boolToString hostSpec.access.tailscale.selected}
+                desktop-mode=${mode}
+              '';
+            }
+          ];
+        };
+
+      fleetRootOutputs = lib.mapAttrs (hostName: hostSpec: {
+        factory = mkFleetRootModeGeneration hostName hostSpec "gnome";
+        headless = mkFleetRootModeGeneration hostName hostSpec "headless";
+      }) fleetHosts;
+
+      fleetRootBootstrapTransactionProgram = ./scripts/root-fleet-bootstrap-transaction.sh;
+      fleetRootBundles = lib.mapAttrs (
+        hostName: candidates:
+        import ./root/fleet/bootstrap-bundle.nix {
+          pkgs = rootPkgs;
+          transactionProgram = fleetRootBootstrapTransactionProgram;
+          factoryGeneration = candidates.factory;
+          headlessGeneration = candidates.headless;
+          name = "dgx-fleet-bootstrap-${hostName}";
+        }
+      ) fleetRootOutputs;
+
       systemManagerPackage = rootPkgs.callPackage "${system-manager}/package.nix" { };
       rootCanaryConfig = rootCanary.config;
       rootCanaryRegistrationTestConfig = rootCanaryRegistrationTestGeneration.config;
@@ -469,6 +527,21 @@
         home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
 
+          # Preserve sparkle-01's reviewed module identity. Newly declared
+          # hosts use the data-driven fleet module unless they later acquire a
+          # genuinely host-specific composition.
+          modules = [
+            (if hostName == "sparkle-01" then ./hosts/sparkle-01/home.nix else ./modules/home/fleet-host.nix)
+            {
+              home = {
+                username = userName;
+                inherit homeDirectory;
+                stateVersion = "26.05";
+              };
+            }
+          ]
+          ++ profileModules;
+
           extraSpecialArgs = {
             inherit
               appsPkgs
@@ -483,17 +556,6 @@
               ;
           };
 
-          modules = [
-            ./hosts/${hostName}/home.nix
-            {
-              home = {
-                username = userName;
-                inherit homeDirectory;
-                stateVersion = "26.05";
-              };
-            }
-          ]
-          ++ profileModules;
         };
 
       sparkleHost = fleetHosts.sparkle-01;
@@ -507,6 +569,15 @@
       };
 
       sparkleHome = mkHome pilot;
+
+      # Evaluation fixture for the data-driven Home module used by newly
+      # declared hosts that do not need a bespoke hosts/<name>/home.nix.
+      fleetHomeTemplate = mkHome {
+        hostName = "fleet-template";
+        userName = sparkleArmen.unixName;
+        homeDirectory = sparkleArmen.homeDirectory;
+        hostSpec = sparkleHost;
+      };
 
       baseProfile = mkHome (
         pilot
@@ -2063,12 +2134,16 @@
           ''
             shellcheck \
               ${./scripts/dgx-desktop} \
+              ${./scripts/dgx-fleet-bootstrap} \
               ${./scripts/dgx-home} \
               ${./scripts/dgx-setup} \
               ${./scripts/dgx-tailscale} \
               ${./scripts/reload-systemd-and-test-post-desktop.sh} \
               ${./scripts/test-dgx-setup-apply.sh} \
+              ${./scripts/test-dgx-setup-converge.sh} \
               ${./scripts/test-dgx-setup-plan.sh} \
+              ${./scripts/test-fleet-root-bootstrap-lifecycle.sh} \
+              ${./scripts/test-fresh-host-convergence-integration.sh} \
               ${./scripts/test-desktop-headless-transaction.sh} \
               ${./scripts/test-desktop-mode-lifecycle.sh} \
               ${./scripts/test-desktop-stack-integration.sh} \
@@ -2080,6 +2155,7 @@
             # next to its unit set; the assertions below consume the paths
             # individually rather than iterating that documentation array.
             shellcheck --exclude=SC2034 \
+              ${fleetRootBootstrapTransactionProgram} \
               ${rootTailscaleMigrationTransactionProgram} \
               ${rootDesktopModeTransactionProgram}
             touch "$out"
@@ -3156,6 +3232,16 @@
           ;
       };
 
+      fleetRootBootstrapLifecycleContainerTest = import ./root/fleet/bootstrap-lifecycle-test.nix {
+        pkgs = rootPkgs;
+        inherit
+          fleetRootBootstrapTransactionProgram
+          rootCanary
+          rootManagerOverlays
+          system-manager
+          ;
+      };
+
       desktopModeLifecycleContainerTest = import ./root/desktop/mode-lifecycle-test.nix {
         pkgs = rootPkgs;
         inherit
@@ -3396,6 +3482,14 @@
 
       systemConfigs.sparkle-01 = rootCanary;
 
+      legacyPackages.${system}.dgxFleetRootOutputs = lib.mapAttrs (
+        hostName: candidates:
+        candidates
+        // {
+          bundle = fleetRootBundles.${hostName};
+        }
+      ) fleetRootOutputs;
+
       packages.${system} = {
         chromium = chromiumPackage;
         codex-cli = codexPackage;
@@ -3409,6 +3503,9 @@
         root-system-desktop-headless = rootDesktopHeadlessGeneration;
         root-system-desktop-gnome = rootDesktopGnomeGeneration;
         root-desktop-switch-bundle = rootDesktopSwitchBundle;
+        root-fleet-bootstrap-sparkle-01 = fleetRootBundles.sparkle-01;
+        root-fleet-factory-sparkle-01 = fleetRootOutputs.sparkle-01.factory;
+        root-fleet-headless-sparkle-01 = fleetRootOutputs.sparkle-01.headless;
         root-tailscale-migration-bundle = rootTailscaleMigrationBundle;
         root-reboot-recovery = rootRebootRecoveryBundle;
         tailscale = tailscalePackage;
@@ -3429,6 +3526,8 @@
         desktop-headless-transaction-container = desktopHeadlessTransactionContainerTest;
         desktop-mode-lifecycle-container = desktopModeLifecycleContainerTest;
         desktop-switch-lifecycle-container = desktopSwitchLifecycleContainerTest;
+        fleet-root-bootstrap-lifecycle-container = fleetRootBootstrapLifecycleContainerTest;
+        home-fleet-template = fleetHomeTemplate.activationPackage;
         home-sparkle-01 = sparkleHome.activationPackage;
         home-base = baseProfile.activationPackage;
         home-graphical = graphicalProfile.activationPackage;
@@ -3466,6 +3565,11 @@
       lib.dgxFleetManifest.${system} = fleetSpec // {
         nixBootstrap = nixBootstrapSpec;
       };
+      lib.dgxFleetRootOutputs.${system} = lib.mapAttrs (hostName: candidates: {
+        bundle = fleetRootBundles.${hostName}.outPath;
+        factory = candidates.factory.outPath;
+        headless = candidates.headless.outPath;
+      }) fleetRootOutputs;
 
       devShells.${system}.default = pkgs.mkShellNoCC {
         packages = [

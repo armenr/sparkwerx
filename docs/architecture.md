@@ -53,14 +53,23 @@ validates the declaration using only factory Python, classifies the pinned Nix
 bootstrap, and—when Nix exists—evaluates the exact Home candidate and live
 drift. Nix evaluation may fetch absent locked sources, but the plan does not
 build/install packages, mutate profiles, change services, enroll Tailscale,
-switch desktops, or reboot. The staged `scripts/dgx-setup apply` half composes
-the independently proven Nix bootstrap/adoption and headless Home lifecycle,
-refusing unsupported host or declaration drift before mutation and using each
-layer's own retention, health, and rollback checks. It verifies the already
-Nix-managed Tailscale role and retained System Manager headless controller
-without restarting, activating, or switching either one. On exact
-`sparkle-01`, the complete regression returns `PLAN_STATUS=READY` and
-`APPLY_STATUS=COMPLETE` while every enabled layer converges as a no-op.
+switch desktops, or reboot. The historical `scripts/dgx-setup apply` path
+remains the exact retained-state convergence check for `sparkle-01`.
+
+The candidate `scripts/dgx-setup converge` path composes the independently
+guarded layers for a newly declared host. It installs or adopts Nix, creates a
+first System Manager generation that keeps factory GNOME and optionally owns
+Tailscale, requires that generation to survive one separately initiated real
+reboot, then creates and confirms a second headless generation before applying
+the generic Home composition. Each root transition has an exact persistent
+rollback guard. The command is resumable after disconnects and never performs
+a reboot. A normal new host needs only its data declaration; a bespoke
+`hosts/<hostname>/home.nix` is optional rather than required. On exact
+`sparkle-01`, `converge` recognizes the historical five-generation lane and
+remains a complete no-op. The root-assisted disposable integration gate must
+pass before this candidate is used on another DGX; see
+[fresh-host convergence](fresh-host-convergence.md).
+
 Secrets, browser/account state, Tailscale node
 identity, models, and other mutable data remain external inputs rather than
 Nix-store contents.
@@ -74,11 +83,11 @@ exact runtime update, and systemd/GPU/access continuity postflight. The adoption
 path is host-tested, and the exact clean install, injected-failure rollback,
 clean retry, and second-adoption lifecycle passed in disposable Ubuntu on
 2026-09-03. Once adopted, Nix version/update/rollback ownership belongs to this
-repository. The guarded configuration apply orchestrator is implemented for
-the Nix and headless Home stages. Nix-managed Tailscale and the headless root
-controller have also completed their independent live gates; fresh-host
-composition of those one-time transitions remains the next orchestration
-milestone.
+repository. The guarded configuration orchestrator now composes Nix, optional
+Tailscale, factory-GNOME retention, one real-reboot checkpoint, headless mode,
+and Home. Its final full disposable gate remains pending. Later
+root-generation updates and workload deployment are deliberately separate
+workflows.
 
 ## Managed by Nix
 
