@@ -205,3 +205,5 @@ not authorize the live restart.
 - Persistent rollback bundle: `root/tailscale/migration-bundle.nix`
 - Latest recorded result:
   `root/tailscale/validation/2026-09-05-migration-lifecycle-container-test.md`
+- First live guard's verified rollback and cleanup:
+  `root/tailscale/validation/2026-09-05-host-attempt-1.md`

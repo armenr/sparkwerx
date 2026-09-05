@@ -37,6 +37,10 @@ sudo ./scripts/test-tailscale-unit-lifecycle.sh
 The wrapper also proves the real host's retained generation and running vendor
 Tailscale process are identical before and after the disposable test. See the
 [current recorded result](validation/2026-09-05-migration-lifecycle-container-test.md).
+The first discovered live guard expired into its exact automatic rollback and
+was verified and cleaned without host drift; see the
+[attempt record](validation/2026-09-05-host-attempt-1.md). The retained exact
+generation-four GC root is valid retry input, not an ownership collision.
 
 The reviewed live operator is `scripts/dgx-tailscale`. `plan` is read-only.
 `migrate` reruns the exact disposable test, creates a private snapshot, arms a

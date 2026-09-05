@@ -401,10 +401,16 @@ assert_no_guard_surface() {
   local path unit load_state
 
   for path in \
-    "$state_dir" "$candidate_root" "$rollback_root" \
+    "$state_dir" "$rollback_root" \
     "$rollback_service_path" "$rollback_timer_path" "$rollback_wants_path"; do
     ! path_exists "$path" || die "migration guard path already exists: $path"
   done
+  if path_exists "$candidate_root"; then
+    [[ -L "$candidate_root" &&
+      "$(readlink -- "$candidate_root")" == "$generation_four" ]] ||
+      die "generation-four pilot root is an unexpected collision"
+    pass candidate_root "reusing retained exact generation-four candidate"
+  fi
   [[ ! -e "$profile_dir/system-manager-4-link" &&
     ! -L "$profile_dir/system-manager-4-link" ]] ||
     die "System Manager generation-four profile already exists"
@@ -529,7 +535,11 @@ install_guard() {
   install -d -m 0700 "$state_dir" || return 1
   install -m 0600 "$snapshot/context" "$state_context" || return 1
   touch "$state_dir/armed" || return 1
-  ln -s -- "$generation_four" "$candidate_root" || return 1
+  if path_exists "$candidate_root"; then
+    validate_guard_link "$candidate_root" "$generation_four" || return 1
+  else
+    ln -s -- "$generation_four" "$candidate_root" || return 1
+  fi
   ln -s -- "$migration_bundle" "$rollback_root" || return 1
   ln -s -- \
     "$migration_bundle/lib/systemd/system/$rollback_service" \
@@ -562,10 +572,16 @@ plan_action() {
   info candidate_generation "$generation_four"
   info tailscale_package "$tailscale_package"
   info migration_bundle "$migration_bundle"
-  if path_exists "$state_context"; then
+  if path_exists "$state_dir" || path_exists "$rollback_root" ||
+    path_exists "$rollback_service_path" || path_exists "$rollback_timer_path"; then
     info state "migration guard exists; run status"
   else
     info state "no migration guard"
+  fi
+  if path_exists "$candidate_root"; then
+    info candidate_retention "$(readlink -- "$candidate_root" 2>/dev/null || printf 'unreadable')"
+  else
+    info candidate_retention absent
   fi
   systemctl show tailscaled.service \
     -p ActiveState -p SubState -p MainPID -p FragmentPath -p NeedDaemonReload \
@@ -610,7 +626,7 @@ migrate_action() {
   context_generation_four="$generation_four"
 
   if ! install_guard; then
-    cleanup_guard_surface true || true
+    cleanup_guard_surface false || true
     die "rollback guard installation failed; no migration was launched"
   fi
   assert_protected_units "$snapshot/protected-services.before.txt"
@@ -626,7 +642,7 @@ migrate_action() {
     status=$?
   fi
   ((status == 0)) || {
-    cleanup_guard_surface true || true
+    cleanup_guard_surface false || true
     die "detached migration worker could not be launched"
   }
   printf '%s\n' \
