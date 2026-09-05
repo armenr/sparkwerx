@@ -18,6 +18,9 @@ let
   # exact generated target unit in the same immutable configuration. The
   # activator then owns the alias through its normal /etc/systemd/system tree
   # and restores the factory /usr/lib default when this role is removed.
+  # Because the immutable target lives outside systemd's unit search path,
+  # `systemctl get-default` reports the linked lookup name `default.target`;
+  # the resolved link and mode marker identify the selected DGX target.
   defaultTargetPackage = pkgs.runCommand "dgx-${cfg.mode}-default-target" { } ''
     mkdir -p "$out/lib/systemd/system"
     ln -s \

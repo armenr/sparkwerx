@@ -62,6 +62,15 @@ System Manager does not implement unit aliases. The module therefore supplies
 to the exact generated mode target. Removing the role removes the `/etc`
 override and exposes Ubuntu's original `/usr/lib` graphical default again.
 
+Systemd classifies the immutable Nix-store destination as a linked unit because
+it is outside the normal unit search path. While the controller is present,
+`systemctl get-default` therefore reports the lookup name `default.target`, not
+the basename of its fully resolved destination. This is not used as the mode
+classifier: the controller requires both the resolved alias destination and
+the independently managed `/etc/dgx-setup/desktop-mode` marker to agree. When
+the controller is removed, `systemctl get-default` again reports the factory
+`graphical.target` alias.
+
 Activation changes only persistent declaration. It deliberately does not
 isolate a runtime target or terminate a GUI session by surprise; the eventual
 guarded switch operator owns that separately visible action.

@@ -179,8 +179,15 @@ system-manager.lib.containerTest.makeContainerTest {
         )
 
     def assert_default(mode: str) -> None:
-        assert machine.succeed("systemctl get-default").strip() == (
-            f"dgx-{mode}.target"
+        # System Manager materializes unit files as immutable links outside
+        # systemd's unit search path. systemctl consequently classifies this
+        # as a linked default.target unit and reports its lookup name rather
+        # than the basename of the fully resolved target. Prove both the
+        # expected report and the exact target instead of conflating them.
+        reported_default = machine.succeed("systemctl get-default").strip()
+        assert reported_default == "default.target", (
+            "expected System Manager's linked default.target report; "
+            f"observed {reported_default!r}"
         )
         machine.succeed(f"test -L '{default_alias}'")
         machine.succeed(
