@@ -31,14 +31,18 @@ grep -Fx 'INFO|fleet_base|enabled;ncdu,lazydocker,devbox' <<<"$output" >/dev/nul
   fail 'plan omitted the exact fleet base'
 grep -Fx 'INFO|tailscale|selected=true;ssh_desired=true;ownership=nix-managed' \
   <<<"$output" >/dev/null || fail 'plan omitted the explicit Tailscale role'
+grep -Fx 'INFO|desktop|mode=headless;hyprland_portal=false;host_controller=system-manager' \
+  <<<"$output" >/dev/null || fail 'plan omitted the active System Manager desktop role'
 grep -F 'PASS|tailscale_apply|ownership=nix-managed;installed=1.102.3;' \
   <<<"$output" >/dev/null || fail 'plan did not verify the live Nix-managed Tailscale role'
+grep -F 'PASS|desktop_apply|mode=headless;controller=system-manager;generation=' \
+  <<<"$output" >/dev/null || fail 'plan did not verify the live headless controller'
 grep -F 'PASS|nix_bootstrap|adopt exact official installer 2.35.1;' \
   <<<"$output" >/dev/null || fail 'plan did not verify the exact installer'
 grep -F 'CURRENT|home|candidate=' <<<"$output" >/dev/null ||
   fail 'plan did not classify the exact live Home candidate'
-grep -Fx 'PLAN_STATUS=PARTIAL_READY' <<<"$output" >/dev/null ||
-  fail 'plan did not expose its remaining role gates'
+grep -Fx 'PLAN_STATUS=READY' <<<"$output" >/dev/null ||
+  fail 'plan did not report every enabled role as apply-ready'
 ! grep -q 'DGX_SERIAL_NUMBER=' <<<"$output" ||
   fail 'plan exposed the host serial number'
 
@@ -53,4 +57,4 @@ fi
 [[ "$(capture_units)" == "$before_units" ]] ||
   fail 'plan changed a protected service process or fragment'
 
-printf 'PASS|dgx_setup_plan_test|declaration, bootstrap adoption, Nix-managed Tailscale, remaining role gates, privacy, and zero-mutation checks passed\n'
+printf 'PASS|dgx_setup_plan_test|declaration, bootstrap adoption, Nix-managed Tailscale, headless generation five, privacy, and zero-mutation checks passed\n'

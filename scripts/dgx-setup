@@ -73,6 +73,11 @@ if host["system"] != "aarch64-linux":
     raise SystemExit("DGX Spark host system must be aarch64-linux")
 if host["desktop"]["mode"] not in {"headless", "gnome", "hyprland", "kde"}:
     raise SystemExit("desktop mode is invalid")
+if host["desktop"].get("hostController") not in {"not-implemented", "system-manager"}:
+    raise SystemExit("desktop host controller is invalid")
+if (host["desktop"]["hostController"] == "system-manager" and
+        host["desktop"]["mode"] not in {"headless", "gnome"}):
+    raise SystemExit("the current System Manager controller supports only headless or gnome")
 if host["desktop"]["mode"] != "hyprland" and host["desktop"]["hyprlandPortal"]:
     raise SystemExit("Hyprland portal cannot be selected outside Hyprland mode")
 if not host["fleetBase"]["enable"]:
@@ -118,12 +123,15 @@ os_value() {
 
 plan_host() {
   local target_host=$1 actual_host actual_user actual_arch declared_user declared_home
-  local declared_system desktop_mode portal tailscale_selected tailscale_ssh tailscale_owner
+  local declared_system desktop_mode portal host_controller
+  local tailscale_selected tailscale_ssh tailscale_owner
   local isaac_selected isaac_enabled llmster_selected llmster_enabled
   local installer_version installer_sha installer_size installer_url desired_nix
   local repo_state dgx_name dgx_version ubuntu_version observed_version observed_sha observed_size
   local runtime_version features candidate live_candidate closure status
-  local tailscale_version tailscale_package tailscale_plan
+  local tailscale_version tailscale_package tailscale_plan tailscale_generation
+  local desktop_plan desktop_live desktop_candidate desktop_retained desktop_guard desktop_default
+  local partial=false
 
   validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
   actual_host="$(hostname -s)"
@@ -134,6 +142,7 @@ plan_host() {
   declared_system="$(json_value "$fleet_file" "hosts.$target_host.system")"
   desktop_mode="$(json_value "$fleet_file" "hosts.$target_host.desktop.mode")"
   portal="$(json_value "$fleet_file" "hosts.$target_host.desktop.hyprlandPortal")"
+  host_controller="$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")"
   tailscale_selected="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.selected")"
   tailscale_ssh="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.sshDesired")"
   tailscale_owner="$(json_value "$fleet_file" "hosts.$target_host.access.tailscale.ownership")"
@@ -157,7 +166,7 @@ plan_host() {
   emit INFO declared_system "$declared_system"
   emit INFO declared_user "armen->$declared_user@$target_host;$declared_home"
   emit INFO fleet_base 'enabled;ncdu,lazydocker,devbox'
-  emit INFO desktop "mode=$desktop_mode;hyprland_portal=$portal;host_controller=$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")"
+  emit INFO desktop "mode=$desktop_mode;hyprland_portal=$portal;host_controller=$host_controller"
   emit INFO armen_overlay "selected=$(json_value "$fleet_file" "hosts.$target_host.users.armen.overlaySelected");codex=$(json_value "$fleet_file" "hosts.$target_host.users.armen.codexSelected");graphical_apps=$(json_value "$fleet_file" "hosts.$target_host.users.armen.graphicalAppsSelected")"
   emit INFO tailscale "selected=$tailscale_selected;ssh_desired=$tailscale_ssh;ownership=$tailscale_owner"
   emit INFO isaac_omniverse "selected=$isaac_selected;enabled=$isaac_enabled"
@@ -232,31 +241,59 @@ plan_host() {
         die 'verified Tailscale plan did not expose its exact Nix client'
       tailscale_version="$("$tailscale_package/bin/tailscale" version --json 2>/dev/null | python3 -c \
         'import json,sys; value=json.load(sys.stdin); print(value.get("majorMinorPatch") or value.get("short") or value.get("long") or "UNKNOWN")')"
-      emit PASS tailscale_apply "ownership=nix-managed;installed=$tailscale_version;exact generation four is live and boot-linked"
+      tailscale_generation="$(sed -n 's/^PASS|ownership|confirmed-nix-managed;generation=\([^;]*\).*/\1/p' <<<"$tailscale_plan" | head -n 1)"
+      [[ -n "$tailscale_generation" ]] || die 'verified Tailscale plan omitted its managed generation'
+      emit PASS tailscale_apply "ownership=nix-managed;installed=$tailscale_version;managed_generation=$tailscale_generation;live and boot-linked"
     elif [[ "$tailscale_owner" == migration-pending-apt ]] && command -v tailscale >/dev/null 2>&1; then
       tailscale_version="$(tailscale version --json 2>/dev/null | python3 -c \
         'import json,sys; value=json.load(sys.stdin); print(value.get("majorMinorPatch") or value.get("short") or value.get("long") or "UNKNOWN")')"
       emit HOLD tailscale_apply "ownership=migration-pending-apt;installed=$tailscale_version;use the separately gated migration operator"
+      partial=true
     else
       emit HOLD tailscale_apply "declared ownership=$tailscale_owner does not match a verified live state"
+      partial=true
     fi
   fi
-  if [[ "$desktop_mode" == headless && "$(json_value "$fleet_file" "hosts.$target_host.desktop.hostController")" == not-implemented ]]; then
+  if [[ "$desktop_mode" == headless && "$host_controller" == system-manager && -x "$nix_bin" ]] &&
+    desktop_plan="$("$repo_dir/scripts/dgx-desktop" plan 2>&1)"; then
+    desktop_live="$(sed -n 's/^INFO|live_generation|//p' <<<"$desktop_plan" | head -n 1)"
+    desktop_candidate="$(sed -n 's/^INFO|headless_generation|//p' <<<"$desktop_plan" | head -n 1)"
+    desktop_retained="$(sed -n 's/^INFO|candidate_retention|//p' <<<"$desktop_plan" | head -n 1)"
+    desktop_guard="$(sed -n 's/^INFO|guard|//p' <<<"$desktop_plan" | head -n 1)"
+    desktop_default="$(sed -n 's/^INFO|current_default|//p' <<<"$desktop_plan" | head -n 1)"
+    if [[ -n "$desktop_candidate" && "$desktop_live" == "$desktop_candidate" &&
+      "$desktop_retained" == "$desktop_candidate" && "$desktop_guard" == absent &&
+      "$desktop_default" == default.target ]]; then
+      emit PASS desktop_apply "mode=headless;controller=system-manager;generation=$desktop_candidate;confirmed live and boot-persistent"
+    else
+      emit HOLD desktop_apply "declared headless controller does not match the retained live state"
+      partial=true
+    fi
+  elif [[ "$desktop_mode" == headless && "$host_controller" == not-implemented ]]; then
     emit HOLD desktop_apply 'user composition is headless, but factory GNOME remains active until the root desktop controller is proven'
+    partial=true
   else
-    emit HOLD desktop_apply 'root desktop controller is not yet apply-ready'
+    emit HOLD desktop_apply "desktop mode=$desktop_mode/controller=$host_controller is not yet apply-ready"
+    partial=true
   fi
-  [[ "$isaac_enabled" == false ]] || emit HOLD workload_apply 'Isaac/Omniverse workload is not yet apply-ready'
+  if [[ "$isaac_enabled" != false || "$llmster_enabled" != false ]]; then
+    emit HOLD workload_apply 'an enabled workload is not yet apply-ready'
+    partial=true
+  fi
 
   emit PASS plan 'no package build/install, profile, service, enrollment, desktop, or reboot action occurred; evaluation may fetch missing locked flake sources'
-  printf 'PLAN_STATUS=PARTIAL_READY\n'
+  if [[ "$partial" == true ]]; then
+    printf 'PLAN_STATUS=PARTIAL_READY\n'
+  else
+    printf 'PLAN_STATUS=READY\n'
+  fi
 }
 
 apply_host() {
   local target_host=$1 actual_host actual_user declared_user declared_home
   local desktop_mode host_controller tailscale_selected tailscale_owner
   local isaac_enabled llmster_enabled home_profile home_action
-  local tailscale_preflight tailscale_status
+  local tailscale_preflight tailscale_status desktop_preflight desktop_status
   local partial=false
 
   validate_inputs "$target_host" || die 'fleet/bootstrap input validation failed'
@@ -286,8 +323,8 @@ apply_host() {
   # enabled workload asks this front door to cross an unimplemented boundary.
   [[ "$desktop_mode" == headless ]] ||
     die "desktop mode $desktop_mode has no guarded Home apply lifecycle yet"
-  [[ "$host_controller" == not-implemented ]] ||
-    die "host desktop controller $host_controller has no guarded apply lifecycle yet"
+  [[ "$host_controller" == system-manager || "$host_controller" == not-implemented ]] ||
+    die "host desktop controller $host_controller has no guarded apply lifecycle"
   [[ "$isaac_enabled" == false && "$llmster_enabled" == false ]] ||
     die 'an enabled workload has no guarded apply lifecycle yet'
   if [[ "$tailscale_selected" == true &&
@@ -301,11 +338,19 @@ apply_host() {
       <<<"$tailscale_preflight" ||
       die 'declared Nix-managed Tailscale does not match the live generation; refusing before mutation'
   fi
+  if [[ "$host_controller" == system-manager ]]; then
+    [[ -x "$nix_bin" ]] ||
+      die 'System Manager desktop convergence requires the declared Nix runtime first'
+    desktop_preflight="$("$repo_dir/scripts/dgx-desktop" status 2>&1)" ||
+      die 'could not verify the declared System Manager desktop state before apply'
+    grep -Fx 'DESKTOP_STATUS=HEADLESS_CONFIRMED' <<<"$desktop_preflight" >/dev/null ||
+      die 'declared headless System Manager desktop state is not confirmed; refusing before mutation'
+  fi
 
   printf '# DGX guarded staged apply\n'
   printf '# timestamp_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   emit INFO target "$target_host"
-  emit INFO contract 'converge proven Nix/bootstrap and headless Home transactions; verify already-managed Tailscale; leave unimplemented root roles untouched'
+  emit INFO contract 'converge proven Nix/bootstrap and headless Home transactions; verify retained Nix-managed Tailscale and System Manager headless state; leave disabled workloads untouched'
   plan_host "$target_host"
 
   "$repo_dir/scripts/bootstrap-nix.sh" "$target_host"
@@ -331,14 +376,23 @@ apply_host() {
       printf '%s\n' "$tailscale_status"
       grep -Fx 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED' <<<"$tailscale_status" >/dev/null ||
         die 'declared Nix-managed Tailscale is not in the confirmed retained state'
-      emit PASS apply_tailscale 'ownership=nix-managed;service, SSH desired state, identity continuity, and generation four verified; no restart performed'
+      emit PASS apply_tailscale 'ownership=nix-managed;service, SSH desired state, identity continuity, and current declared generation verified; no restart performed'
     else
       emit HOLD apply_tailscale 'ownership=migration-pending-apt;use scripts/dgx-tailscale for the guarded handoff'
       partial=true
     fi
   fi
-  emit HOLD apply_desktop 'host controller is not implemented; factory GNOME/GDM was not changed'
-  partial=true
+  if [[ "$host_controller" == system-manager ]]; then
+    desktop_status="$("$repo_dir/scripts/dgx-desktop" status)" ||
+      die 'System Manager desktop state failed retained-state verification'
+    printf '%s\n' "$desktop_status"
+    grep -Fx 'DESKTOP_STATUS=HEADLESS_CONFIRMED' <<<"$desktop_status" >/dev/null ||
+      die 'declared headless desktop is not in the confirmed retained state'
+    emit PASS apply_desktop 'mode=headless;controller=system-manager;generation five verified; no activation, isolation, or restart performed'
+  else
+    emit HOLD apply_desktop 'host controller is not implemented; desktop state was not changed'
+    partial=true
+  fi
 
   if [[ "$partial" == true ]]; then
     emit PASS apply 'all currently proven layers converged; every unproven role remained untouched'

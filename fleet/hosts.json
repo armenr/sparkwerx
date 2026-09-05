@@ -27,7 +27,7 @@
       "desktop": {
         "mode": "headless",
         "hyprlandPortal": false,
-        "hostController": "not-implemented"
+        "hostController": "system-manager"
       },
       "workloads": {
         "isaacOmniverse": {

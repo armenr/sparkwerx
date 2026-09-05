@@ -4,7 +4,7 @@ set -euo pipefail
 # One operator-facing regression for the complete desktop-control boundary.
 # Destructive-looking desktop transitions and reboots occur only inside the
 # disposable containers. The final integration test verifies that the live
-# Nix/Home/Tailscale stack still converges as a no-op.
+# Nix/Home/Tailscale/headless-controller stack converges as a complete no-op.
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
@@ -30,4 +30,4 @@ done
 ./scripts/test-post-tailscale-integration.sh
 
 printf '%s\n' \
-  'PASS|desktop_stack_integration|transaction, mode lifecycle, guarded rollback, and post-Tailscale integration passed'
+  'PASS|desktop_stack_integration|transaction, mode lifecycle, guarded rollback, and complete headless integration passed'

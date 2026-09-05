@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One operator-facing regression after the live Tailscale migration. The only
-# root work is the disposable container lifecycle; the staged apply itself must
-# remain an unprivileged orchestration of already-proven no-op transactions.
+# One operator-facing regression for the retained Nix/Home/Tailscale/desktop
+# stack. Root work is limited to exact status verification and disposable
+# container lifecycles; the live apply path must remain a no-op.
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
@@ -23,4 +23,4 @@ sudo -- ./scripts/test-tailscale-unit-lifecycle.sh
 ./scripts/test-dgx-setup-apply.sh
 
 printf '%s\n' \
-  'PASS|post_tailscale_integration|plan, Nix bootstrap lifecycle, Tailscale lifecycle, and live staged-apply no-op all passed'
+  'PASS|post_tailscale_integration|plan, Nix bootstrap lifecycle, Tailscale lifecycle, and complete live headless apply no-op all passed'

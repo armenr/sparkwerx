@@ -8,6 +8,7 @@ state_dir=/var/lib/dgx-setup/tailscale-migration
 state_context=$state_dir/context
 profile_dir=/nix/var/nix/profiles/system-manager-profiles
 candidate_root=/nix/var/nix/gcroots/dgx-setup-tailscale-migration-pilot
+desktop_headless_root=/nix/var/nix/gcroots/dgx-setup-desktop-headless-pilot
 rollback_root=/nix/var/nix/gcroots/dgx-setup-tailscale-migration-rollback
 rollback_service=dgx-tailscale-migration-rollback.service
 rollback_timer=dgx-tailscale-migration-rollback.timer
@@ -17,6 +18,7 @@ rollback_timer_path=/etc/systemd/system/$rollback_timer
 rollback_wants_path=/etc/systemd/system/timers.target.wants/$rollback_timer
 managed_unit=/etc/systemd/system/tailscaled.service
 managed_wants=/etc/systemd/system/system-manager.target.wants/tailscaled.service
+system_manager_root=/nix/var/nix/gcroots/system-manager-current
 vendor_unit=/usr/lib/systemd/system/tailscaled.service
 vendor_wants=/etc/systemd/system/multi-user.target.wants/tailscaled.service
 tailscale_state=/var/lib/tailscale/tailscaled.state
@@ -371,12 +373,45 @@ load_repo_outputs() {
     die "could not evaluate generation three"
   generation_four="$(eval_output .#packages.aarch64-linux.root-system-tailscale-migration.outPath)" ||
     die "could not evaluate generation four"
+  generation_five="$(eval_output .#packages.aarch64-linux.root-system-desktop-headless.outPath)" ||
+    die "could not evaluate generation five"
   migration_bundle="$(eval_output .#packages.aarch64-linux.root-tailscale-migration-bundle.outPath)" ||
     die "could not evaluate migration bundle"
   tailscale_package="$(eval_output .#packages.aarch64-linux.tailscale.outPath)" ||
     die "could not evaluate Tailscale package"
   lifecycle_test="$(eval_output .#checks.aarch64-linux.tailscale-unit-lifecycle-container.outPath)" ||
     die "could not evaluate lifecycle test"
+}
+
+assert_generation_five_inherits_tailscale_public() {
+  local live_generation fragment
+
+  live_generation="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
+  [[ "$live_generation" == "$generation_five" ]] || return 1
+  [[ -L "$profile_dir/system-manager" &&
+    "$(readlink -- "$profile_dir/system-manager" 2>/dev/null || true)" == system-manager-5-link ]] ||
+    return 1
+  [[ -L "$profile_dir/system-manager-5-link" &&
+    "$(readlink -- "$profile_dir/system-manager-5-link" 2>/dev/null || true)" == "$generation_five" ]] ||
+    return 1
+  [[ -L "$system_manager_root" &&
+    "$(readlink -- "$system_manager_root" 2>/dev/null || true)" == "$generation_five" ]] ||
+    return 1
+  [[ -L "$candidate_root" &&
+    "$(readlink -- "$candidate_root" 2>/dev/null || true)" == "$generation_four" ]] ||
+    return 1
+  [[ -L "$desktop_headless_root" &&
+    "$(readlink -- "$desktop_headless_root" 2>/dev/null || true)" == "$generation_five" ]] ||
+    return 1
+  cmp -s "$generation_four/services/services.json" \
+    "$generation_five/services/services.json" || return 1
+  systemctl is-active --quiet tailscaled.service || return 1
+  fragment="$(systemctl show tailscaled.service -p FragmentPath --value 2>/dev/null || true)"
+  [[ "$fragment" == "$managed_unit" ]] || return 1
+  [[ "$(systemctl show tailscaled.service -p NeedDaemonReload --value 2>/dev/null || true)" == no ]] ||
+    return 1
+  [[ -L "$managed_wants" ]] || return 1
+  return 0
 }
 
 assert_package_boundary() {
@@ -573,7 +608,8 @@ plan_action() {
   info host "$host_name"
   info current_generation "${live_generation:-ABSENT}"
   info rollback_generation "$generation_three"
-  info managed_generation "$generation_four"
+  info tailscale_ownership_generation "$generation_four"
+  info current_desktop_generation "$generation_five"
   info tailscale_package "$tailscale_package"
   info migration_bundle "$migration_bundle"
   if path_exists "$state_dir" || path_exists "$rollback_root" ||
@@ -588,7 +624,11 @@ plan_action() {
     info candidate_retention absent
   fi
   ownership_status=unknown
-  if [[ "$live_generation" == "$generation_four" ]] &&
+  if [[ "$live_generation" == "$generation_five" ]] &&
+    assert_generation_five_inherits_tailscale_public; then
+    ownership_status=confirmed-nix-managed
+    pass ownership "$ownership_status;generation=$generation_five;inherited-from=$generation_four;desktop=headless"
+  elif [[ "$live_generation" == "$generation_four" ]] &&
     "$repo_dir/scripts/root-tailscale-migration-transaction.sh" \
       verify-after-public "$generation_one" "$generation_two" \
       "$generation_three" "$generation_four" >/dev/null 2>&1; then
@@ -678,11 +718,23 @@ migrate_action() {
 }
 
 status_action() {
-  local timer_state apply_state
+  local timer_state apply_state live_generation desktop_status
 
   require_commands
   if ! path_exists "$state_context"; then
     load_repo_outputs
+    live_generation="$(readlink -f -- "$profile_dir/system-manager" 2>/dev/null || true)"
+    if [[ "$live_generation" == "$generation_five" ]] &&
+      assert_generation_five_inherits_tailscale_public; then
+      desktop_status="$("$repo_dir/scripts/dgx-desktop" status 2>&1)" ||
+        die "generation five failed exact desktop-state verification"
+      grep -Fx 'DESKTOP_STATUS=HEADLESS_CONFIRMED' <<<"$desktop_status" >/dev/null ||
+        die "generation five is not confirmed headless"
+      printf '%s\n' "$desktop_status"
+      pass ownership "confirmed-nix-managed;generation=$generation_five;inherited-from=$generation_four"
+      printf 'MIGRATION_STATUS=CONFIRMED_NIX_OWNED\n'
+      return
+    fi
     if path_exists "$candidate_root" &&
       "$migration_bundle/bin/dgx-root-tailscale-migration" verify-after >/dev/null 2>&1; then
       check_tailscale_health "$tailscale_package"

@@ -2041,6 +2041,7 @@
               ${./scripts/dgx-home} \
               ${./scripts/dgx-setup} \
               ${./scripts/dgx-tailscale} \
+              ${./scripts/reload-systemd-and-test-post-desktop.sh} \
               ${./scripts/test-dgx-setup-apply.sh} \
               ${./scripts/test-dgx-setup-plan.sh} \
               ${./scripts/test-desktop-headless-transaction.sh} \
