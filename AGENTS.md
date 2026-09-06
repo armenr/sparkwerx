@@ -46,8 +46,9 @@ tests as GPU/capture or end-to-end streaming proof.
 `scripts/test-remote-desktop-graphics.sh` runs synthetic hardware checks as the
 normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
-Hyprland DRM/GBM and Grim readback now have separate hardware evidence;
-Sunshine's changing-frame capture remains integration work.
+Hyprland DRM/GBM and Grim readback have separate hardware evidence;
+[Sunshine's changing-frame capture/encode path also passed](remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
+Moonlight transport, input/audio, and sustained FPS remain integration work.
 `scripts/test-remote-desktop-session.sh` is the separately authorized temporary
 GPU/capture diagnostic for the current pilot. Read its
 [contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
@@ -78,14 +79,18 @@ The Sunshine-test child now gets the existing card and render groups only for
 its lifetime; capture-only keeps render access alone. Preserve exact child
 group checks, zero effective child capabilities, and unchanged host groups/ACLs.
 The [corrected hardware run passed](remote-desktop/validation/2026-09-07-sunshine-startup-host.md):
-all three NVENC encoders initialized and host postflight passed. Changing-frame
-Sunshine capture/encoding is the next diagnostic, not yet a tested capability.
+all three NVENC encoders initialized and host postflight passed. The separate
+changing-frame hardware run also passed all three codecs with clean host postflight.
 `scripts/test-remote-desktop-sunshine-frames.sh` selects a separate offline
 capture executable, never the production package. Read its
 [contract](docs/remote-desktop.md#temporary-sunshine-changing-frame-test);
 keep the engine-source checks, decoded-color verification, and existing
 150-second/no-IP/no-input isolation. Build and CPU-fixture results are not
-hardware capture or Moonlight evidence.
+hardware capture or Moonlight evidence; the linked hardware record is separate.
+The next trial would enable Tailscale-only transport and temporary keyboard/mouse
+input. No launcher or authorization for that wider runtime scope exists yet.
+Preserve the offline diagnostic unchanged; do not add ports, input, or persistence
+to it as an incidental follow-up to a PASS.
 Failures print the existing redacted inspector
 summary automatically after shutdown and successful host postflight. Read-only `inspect`
 remains available; no persistent graphics or factory CUDA change is authorized.

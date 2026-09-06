@@ -45,7 +45,7 @@ remains to be tested on hardware.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | [Hyprland virtual-display capture passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md) at a configured 4k120 mode. [Sunshine Wayland and H.264/HEVC/AV1 NVENC startup passed](../remote-desktop/validation/2026-09-07-sunshine-startup-host.md). Changing-frame Sunshine capture, streaming, input/audio, and sustained FPS remain unverified; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
+| Remote desktop | [Sunshine changing-frame capture/encode/decode passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md) for H.264, HEVC, and AV1 at the requested 4k120 preset. Moonlight transport, input/audio, latency, and sustained FPS remain unverified; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Temporary NVIDIA DRM/GBM/EGL session passed; persistent local/remote session, GDM integration, and separate portal rollout remain |
 | KDE | Package selection, host integration, and validation |

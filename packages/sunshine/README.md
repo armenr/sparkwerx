@@ -60,7 +60,9 @@ temporary elementary streams without initializing servers, input, or audio.
 The diagnostic output installs no `sunshine` command, service, or udev rule.
 Its inert `--describe` branch is checked during the build. The normal package's
 [startup hardware run passed](../../remote-desktop/validation/2026-09-07-sunshine-startup-host.md);
-the separate changing-frame executable still needs its own hardware result.
+the [separate changing-frame hardware run also passed](../../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
+for H.264, HEVC, and AV1. Neither diagnostic establishes Moonlight transport or
+sustained frame rate.
 
 ## Updating it
 

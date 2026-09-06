@@ -9,7 +9,7 @@ and interactive AI work. It is optional, not part of the base CLI package set.
 The repository provides a Nix package candidate, configuration/network templates,
 client presets, and a read-only prerequisite check. There is **no activation
 command yet**. Selecting it does not install Sunshine, start graphics, or open
-ports. Capture, input/audio, and the service lifecycle still need testing.
+ports. Moonlight transport, input/audio, and the service lifecycle still need testing.
 
 The [package and isolated network tests passed](../remote-desktop/validation/2026-09-06-preparation.md).
 They verify the firewall's packet behavior, not a working graphical stream.
@@ -17,7 +17,9 @@ The [GPU tests also passed](../remote-desktop/validation/2026-09-06-gpu-and-sess
 Nix programs rendered offscreen through the factory NVIDIA driver and encoded
 changing synthetic video with H.264, HEVC, and AV1 NVENC.
 [Real Hyprland virtual-display readback also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md)
-during the KMS trial. These are working components, not yet a Sunshine stream.
+during the KMS trial. [Sunshine's own changing-frame capture and encoding passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
+for all three codecs at the requested 4k120 preset. A Moonlight connection and
+sustained frame rate have not yet been tested.
 
 ## Selection
 
@@ -311,7 +313,7 @@ authorizes another reboot.
 
 ## Temporary Sunshine changing-frame test
 
-The next diagnostic sends changing red/green images through Sunshine's actual
+This diagnostic sends changing red/green images through Sunshine's actual
 Wayland capture, CUDA conversion, and NVENC path, then decodes the resulting
 H.264, HEVC, and AV1 video locally. It is separate from the passed startup test:
 
@@ -342,9 +344,11 @@ The same redacted `inspect SNAPSHOT_NAME` route handles failures.
 
 The [offline checks passed](../remote-desktop/validation/2026-09-07-sunshine-frame-preparation.md),
 including CPU-generated decoder fixtures for all three codecs. That is verifier
-evidence, not a GPU result. The new hardware
-test still needs a successful operator run. Even a hardware pass would not
-establish Moonlight pairing, transport, input/audio, latency, or sustained FPS.
+evidence, not a GPU result. The [separate hardware run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
+all three codecs with repeated decoded red/green changes and clean host postflight.
+That does not establish Moonlight pairing, transport, input/audio, latency, or
+sustained FPS. There is no reason to repeat the passed test merely to proceed
+to client integration.
 
 ## Private access
 
@@ -402,7 +406,7 @@ changing global network settings.
   verify changing frames from the intended virtual output. Sunshine's `wlr`
   capture is not a GNOME capture backend.
 - Carry the tested temporary NVIDIA DRM/GBM/EGL bridge into a reviewed session
-  lifecycle, and verify Sunshine's actual changing-frame capture/encode path.
+  lifecycle, preserving the verified Sunshine changing-frame capture/encode path.
   The temporary broker is not a permanent device-permission policy.
 - Scope input, audio, and session startup/shutdown. Do not grant blanket input
   access or `CAP_SYS_ADMIN` as a shortcut.

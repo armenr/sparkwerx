@@ -92,7 +92,8 @@ checksums preserve the capture/encoder engines. The existing approved FFmpeg
 binary decodes temporary synthetic video locally. This adds no dependency pin,
 license exception, profile package, input/network permission, or persistent
 service. The normal Sunshine output is unchanged. Its CPU fixtures validate
-the test verifier; hardware capture and Moonlight remain separate results.
+the test verifier; the [separate hardware capture run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
+Moonlight transport remains untested.
 
 The pilot build fetched about 357 KiB / 1.9 MiB unpacked for these extra tool
 outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
