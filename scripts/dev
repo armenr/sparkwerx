@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_dir"
+
+case "${1:-help}" in
+  shell)
+    shift
+    exec nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file "$@"
+    ;;
+  lint | check | format | hooks | unhook)
+    exec nix --extra-experimental-features 'nix-command flakes' develop --no-write-lock-file \
+      --command python3 dev/quality.py "$@"
+    ;;
+  *)
+    printf '%s\n' 'Usage: ./scripts/dev {shell|lint|check|format PATH...|hooks|unhook}'
+    ;;
+esac

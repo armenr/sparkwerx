@@ -2,24 +2,11 @@
 
 [Documentation](README.md) · [Roadmap](roadmap.md)
 
-**Recorded checkpoint: 2026-09-06.** This page summarizes repository evidence;
-it is not a fresh health or upstream-release audit. Run the relevant
-[status commands](operations.md#status-checks) before a host operation.
-
-## Readiness means different things
-
-- **Live verified:** exercised on the physical pilot.
-- **Lifecycle tested:** exercised in a disposable environment, including failure
-  and rollback paths.
-- **Built candidate:** a package exists and passed its stated checks; that does
-  not mean the application is installed, running, or GPU-validated.
-- **Planned:** a selection or design exists, but there is no completed deployment path.
-
-A lockfile pin is an exact version, not a promise that it is the newest release.
+For your machine's status, use the [status commands](operations.md#status-checks).
 
 ## Pilot: sparkle-01
 
-| Layer | Recorded state |
+| Layer | State |
 | --- | --- |
 | Factory OS | NVIDIA DGX OS 7.5.0; Ubuntu-based ARM64 with GB10 |
 | Nix runtime | 2.35.2 in the machine-wide default profile |
@@ -47,10 +34,8 @@ passed at commit `cc1069cbce87974a545095b3361b78837d618437`. It covers:
 - factory/headless transitions and persistent rollback across three container reboots;
 - the real pilot's plan/apply/converge paths remaining exact no-ops.
 
-It does **not** prove a second physical Spark has been provisioned. None is
-declared yet. Nor does it prove a real generation-five headless reboot: the
-physical Tailscale reboot occurred on generation four, before the no-reboot
-headless transition. Keep container evidence and physical-host evidence separate.
+Still to test on hardware: provisioning a second Spark and rebooting the pilot
+in headless generation five. The Tailscale reboot test ran on generation four.
 
 ## What is not ready
 

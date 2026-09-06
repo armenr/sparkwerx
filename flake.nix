@@ -14,6 +14,10 @@
     # replace the stable package set with this input wholesale.
     nixpkgs-apps.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
+    # Development/CI tools have their own lock so lint-tool refreshes cannot
+    # update the installed Home packages or the proven root generation.
+    nixpkgs-devtools.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,6 +45,7 @@
       nixpkgs,
       nixpkgs-root,
       nixpkgs-apps,
+      nixpkgs-devtools,
       home-manager,
       nix-release,
       system-manager,
@@ -72,6 +77,13 @@
           allowUnfreePredicate = package: builtins.elem (lib.getName package) approvedUnfreePackageNames;
         };
       };
+
+      devToolsPkgs = import nixpkgs-devtools {
+        inherit system;
+        config.allowUnfree = false;
+      };
+
+      repositoryDevTools = import ./dev/tools.nix { pkgs = devToolsPkgs; };
 
       devboxPackage = appsPkgs.callPackage ./packages/devbox { };
       codexPackage = pkgs.callPackage ./packages/codex-cli { };
@@ -776,7 +788,8 @@
             (mkPackageRecord "nixpkgs-stable" pkgs.jq)
             (mkPackageRecord "nixpkgs-stable" pkgs.nixfmt-tree)
             (mkPackageRecord "nixpkgs-apps" appsPkgs.ripgrep)
-          ];
+          ]
+          ++ map (mkPackageRecord "nixpkgs-devtools; repository only") repositoryDevTools;
         };
 
         services.tailscale = {
@@ -3638,8 +3651,16 @@
           pkgs.jq
           pkgs.nixfmt-tree
           appsPkgs.ripgrep
-        ];
+        ]
+        ++ repositoryDevTools;
       };
+
+      lib.dgxDevToolVersions.${system} = builtins.listToAttrs (
+        map (package: {
+          name = lib.getName package;
+          value = package.version;
+        }) repositoryDevTools
+      );
 
       formatter.${system} = pkgs.nixfmt-tree;
     };

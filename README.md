@@ -8,6 +8,8 @@
   <a href="docs/agent-guide.md">For AI agents</a>
 </p>
 
+[![CI](https://github.com/armenr/sparkwerx/actions/workflows/ci.yml/badge.svg)](https://github.com/armenr/sparkwerx/actions/workflows/ci.yml)
+
 Sparkwerx turns a factory NVIDIA DGX Spark into a repeatable development and AI
 machine—without replacing DGX OS with NixOS or taking over NVIDIA's GPU stack.
 
@@ -37,33 +39,24 @@ bring up the next three without rediscovering every decision—is better.
 
 ## What's ready
 
-Recorded project status: **2026-09-06**. These are tested capabilities, not a
-claim that every future host or upstream release has been validated.
-
 | Capability | Today |
 | --- | --- |
-| Fresh-host Nix → services → headless → Home setup | Implemented; combined disposable lifecycle and pilot no-op integration passed |
+| Fresh-host setup | Resumable Nix → services → headless → Home installation |
 | Fleet CLI base | `ncdu`, `lazydocker`, `devbox` |
-| Armen's all-modes tools | Nix-managed Codex CLI and explicitly chosen high-trust defaults |
-| Tailscale + Tailscale SSH | Optional per host; live migration and real reboot verified on the pilot |
-| Headless host mode | Confirmed on `sparkle-01`; factory GNOME remains installed |
+| Armen's personal tools | Nix-managed Codex CLI |
+| Tailscale + Tailscale SSH | Optional per host, managed by Nix |
+| Headless host mode | Stops the desktop; keeps factory GNOME installed |
 | General desktop switching | Not finished; current switch operator is pilot-specific |
-| Ghostty and Hyprland | Built candidates/profile work; graphical host rollout remains open |
-| Chromium, Zed, LM Studio | Packages built and reviewed; not activated in Home profiles |
+| Ghostty and Hyprland | Packaged; desktop integration in progress |
+| Chromium, Zed, LM Studio | Packaged; not installed by setup yet |
 | KDE and AI/robotics workloads | Planned, not deployed |
 
-The [status page](docs/status.md) separates live results, container tests,
-built candidates, and planned work. The [roadmap](docs/roadmap.md) tracks the
-remaining work. There is no general-purpose package picker or fleet-wide
-unattended updater yet.
+See [status](docs/status.md) for details and the [roadmap](docs/roadmap.md)
+for what's next.
 
 ## Get started
 
-The repository is private: authenticate to GitHub before cloning. Keep the
-checkout name below; the project is Sparkwerx, but existing commands and
-recovery paths still use `DGX-setup` / `dgx-setup`.
-
-**New checkout only:**
+Use `DGX-setup` as the checkout name: existing recovery paths depend on it.
 
 ```bash
 mkdir -p ~/Development
@@ -71,32 +64,28 @@ git clone https://github.com/armenr/sparkwerx.git ~/Development/DGX-setup
 cd ~/Development/DGX-setup
 ```
 
-Before installing anything, follow the [getting-started guide](docs/getting-started.md)
-to check prerequisites, add your host to
-[`fleet/hosts.json`](fleet/hosts.json), and commit its declaration.
+Follow the [getting-started guide](docs/getting-started.md) to add your host to
+[`fleet/hosts.json`](fleet/hosts.json) and commit its declaration.
 
-**Inspect the plan; no profiles or services are changed:**
+Preview the changes:
 
 ```bash
 ./scripts/dgx-setup plan
 ```
 
-**After reviewing the plan and installation scope:**
+Apply the configuration:
 
 ```bash
 ./scripts/dgx-setup converge
 ```
 
-Run as the declared user, not with `sudo`; the operator asks for elevated access
-where needed. It is resumable, but it is an **install/apply command**, not a
-status check. Rerun it after the expected disconnects. It never reboots:
-when it reports `AWAITING_REBOOT`, you perform the separate reboot and
-reconnect before the displayed rollback deadline.
+Run as the declared user, without `sudo`. Setup asks for elevated access when
+needed and resumes with the same command after a disconnect. At
+`AWAITING_REBOOT`, reboot and reconnect before the displayed rollback deadline.
 
-The current complete workflow targets **headless ARM64 Sparks with one
-explicit Armen user mapping and the tested Home package set**. Review the
-[configuration limits](docs/configuration.md#current-limits) before copying a
-declaration.
+Setup currently targets headless ARM64 Sparks with one user and the fixed
+base package set. The [configuration guide](docs/configuration.md#current-limits)
+explains the supported choices.
 
 ## Understand the pieces
 
@@ -113,7 +102,7 @@ Nix does not make containers mandatory, and containers do not replace Nix.
 See the [architecture guide](docs/architecture.md#nix-or-containers) for how we
 choose between them.
 
-## Useful front doors
+## Useful commands
 
 ```bash
 # Read-only host/configuration comparison
@@ -126,9 +115,7 @@ choose between them.
 .agents/skills/dgx-spark-ops/scripts/audit-updates.sh --offline
 ```
 
-For updates, recovery, access checks, and command effects, use the
-[operations guide](docs/operations.md). Don't use an old pilot transcript as
-an installation recipe.
+See the [operations guide](docs/operations.md) for updates and recovery.
 
 ## For AI agents
 
@@ -140,13 +127,9 @@ Start with [AGENTS.md](AGENTS.md), then the
 A useful first request:
 
 ```text
-$dgx-spark-ops Orient yourself in Sparkwerx. Compare the current repository
-and host with the latest recorded evidence. Explain what's active, what's
-only a candidate, and the next useful step. Make no changes.
+$dgx-spark-ops Check this Sparkwerx checkout and host. Tell me what's
+installed, what still needs work, and what you'd do next. Make no changes.
 ```
-
-An agent should not need the original conversation to work here. It should
-also never mistake an old test pass for permission to change the host.
 
 ## Find your way around
 
@@ -156,5 +139,4 @@ also never mistake an old test pass for permission to change the host.
 [Software manifest](docs/software-manifest.md) ·
 [Validation evidence](docs/2026-09-06-fresh-host-convergence-integration.md)
 
-Changes should explain their scope, preserve rollback, and pass the appropriate
-checks. See [validation and documentation maintenance](docs/operations.md#validation).
+Want to contribute? See [development, CI, and releases](docs/development.md).

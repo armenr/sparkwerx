@@ -587,6 +587,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-devtools": {
+      "locked": {
+        "lastModified": 1788549839,
+        "narHash": "sha256-kOrCcSIA6w9J1hX5DqHy2k9pDTJymExTsbV74U9UtCA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "17de0b976395537756f30a3e78f2f06e5cec89ed",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-regression": {
       "locked": {
         "lastModified": 1643052045,
@@ -705,6 +721,7 @@
         "nix-release": "nix-release",
         "nixpkgs": "nixpkgs_3",
         "nixpkgs-apps": "nixpkgs-apps",
+        "nixpkgs-devtools": "nixpkgs-devtools",
         "nixpkgs-root": "nixpkgs-root",
         "system-manager": "system-manager"
       }

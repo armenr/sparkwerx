@@ -160,6 +160,24 @@ packaging change is proposed. The flake's
 and LM Studio as selected candidates; it does not add them to any Home Manager
 profile or install them.
 
+## Repository development tools
+
+CI and local hooks use a separate `nixpkgs-devtools` input; installed Home and
+root packages keep their existing pins. Selected development-only tools are
+pre-commit 4.6.2, ShellCheck 0.11.0, shfmt 3.14.0, Ruff 0.16.6, Actionlint
+1.7.12, nixfmt 1.4.0, and Python 3.14.7. Upstream release checks were made on
+2026-09-06. `dev/sources.json` pins the official pre-commit source distribution
+and ARM64-musl Ruff binary because the stock packages still lag those releases.
+
+These tools run in `nix develop` or disposable GitHub runners, not a Home
+profile. They add no services, ports, GPU components, or account changes.
+Build/download dependencies live in the Nix store; the hook test uses temporary
+Git repositories. Local caches and optional repository Git hooks are the other
+workspace state. Remove the hook with `./scripts/dev unhook`; revert the
+development pin to roll back the tools. Never auto-format hash-pinned host
+scripts as incidental cleanup.
+See [development](development.md) for the local/CI commands and update procedure.
+
 ## Phase 1 evaluated profiles
 
 These are Home Manager package graphs, not host desktop modes. The pilot's

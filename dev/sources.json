@@ -1,0 +1,12 @@
+{
+  "pre-commit": {
+    "version": "4.6.2",
+    "url": "https://files.pythonhosted.org/packages/74/89/1f3e8e1fc3e97de0fa963495832f581f025f29471602a309e48808244292/pre_commit-4.6.2.tar.gz",
+    "sha256": "8f5d7bfb021ecdbcd9d49d89847082dd24172ccde534390081a679ad046e2441"
+  },
+  "ruff": {
+    "version": "0.16.6",
+    "url": "https://github.com/astral-sh/ruff/releases/download/0.16.6/ruff-aarch64-unknown-linux-musl.tar.gz",
+    "sha256": "9b28fc0646a7379c5a25f68b559669c39bc000325bbad5b64b47fcf6a3b582ae"
+  }
+}

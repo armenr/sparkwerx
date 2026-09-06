@@ -2,9 +2,8 @@
 
 [Documentation](README.md) · [Configuration](configuration.md) · [Operations](operations.md)
 
-This is the supported initial-setup route, not a replay of the pilot's
-development history. Read [status](status.md) first: the complete workflow
-currently produces a headless host with the tested Home package set.
+This sets up a headless Spark with the base tools, optional Tailscale,
+and the selected user overlay.
 
 ## Before you start
 
@@ -14,7 +13,7 @@ You need:
   Complete NVIDIA/DGX Dashboard updates first.
 - The intended local account, with UID 1000 and its normal `/home/<user>` home.
   The current Home operator requires UID 1000; it does not create accounts.
-- GitHub access to this private repository, plus Git, Bash, Python 3, curl,
+- Git, Bash, Python 3, curl,
   sudo, systemd tools, and `nvidia-smi`. The root operator also uses `jq`.
   A missing prerequisite is a setup issue to resolve explicitly, not a reason
   to let an unrelated installer replace the factory stack.
@@ -37,8 +36,7 @@ git clone https://github.com/armenr/sparkwerx.git ~/Development/DGX-setup
 cd ~/Development/DGX-setup
 ```
 
-Authenticate to GitHub before cloning; do not put a token in the URL. On the
-existing pilot, use its existing checkout. Do not move it: private recovery
+On the existing pilot, use its existing checkout. Do not move it: recovery
 records refer to its path.
 
 ## 2. Declare the host
@@ -71,8 +69,7 @@ Run on the declared host, as the declared user:
 ```
 
 Review the selected roles and [software manifest](software-manifest.md).
-`PLAN_STATUS=READY` is not an instruction to install; `HOLD` lines deserve
-attention even when the command exits successfully.
+Resolve any `HOLD` lines before applying, even when the command exits successfully.
 
 Planning does not change a profile or service, but Nix evaluation may fetch
 missing locked sources. Planning another host by name from this machine gives
@@ -80,7 +77,7 @@ declaration-only information, not remote execution or a remote health check.
 
 ## 4. Converge
 
-When the installation scope is approved:
+Apply the declaration:
 
 ```bash
 ./scripts/dgx-setup converge

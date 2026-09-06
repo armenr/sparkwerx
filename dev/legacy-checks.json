@@ -1,0 +1,198 @@
+{
+  ".agents/skills/dgx-spark-ops/scripts/audit-updates.sh": {
+    "sha256": "89839d59c88103476ab345f9a2bb3f0cc2c2e2b0d3f64d627ec2dd60b0459063",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/activate-root-boot-persistence-pilot.sh": {
+    "sha256": "464f2b8283fbed336722ae96ee3786d3188b1cfba09f588974dd9381b8a58e70",
+    "checks": [
+      "shellcheck",
+      "shfmt"
+    ]
+  },
+  "scripts/activate-root-canary-pilot.sh": {
+    "sha256": "0498f3f0c05e83b10dced9efd821c506da2b2883a03445f569575a022bbc0587",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/audit-root-canary-state.sh": {
+    "sha256": "19cac3ba416dc3705c9dc1a996afb82840e8f4bc2d657a78f969f3f42cfddb12",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/bootstrap-nix.sh": {
+    "sha256": "6d3f601789683b8472b536a04757768366fb12982c41c71de4f691fe8513797a",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/dgx-desktop": {
+    "sha256": "253cfb76e2c51f40503f867d3a7c1a8f830de167092e5f81871097a01030bf61",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/dgx-fleet-bootstrap": {
+    "sha256": "69727a368376a1a8a793d1f682c751a83f17afad08f4e246c2b01b8aea4c45ba",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/dgx-home": {
+    "sha256": "f1b19c86b72251917e37048412576f5cf63aed546525115df72671b7391a15c3",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/dgx-setup": {
+    "sha256": "77fc5b096dd63875fa8e2b22486f3309cbaac1a37cfd3162acfe6a3cd38ae5ec",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/dgx-tailscale": {
+    "sha256": "8566c7c4ecdc3b85cfb2a6df0ab827b47fd918e090b655f583c25f2ba3c156c1",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/preflight-root-canary.sh": {
+    "sha256": "3912b26781ca742679adfaa3c87fcb2a6861ffc663ad6cb71e3c344c8cd5dc39",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/rollback-fresh-nix-bootstrap.sh": {
+    "sha256": "a3aaa8cdc760f7ae675ba9489406f85a628b8bee412463b9df1e8fe478449790",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-boot-persistence-transaction.sh": {
+    "sha256": "53eb8c4d03a4c24764f519e358f3c5c813e66f189efc07e50f82cd19841d8288",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-desktop-mode-transaction.sh": {
+    "sha256": "9318775e0dda09273026d337ca8463479919febe27a49451d14d741bebb3e1b8",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-fleet-bootstrap-transaction.sh": {
+    "sha256": "903db6f603113e407d27528bd2673f881bdc90a0b8fefd20eae9a6c51623d780",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-generation-switch-transaction.sh": {
+    "sha256": "ea1a6ddc509eef4ac80aa165e29a6612d1f1b59b93681cdf813ee8b1ff6d8cdd",
+    "checks": [
+      "shellcheck",
+      "shfmt"
+    ]
+  },
+  "scripts/root-reboot-recovery-pilot.sh": {
+    "sha256": "09770fd391efae16c205ef06e5bcba8bbc9de970103af79b53164aab395e8f4a",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-reboot-recovery-transaction.sh": {
+    "sha256": "b1f04f39169cc000b5a532545439693bafd9d6c62d0190e9aac2c231394a6be9",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-recovery-restore-generation-three.sh": {
+    "sha256": "ebf64626d6cf316d789de20f48edb2ac75fa3b2bed8b3c5bbdcf37fa1288af58",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-registration-transaction.sh": {
+    "sha256": "86c4be22ed350782920905897d80616b3949998d2662fd04ab9d1f5c3f4078a9",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/root-tailscale-migration-transaction.sh": {
+    "sha256": "932532dc4c532ab7a40f3b1bc94f930219c1c582bc376580ec1c8abb6b041ad8",
+    "checks": [
+      "shellcheck",
+      "shfmt"
+    ]
+  },
+  "scripts/snapshot-root-boot-persistence.sh": {
+    "sha256": "bb726566b5e11ed466aaab0ab7ab12e3f40f7f93af4561767bfbdb500f4640ff",
+    "checks": [
+      "shellcheck"
+    ]
+  },
+  "scripts/snapshot-root-generation-switch.sh": {
+    "sha256": "a82669f4a7001d370d0b0bb26815d466600114137b2fa26da1bc1169ae30a9ec",
+    "checks": [
+      "shellcheck"
+    ]
+  },
+  "scripts/switch-root-canary-generation-pilot.sh": {
+    "sha256": "e9432ea70cc8d8705e7775b4aaddd92e5bf1d1e56c8f11d1cb537abb2c2d143c",
+    "checks": [
+      "shellcheck",
+      "shfmt"
+    ]
+  },
+  "scripts/test-dgx-home-update-rollback.sh": {
+    "sha256": "0d49deb61e46626d8683ebcfe60a72ec4c0e1e7f81a1815cd44fd0c05d521986",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/test-systemd-snapshot-property.sh": {
+    "sha256": "d9829ce6200752e0bb93810b2cc59cc5f137483abf4dc5a5f9ea491826585009",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-codex.sh": {
+    "sha256": "ab60795b07d2383c0bcd2fd29b06d7db131940f28f1b2e8d6c70bc4a1cbdd1a5",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-dependencies.sh": {
+    "sha256": "907bfe2cf17544c540abd500ba90b55dad6f5171bfede024c9759c340439b91e",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-lmstudio.sh": {
+    "sha256": "439c8c2fdc732568bb4b8f6d02fbc61586314e71bcdad01cc979c28330dffc54",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-nix-installer.sh": {
+    "sha256": "2617688d26c09c431866ff260ade379146c7b72d46f1b9be4bcde2c7b55acd17",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-tailscale.sh": {
+    "sha256": "da171e95b16c837b5034a77eb0155950ed255b0eb2cf236e566af0959233417e",
+    "checks": [
+      "shfmt"
+    ]
+  },
+  "scripts/update-zed.sh": {
+    "sha256": "d08410b424e638db3edada2dde84ec26d90f6d93049fe2d44750ec3c2d612819",
+    "checks": [
+      "shfmt"
+    ]
+  }
+}
