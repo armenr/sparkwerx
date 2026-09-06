@@ -85,6 +85,15 @@ not real captured frames. No profile, persistent service, firewall, device
 permission, or package pin changes. See the
 [startup-test contract](remote-desktop.md#temporary-sunshine-startup-test).
 
+The [changing-frame diagnostic](remote-desktop.md#temporary-sunshine-changing-frame-test)
+adds a separately named Sunshine test executable using the same source,
+dependencies, and CUDA recipe. Only its application entry point is replaced;
+checksums preserve the capture/encoder engines. The existing approved FFmpeg
+binary decodes temporary synthetic video locally. This adds no dependency pin,
+license exception, profile package, input/network permission, or persistent
+service. The normal Sunshine output is unchanged. Its CPU fixtures validate
+the test verifier; hardware capture and Moonlight remain separate results.
+
 The pilot build fetched about 357 KiB / 1.9 MiB unpacked for these extra tool
 outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
 The complete closure is larger because it includes the previously realized

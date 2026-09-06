@@ -47,6 +47,21 @@ must include that card's group as well as the render node's group. Missing
 card access is a session permission error, not a reason to patch Sunshine,
 run it as root, or change host device permissions.
 
+## Offline capture diagnostic
+
+[capture-test.nix](capture-test.nix) is a separate executable for the
+[changing-frame test](../../docs/remote-desktop.md#temporary-sunshine-changing-frame-test),
+not a replacement for the Sunshine package. It reuses this CUDA recipe but
+replaces only `src/main.cpp` with [capture-main.cpp](capture-main.cpp).
+[Source checksums](capture-engine.sha256) pin the unchanged video, Wayland, and
+CUDA engines. The entry point consumes real `video::capture()` packets into
+temporary elementary streams without initializing servers, input, or audio.
+
+The diagnostic output installs no `sunshine` command, service, or udev rule.
+Its inert `--describe` branch is checked during the build. The normal package's
+[startup hardware run passed](../../remote-desktop/validation/2026-09-07-sunshine-startup-host.md);
+the separate changing-frame executable still needs its own hardware result.
+
 ## Updating it
 
 1. Review the stable Sunshine release and the `nixpkgs-apps` input together.
@@ -61,6 +76,10 @@ run it as root, or change host device permissions.
 4. Run the package policy, repository checks, and temporary GPU startup test.
    Changing-frame capture, client pairing, and stream performance need their
    own tests before deployment.
+5. Review the diagnostic entry point against the new `video::capture()` API
+   and packet-replacement semantics before updating its source checksums.
+   Retest CPU decoding fixtures and the hardware capture command separately;
+   never remove the source check just to make an update build.
 
 Remove an override when the locked upstream package supplies the same behavior
 and the checks still pass. If a real source patch becomes necessary, keep it

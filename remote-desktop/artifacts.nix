@@ -2,6 +2,7 @@
   pkgs,
   plans,
   sunshine,
+  sunshineCaptureTest,
   ffmpeg,
   hyprland,
 }:
@@ -9,6 +10,15 @@ let
   plansFile = pkgs.writeText "remote-desktop-plans.json" (builtins.toJSON plans);
   capture = import ./session-test.nix { inherit pkgs hyprland; };
   sunshineStartup = import ./session-test.nix { inherit pkgs hyprland sunshine; };
+  sunshineFrames = import ./session-test.nix {
+    inherit
+      pkgs
+      hyprland
+      sunshine
+      sunshineCaptureTest
+      ffmpeg
+      ;
+  };
   eglProbe =
     pkgs.runCommandCC "sparkwerx-egl-probe"
       {
@@ -27,6 +37,8 @@ in
   capturePolicy = capture.policy;
   sunshineStartupTest = sunshineStartup.test;
   sunshineStartupPolicy = sunshineStartup.policy;
+  sunshineFramesTest = sunshineFrames.test;
+  sunshineFramesPolicy = sunshineFrames.policy;
   policy =
     pkgs.runCommand "sparkwerx-remote-desktop-policy" { nativeBuildInputs = [ pkgs.python3 ]; }
       ''

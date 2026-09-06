@@ -2,10 +2,13 @@
   pkgs,
   hyprland,
   sunshine ? null,
+  sunshineCaptureTest ? null,
+  ffmpeg ? null,
 }:
 # The startup verifier follows this release's log/config contract. An upstream
 # update needs source review and retesting, not an automatic evidence carryover.
 assert sunshine == null || sunshine.version == "2026.516.143833";
+assert sunshineCaptureTest == null || (sunshine != null && ffmpeg != null);
 let
   client =
     pkgs.runCommandCC "sparkwerx-wayland-color-client"
@@ -33,6 +36,9 @@ let
     ${pkgs.lib.optionalString (sunshine != null) ''
       cp ${./sunshine-startup.py} "$out/sunshine-startup.py"
     ''}
+    ${pkgs.lib.optionalString (sunshineCaptureTest != null) ''
+      cp ${./sunshine-frames.py} "$out/sunshine-frames.py"
+    ''}
   '';
   manifest = pkgs.writeText "sparkwerx-private-session-tools.json" (
     builtins.toJSON (
@@ -49,6 +55,11 @@ let
         sunshine = "${sunshine}/bin/sunshine";
         sunshineVersion = sunshine.version;
       }
+      // pkgs.lib.optionalAttrs (sunshineCaptureTest != null) {
+        sunshineFrameCapture = "${sunshineCaptureTest}/bin/sparkwerx-sunshine-capture";
+        ffmpeg = "${pkgs.lib.getBin ffmpeg}/bin/ffmpeg";
+        ffprobe = "${pkgs.lib.getBin ffmpeg}/bin/ffprobe";
+      }
     )
   );
 in
@@ -62,7 +73,9 @@ in
   };
   test = pkgs.writeShellApplication {
     name =
-      if sunshine == null then
+      if sunshineCaptureTest != null then
+        "dgx-remote-desktop-sunshine-frames-test"
+      else if sunshine == null then
         "dgx-remote-desktop-session-test"
       else
         "dgx-remote-desktop-sunshine-startup-test";
@@ -90,6 +103,13 @@ in
         cp ${../scripts/test-remote-desktop-sunshine.sh} tree/scripts/test-remote-desktop-sunshine.sh
         cp ${../dev/test_remote_desktop_capture.py} tree/dev/test_remote_desktop_capture.py
         cp ${../dev/test_remote_desktop_inspect.py} tree/dev/test_remote_desktop_inspect.py
+        ${pkgs.lib.optionalString (sunshineCaptureTest != null) ''
+          cp ${../dev/test_remote_desktop_sunshine_frames.py} tree/dev/test_remote_desktop_sunshine_frames.py
+          ${sunshineCaptureTest}/bin/sparkwerx-sunshine-capture --describe > "$out/capture-build.json"
+        ''}
+        ${pkgs.lib.optionalString (sunshineCaptureTest != null) ''
+          export DGX_TEST_FFMPEG=${pkgs.lib.getBin ffmpeg}/bin
+        ''}
         ${
           pkgs.lib.optionalString (sunshine != null) "DGX_TEST_SUNSHINE=${sunshine}/bin/sunshine "
         }python3 -m unittest discover -s tree/dev

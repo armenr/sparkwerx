@@ -19,6 +19,17 @@ STAMP = "20260906T135057Z-b9a45dfe19c3"
 
 
 class InspectTests(unittest.TestCase):
+    def test_offline_capture_engine_failures_are_redacted(self):
+        summary = inspect.summarize(
+            "FAIL|sunshine_frames|failed at /home/person/private 100.70.20.30\n"
+            "INFO|sunshine_decoded_frames|private counters\n"
+        )
+        self.assertEqual(len(summary["errors"]), 1)
+        self.assertIn("FAIL|sunshine_frames|", summary["errors"][0])
+        self.assertNotIn("100.70.20.30", json.dumps(summary))
+        self.assertNotIn("/home/person", json.dumps(summary))
+        self.assertNotIn("private counters", json.dumps(summary))
+
     def test_extracts_error_type_and_location_without_source_or_raw_context(self):
         log = """private inventory that must not be printed
 Traceback (most recent call last):

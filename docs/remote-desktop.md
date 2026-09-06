@@ -238,8 +238,10 @@ initialization, then [failed a direct DRM-card open](../remote-desktop/validatio
 Sunshine opens `/dev/dri/card1` itself, while Hyprland uses seatd's brokered FD.
 The Sunshine-test child now receives the existing card's group as well as the
 render node's group, solely for that process tree's lifetime. Capture-only
-retains render membership alone. The corrected startup test still needs a
-hardware retry; this failure does not call for a driver or Sunshine source patch.
+retains render membership alone. The corrected startup
+hardware run [passed all three NVENC startup checks](../remote-desktop/validation/2026-09-07-sunshine-startup-host.md)
+with unchanged host state. No driver or Sunshine source patch was needed for
+this startup failure.
 
 Run the diagnostic as the normal user. It builds and checks the CUDA-enabled
 package first, then requests sudo for the same temporary GPU session:
@@ -306,6 +308,43 @@ GPU retry. The [offline preparation checks](../remote-desktop/validation/2026-09
 and [failed hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
 are separate records; neither changes the earlier capture-only PASS or
 authorizes another reboot.
+
+## Temporary Sunshine changing-frame test
+
+The next diagnostic sends changing red/green images through Sunshine's actual
+Wayland capture, CUDA conversion, and NVENC path, then decodes the resulting
+H.264, HEVC, and AV1 video locally. It is separate from the passed startup test:
+
+```bash
+./scripts/test-remote-desktop-sunshine-frames.sh
+```
+
+This builds a [test-only executable](../packages/sunshine/capture-test.nix)
+from the same locked source and CUDA recipe. Only the application's `main()`
+is replaced; source checksums preserve the capture, conversion, and encoder
+implementations. The new entry point calls `video::capture()` and consumes its
+video packets without starting HTTP, RTSP, input, audio, or application launchers.
+It installs no server binary, systemd unit, or udev rule. The normal Sunshine
+package is unchanged.
+
+The helper requests four seconds per codec at the selected preset, with a
+60-second process deadline. The same transient service still has its 150-second
+hard limit, no IP sockets or input devices, temporary card/render groups, and
+protected-host postflight. The existing KMS test boot is a prerequisite; this
+command does not change KMS, boot settings, or desktop mode.
+
+Success requires the selected Wayland display, NVENC-only initialization,
+ordered video packets with multiple capture timestamps, matching decoded codec
+and full-resolution dimensions, an exact packet/frame count, and repeated
+decoded red/green changes. A static or dummy image cannot pass. Generated video
+is temporary and removed; counters and failure details stay in the private log.
+The same redacted `inspect SNAPSHOT_NAME` route handles failures.
+
+The [offline checks passed](../remote-desktop/validation/2026-09-07-sunshine-frame-preparation.md),
+including CPU-generated decoder fixtures for all three codecs. That is verifier
+evidence, not a GPU result. The new hardware
+test still needs a successful operator run. Even a hardware pass would not
+establish Moonlight pairing, transport, input/audio, latency, or sustained FPS.
 
 ## Private access
 

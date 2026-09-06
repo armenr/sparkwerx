@@ -373,6 +373,11 @@ def stop(child):
         child.wait(timeout=2)
 
 
+def sunshine_probe(tools, context):
+    filename = "sunshine-frames.py" if "sunshineFrameCapture" in tools else "sunshine-startup.py"
+    return module(context + "_sunshine_probe", filename)
+
+
 def capture_session(tools, preset_name, version):
     if os.geteuid() == 0:
         raise RuntimeError("Hyprland must never run as root")
@@ -453,9 +458,9 @@ def capture_session(tools, preset_name, version):
             (Path(env["XDG_RUNTIME_DIR"]) / "hypr" / signature / "hyprland.log").read_text()
         )
         if "sunshine" in tools:
-            # Only the separately selected startup-test bundle supplies this
-            # package. The original capture command never starts Sunshine.
-            startup = module("capture_sunshine_startup", "sunshine-startup.py")
+            # Only separate Sunshine diagnostic bundles supply this package.
+            # The original capture command never starts Sunshine.
+            startup = sunshine_probe(tools, "capture")
             report = startup.probe(
                 tools,
                 preset,
@@ -556,7 +561,7 @@ def worker(tools, user, preset, version):
             raise RuntimeError("invalid capture result")
         report = {"passed": False, "preset": preset, "frames": frames}
         if "sunshine" in tools:
-            startup = module("worker_sunshine_startup", "sunshine-startup.py")
+            startup = sunshine_probe(tools, "worker")
             descriptor = os.open(directory / "sunshine.json", os.O_RDONLY | os.O_NOFOLLOW)
             with os.fdopen(descriptor, "r") as stream:
                 info = os.fstat(stream.fileno())
@@ -816,7 +821,7 @@ def host(tools, repo, preset):
             if report.get("passed") is not True:
                 raise RuntimeError("capture did not pass")
             if "sunshine" in tools:
-                startup = module("host_sunshine_startup", "sunshine-startup.py")
+                startup = sunshine_probe(tools, "host")
                 expected = startup.expected_report(
                     PRESETS[preset], tools["sunshineVersion"], display.OUTPUT
                 )
@@ -848,16 +853,23 @@ def host(tools, repo, preset):
             if not completed:
                 print_failure_summary(snapshot)
         if completed:
-            if "sunshine" in tools:
+            if "sunshineFrameCapture" in tools:
+                print(
+                    "PASS|sunshine_frames|H.264/HEVC/AV1 video decoded with repeated red/green changes; test stopped"
+                )
+            elif "sunshine" in tools:
                 print(
                     "PASS|sunshine_startup|Wayland display and H.264/HEVC/AV1 NVENC initialized; server stopped"
                 )
             print(
                 f"PASS|temporary_capture|{preset}; red/green pixels verified; compositor and broker stopped"
             )
-            print(
-                "NOT_STREAMING: Sunshine capture, Moonlight latency, input/audio, and sustained FPS remain untested."
+            untested = (
+                "Moonlight transport/latency, input/audio, and sustained FPS remain untested."
             )
+            if "sunshineFrameCapture" not in tools:
+                untested = "Sunshine changing-frame capture, " + untested
+            print("NOT_STREAMING: " + untested)
 
 
 def interrupted(signum, _frame):

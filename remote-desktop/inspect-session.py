@@ -66,7 +66,9 @@ def summarize(log):
         frame = re.match(r'\s+File "[^"]*/([^/" ]+\.py)", line (\d+), in (\w+)', line)
         if frame:
             frames.append({"file": frame[1], "line": int(frame[2]), "function": frame[3]})
-        elif re.match(r"^(?:FAIL\|temporary_capture\||[\w.]*(?:Error|Exception):)", line):
+        elif re.match(
+            r"^(?:FAIL\|(?:temporary_capture|sunshine_frames)\||[\w.]*(?:Error|Exception):)", line
+        ):
             errors.append(redact(line))
         elif NATIVE_DIAGNOSTIC.match(line.strip()):
             native.append(redact(line.strip()))

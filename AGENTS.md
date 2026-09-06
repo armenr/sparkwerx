@@ -76,8 +76,17 @@ test got past CUDA initialization, then [hit the DRM card's group permissions](r
 Sunshine opens the primary card directly; it does not use Hyprland's seatd FD.
 The Sunshine-test child now gets the existing card and render groups only for
 its lifetime; capture-only keeps render access alone. Preserve exact child
-group checks, zero effective child capabilities, and unchanged host groups/ACLs. This correction
-still needs a full GPU retry. Failures now print the existing redacted inspector
+group checks, zero effective child capabilities, and unchanged host groups/ACLs.
+The [corrected hardware run passed](remote-desktop/validation/2026-09-07-sunshine-startup-host.md):
+all three NVENC encoders initialized and host postflight passed. Changing-frame
+Sunshine capture/encoding is the next diagnostic, not yet a tested capability.
+`scripts/test-remote-desktop-sunshine-frames.sh` selects a separate offline
+capture executable, never the production package. Read its
+[contract](docs/remote-desktop.md#temporary-sunshine-changing-frame-test);
+keep the engine-source checks, decoded-color verification, and existing
+150-second/no-IP/no-input isolation. Build and CPU-fixture results are not
+hardware capture or Moonlight evidence.
+Failures print the existing redacted inspector
 summary automatically after shutdown and successful host postflight. Read-only `inspect`
 remains available; no persistent graphics or factory CUDA change is authorized.
 Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has

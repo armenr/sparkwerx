@@ -101,6 +101,9 @@
         config = import ./packages/sunshine/config.nix { inherit lib; };
       };
       sunshinePackage = sunshinePkgs.callPackage ./packages/sunshine { };
+      sunshineCaptureTest = sunshinePkgs.callPackage ./packages/sunshine/capture-test.nix {
+        sunshine = sunshinePackage;
+      };
       sunshinePolicy = import ./packages/sunshine/policy.nix {
         pkgs = rootPkgs;
         sunshine = sunshinePackage;
@@ -114,6 +117,7 @@
         plans = remoteDesktopPlans;
         sunshine = sunshinePackage;
         ffmpeg = appsPkgs.ffmpeg-headless;
+        inherit sunshineCaptureTest;
         hyprland = hyprlandPackage;
       };
 
@@ -3627,6 +3631,7 @@
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
         zed-editor = zedPackage;
         sunshine = sunshinePackage;
+        sunshine-capture-test = sunshineCaptureTest;
         sunshine-policy = sunshinePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
@@ -3638,6 +3643,8 @@
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-sunshine-startup-test = remoteDesktopArtifacts.sunshineStartupTest;
         remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
+        remote-desktop-sunshine-frames-test = remoteDesktopArtifacts.sunshineFramesTest;
+        remote-desktop-sunshine-frames-policy = remoteDesktopArtifacts.sunshineFramesPolicy;
         kms-preflight = kmsArtifacts.preflight;
         kms-trial = kmsArtifacts.trial;
         kms-preparation-policy = kmsArtifacts.policy;
@@ -3647,6 +3654,7 @@
         sunshine-package = sunshinePackage;
         sunshine-policy = sunshinePolicy;
         remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
+        remote-desktop-sunshine-frames-policy = remoteDesktopArtifacts.sunshineFramesPolicy;
         kms-preparation-policy = kmsArtifacts.policy;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
