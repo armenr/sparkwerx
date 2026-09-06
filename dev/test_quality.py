@@ -12,6 +12,14 @@ import quality
 
 
 class QualityTests(unittest.TestCase):
+    def test_extensionless_python_is_checked(self):
+        with tempfile.TemporaryDirectory(prefix="sparkwerx-quality-") as directory:
+            path = Path(directory) / "operator"
+            path.write_text("#!/usr/bin/env python3\nif then\n")
+            self.assertEqual(quality.kind(path), "py")
+            with self.assertRaises(SyntaxError):
+                quality.syntax(path)
+
     def test_pr_titles(self):
         for title in (
             "fix: correct rollback",

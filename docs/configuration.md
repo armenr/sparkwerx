@@ -1,5 +1,9 @@
 # Configure your fleet
 
+Optional [remote desktop](remote-desktop.md) selects Sunshine/Moonlight over
+Tailscale through `desktop.remoteDesktop`. It defaults off and remains dormant
+in headless mode. Its preparation commands do not activate a desktop or server.
+
 [Documentation](README.md) · [Getting started](getting-started.md)
 
 The target experience is a shared foundation plus explicit per-host choices.

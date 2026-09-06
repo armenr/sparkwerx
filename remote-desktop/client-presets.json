@@ -1,0 +1,23 @@
+{
+  "1440p120": {
+    "width": 2560,
+    "height": 1440,
+    "fps": 120,
+    "bitrateMbps": 40,
+    "hdr": false
+  },
+  "4k60": {
+    "width": 3840,
+    "height": 2160,
+    "fps": 60,
+    "bitrateMbps": 60,
+    "hdr": false
+  },
+  "4k120": {
+    "width": 3840,
+    "height": 2160,
+    "fps": 120,
+    "bitrateMbps": 100,
+    "hdr": false
+  }
+}

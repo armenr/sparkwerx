@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Inspect remote-desktop intent and prerequisites; never start or configure anything."""
+
+import argparse
+import json
+import pathlib
+import shutil
+import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+def plan(host: dict, defaults: dict, presets: dict) -> dict:
+    declared = host["desktop"].get("remoteDesktop", {})
+    if not isinstance(declared, dict) or set(declared) - set(defaults):
+        raise ValueError("unknown remoteDesktop setting; see remote-desktop/defaults.json")
+    cfg = defaults | declared
+    if type(cfg["selected"]) is not bool:
+        raise ValueError("remoteDesktop.selected must be boolean")
+    if cfg["backend"] != "sunshine" or cfg["transport"] != "tailscale":
+        raise ValueError("remote desktop must use Sunshine over Tailscale")
+    if not isinstance(cfg["clientPreset"], str) or cfg["clientPreset"] not in presets:
+        raise ValueError("unknown Moonlight client preset")
+    if cfg["selected"] and host["access"]["tailscale"]["selected"] is not True:
+        raise ValueError("remote desktop requires the optional Tailscale role")
+    state = "DISABLED"
+    if cfg["selected"]:
+        state = (
+            "DORMANT_HEADLESS" if host["desktop"]["mode"] == "headless" else "PREPARATION_REQUIRED"
+        )
+    return cfg | {"state": state, "client": presets[cfg["clientPreset"]]}
+
+
+def probe() -> dict:
+    # Avoid `tailscale status --json`, grdctl, logs, or socket listings: none is
+    # needed here, and they may expose identity, addresses, credentials or peers.
+    result = {}
+    for unit in ("tailscaled.service", "gdm.service", "dgx-headless.target"):
+        observed = subprocess.run(
+            ["systemctl", "show", unit, "--property=ActiveState", "--value"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        state = observed.stdout.strip()
+        result[unit] = state if observed.returncode == 0 else "unknown"
+    result["tailscaleInterfacePresent"] = pathlib.Path("/sys/class/net/tailscale0").exists()
+    result["sunshineOnPath"] = shutil.which("sunshine") is not None
+    result["nvencLibraryRegistered"] = False
+    ldconfig = shutil.which("ldconfig") or "/sbin/ldconfig"
+    if pathlib.Path(ldconfig).is_file():
+        observed = subprocess.run([ldconfig, "-p"], text=True, capture_output=True, check=False)
+        result["nvencLibraryRegistered"] = (
+            observed.returncode == 0 and "libnvidia-encode.so.1" in observed.stdout
+        )
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("plan", "check"))
+    parser.add_argument("host", nargs="?", default=None)
+    args = parser.parse_args()
+    local_host = subprocess.check_output(["hostname", "-s"], text=True).strip()
+    hostname = args.host or local_host
+    hosts = json.loads((ROOT / "fleet/hosts.json").read_text())["hosts"]
+    defaults = json.loads((ROOT / "remote-desktop/defaults.json").read_text())
+    presets = json.loads((ROOT / "remote-desktop/client-presets.json").read_text())
+    if hostname not in hosts:
+        raise ValueError("host is not declared in fleet/hosts.json")
+    result = plan(hosts[hostname], defaults, presets)
+    print(f"REMOTE_DESKTOP_STATUS={result['state']}")
+    print(f"BACKEND={result['backend']};TRANSPORT={result['transport']}")
+    print(f"CLIENT_PRESET={result['clientPreset']};PERFORMANCE=UNVERIFIED")
+    print("ACTIVATION_SUPPORTED=false")
+    if args.action == "check":
+        if hostname != local_host:
+            raise ValueError("check inspects this host only; use plan for another declaration")
+        print(json.dumps(probe(), sort_keys=True))
+    print(
+        "NO_CHANGES: no packages, services, desktop, firewall, credentials, or Tailscale state changed."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
+        print(f"FAIL|remote_desktop|{error}", file=sys.stderr)
+        raise SystemExit(1) from error

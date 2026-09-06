@@ -665,6 +665,30 @@ current authority is the
 with the transition itself recorded in the
 [successful host record](../root/desktop/validation/2026-09-05-host-attempt-2.md).
 
+### D-019: optional high-frame-rate remote desktop uses Tailscale
+
+Use Sunshine on the Spark and Moonlight on the client. Prefer high-resolution,
+high-frame-rate hardware-encoded streaming; GNOME RDP is only a possible setup
+or recovery aid, not an additional default service. The role is optional for
+consumers and selected for sparkle-01, dormant while its desktop is headless.
+
+Target monitor-free operation for MacBook/macOS, Linux, and Windows clients.
+Prefer a software virtual display, with no physical monitor or HDMI dummy plug
+required. When a graphical remote role is enabled, it should be usable after
+boot without someone first logging in at the local display. This is a design
+requirement to validate, not a completed capability. It does not change the
+meaning of compute-only `headless`: that mode must keep the graphical role off.
+
+Keep streaming private to Tailscale and administration behind an SSH forward.
+Preserve pairing/authentication; no public/LAN ingress, UPnP, Funnel, or implicit
+tailnet policy changes. Keep credentials and pairing state outside Git/Nix.
+NVIDIA retains driver ownership. Do not promise 4k120 before measuring it.
+
+Repository configuration, builds, and disposable tests can proceed without GUI
+access. Live graphical rollout still requires tested capture/input permissions,
+the guarded desktop round trip, private pairing, and a real client check.
+See [remote desktop](remote-desktop.md) for options and upstream breadcrumbs.
+
 ## Explicit non-selections
 
 | Item | Decision |

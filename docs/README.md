@@ -15,6 +15,7 @@ dated records are the evidence behind it.
 | See what actually works today | [Status and support](status.md) |
 | Understand Nix, containers, and the factory OS | [Architecture](architecture.md) |
 | Understand headless, GNOME, Hyprland, and KDE | [Desktop modes](desktop-modes.md) |
+| Stream a desktop over Tailscale | [Remote desktop](remote-desktop.md) |
 | Understand Armen's personal tools and mutable settings | [User overlays](user-overlays.md) |
 | See the unfinished work | [Roadmap](roadmap.md) |
 | Develop, open a PR, or cut a release | [Development](development.md) |
@@ -54,6 +55,7 @@ dated records are the evidence behind it.
 | Did Nix-owned Tailscale survive a real reboot? | [Tailscale attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md) |
 | Was Home rollback exercised on the real host? | [Headless Home result](2026-09-03-home-headless-host.md) |
 | Why are some apps packaged by hand? | [Dependency refresh](2026-09-03-dependency-refresh.md) and the per-package records linked from the manifest |
+| Can Nix programs render and encode through the factory NVIDIA driver? | [Remote-desktop GPU tests](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md) |
 
 ## Reading historical records
 

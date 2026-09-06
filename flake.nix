@@ -92,6 +92,21 @@
       lmstudioPackage = appsPkgs.callPackage ./packages/lmstudio { };
       zedPackage = pkgs.callPackage ./packages/zed-editor { };
 
+      # Optional remote-desktop preparation. This does not add a package to
+      # Home/root profiles or start any server. Use the stock locked stable
+      # Sunshine release; its faster prerelease channel is not selected.
+      sunshinePackage = appsPkgs.sunshine;
+      remoteDesktopPlans = lib.mapAttrs (
+        _: hostSpec: import ./remote-desktop/policy.nix { inherit lib hostSpec; }
+      ) fleetHosts;
+      remoteDesktopArtifacts = import ./remote-desktop/artifacts.nix {
+        pkgs = rootPkgs;
+        plans = remoteDesktopPlans;
+        sunshine = sunshinePackage;
+        ffmpeg = appsPkgs.ffmpeg-headless;
+        hyprland = hyprlandPackage;
+      };
+
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
       hyprlandPackage = hyprland.packages.${system}.hyprland.overrideAttrs (oldAttrs: {
@@ -3352,6 +3367,10 @@
           ;
       };
 
+      # Preserve the installer's fixture independently of optional desktop
+      # selections. Its bytes and store basename match the original hosts.json,
+      # preserving the already-tested installer derivation rather than relabeling
+      # a changed test as passed. Schema/bootstrap edits still require that test.
       nixBootstrapTestFixture = rootPkgs.runCommand "dgx-nix-bootstrap-test-fixture" { } ''
         mkdir -p \
           "$out/bootstrap/nix" \
@@ -3360,7 +3379,7 @@
           "$out/scripts" \
           "$out/test-bin"
         cp ${./bootstrap/nix/source.json} "$out/bootstrap/nix/source.json"
-        cp ${./fleet/hosts.json} "$out/fleet/hosts.json"
+        cp ${./bootstrap/nix/test-fixture/hosts.json} "$out/fleet/hosts.json"
         cp ${./root/nix/store-paths.nix} "$out/root/nix/store-paths.nix"
         cp ${./scripts/bootstrap-nix.sh} "$out/scripts/bootstrap-nix.sh"
         cp ${./scripts/dgx-setup} "$out/scripts/dgx-setup"
@@ -3593,9 +3612,18 @@
         tailscaled-unit = tailscaleService.package;
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
         zed-editor = zedPackage;
+        sunshine = sunshinePackage;
+        remote-desktop-policy = remoteDesktopArtifacts.policy;
+        remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
+        remote-desktop-gpu-test = remoteDesktopArtifacts.gpuTest;
+        remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
+        remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
       };
 
       checks.${system} = {
+        remote-desktop-policy = remoteDesktopArtifacts.policy;
+        remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
+        remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
         chromium-package = chromiumPackage;
         chromium-policy = chromiumPolicyCheck;
         codex-cli-package = codexPackage;
@@ -3642,6 +3670,7 @@
       };
 
       lib.dgxProfileManifests.${system} = profileManifests;
+      lib.dgxRemoteDesktopPlans.${system} = remoteDesktopPlans;
       lib.dgxRootManagerManifest.${system} = rootManagerManifest;
       lib.dgxFleetManifest.${system} = fleetSpec // {
         nixBootstrap = nixBootstrapSpec;

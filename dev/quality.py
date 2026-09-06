@@ -38,6 +38,11 @@ def files() -> list[Path]:
 def kind(path: Path) -> str:
     if path.suffix in {".py", ".nix", ".json"}:
         return path.suffix[1:]
+    if path.read_bytes().split(b"\n", 1)[0] in {
+        b"#!/usr/bin/env python3",
+        b"#!/usr/bin/python3",
+    }:
+        return "py"
     if path.suffix == ".sh" or path.read_bytes().split(b"\n", 1)[0] in {
         b"#!/usr/bin/env bash",
         b"#!/bin/bash",

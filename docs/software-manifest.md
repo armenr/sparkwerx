@@ -15,6 +15,32 @@ upstream automatically. Historical root milestones describe the state at each
 milestone; the retained pilot is now generation five with Nix-owned Tailscale
 and headless mode.
 
+## Optional remote desktop
+
+Sunshine/Moonlight over Tailscale is selected for the pilot and defaults off for
+other consumers. Sunshine uses the locked `nixpkgs-apps` package (GPL-3.0-only),
+including its pinned upstream FFmpeg build dependency. It adds no global unfree
+exception, Moonlight client, or replacement NVIDIA driver. The package and
+network/configuration templates are preparation artifacts, not an activated
+Home/root role. Selection in `headless` installs and starts nothing. See
+[remote desktop](remote-desktop.md) for the remaining capture, graphics/input,
+credential, and service-lifecycle work.
+
+The realized ARM64 Sunshine 2026.516.143833 candidate has a 793.6 MiB complete
+Nix closure (much of it shared with other candidates); its own output is
+22.8 MiB. Realization only populated the Nix store, not the active profile.
+
+Encoder diagnostics use the locked apps lane's `ffmpeg-headless` 9.0.1 binary
+output as a temporary test tool, not a profile package. Its libraries are
+already in the candidate closure; the binary output adds about 315 KiB of
+downloads / 862 KiB unpacked on the pilot. Tests use generated video, a private
+temporary directory, and the existing factory CUDA/NVENC driver libraries.
+An accompanying small EGL pbuffer probe uses the locked root lane's free
+GLVND development library and compiler; it renders two private test colors
+through the factory NVIDIA EGL driver without opening a display or compositor.
+They install no CUDA toolkit, driver, service, listener, or permissions. A
+successful FFmpeg encode is not proof of Sunshine capture or streaming.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

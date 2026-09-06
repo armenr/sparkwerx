@@ -1,0 +1,28 @@
+# Preparation template, NOT an activatable configuration.
+# Runtime code must replace the bind address with this host's verified
+# tailscale0 IPv4 address. Never put a real tailnet address into Git/Nix.
+bind_address = @TAILSCALE_IPV4@
+address_family = ipv4
+port = 47989
+upnp = disabled
+
+# The root network guard permits the admin port only through loopback.
+# An SSH forward to the host's own Tailscale IP can have a non-loopback source
+# address, so Sunshine's pc/lan origin heuristic cannot enforce this boundary.
+# "wan" here does NOT grant network reachability; the firewall must exist first.
+origin_web_ui_allowed = wan
+lan_encryption_mode = 2
+wan_encryption_mode = 2
+
+# NVENC is required: an encoder failure must not silently become CPU encoding.
+# Preserve the factory NVIDIA driver; do not install a second driver via Nix.
+encoder = nvenc
+hevc_mode = 0
+av1_mode = 0
+nvenc_preset = 1
+nvenc_twopass = quarter_res
+
+# Capture is intentionally unresolved until the actual desktop/display path
+# has been validated. Auto-selection is not proof that capture will work.
+system_tray = disabled
+notify_pre_releases = disabled
