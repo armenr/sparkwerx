@@ -2,9 +2,22 @@
   pkgs,
   plans,
   sunshine,
+  ffmpeg,
+  hyprland,
 }:
 let
   plansFile = pkgs.writeText "remote-desktop-plans.json" (builtins.toJSON plans);
+  eglProbe =
+    pkgs.runCommandCC "sparkwerx-egl-probe"
+      {
+        nativeBuildInputs = [ pkgs.pkg-config ];
+        buildInputs = [ pkgs.libglvnd ];
+      }
+      ''
+        mkdir -p "$out/bin"
+        $CC -std=c11 -Wall -Wextra -Werror ${./egl-probe.c} \
+          $(pkg-config --cflags --libs egl opengl) -o "$out/bin/sparkwerx-egl-probe"
+      '';
 in
 {
   policy =
@@ -42,4 +55,50 @@ in
       exec unshare --net -- python3 ${./network-test.py} ${./network.nft}
     '';
   };
+
+  gpuPolicy =
+    pkgs.runCommand "sparkwerx-remote-desktop-gpu-policy"
+      {
+        nativeBuildInputs = [ pkgs.python3 ];
+      }
+      ''
+        mkdir -p tree/dev tree/remote-desktop "$out"
+        cp ${../dev/test_remote_desktop_gpu.py} tree/dev/test_remote_desktop_gpu.py
+        cp ${./gpu-probe.py} tree/remote-desktop/gpu-probe.py
+        cp ${./client-presets.json} tree/remote-desktop/client-presets.json
+        python3 -m unittest discover -s tree/dev
+        touch "$out/passed"
+      '';
+
+  gpuTest = pkgs.writeShellApplication {
+    name = "dgx-remote-desktop-gpu-test";
+    runtimeInputs = [ pkgs.python3 ];
+    text = ''
+      exec python3 ${./gpu-probe.py} --ffmpeg-bin ${pkgs.lib.getBin ffmpeg}/bin \
+        --egl-probe ${eglProbe}/bin/sparkwerx-egl-probe "$@"
+    '';
+  };
+
+  sessionPolicy =
+    pkgs.runCommand "sparkwerx-remote-desktop-session-policy"
+      {
+        nativeBuildInputs = [
+          pkgs.python3
+          hyprland
+        ];
+      }
+      ''
+        mkdir -p tree/dev tree/remote-desktop runtime cache config "$out"
+        chmod 700 runtime
+        cp ${../dev/test_remote_desktop_session.py} tree/dev/test_remote_desktop_session.py
+        cp ${./virtual-display.py} tree/remote-desktop/virtual-display.py
+        python3 -m unittest discover -s tree/dev
+        for preset in 1440p120 4k60 4k120; do
+          python3 ${./virtual-display.py} --presets ${./client-presets.json} \
+            --preset "$preset" > "$out/$preset.conf"
+          env XDG_RUNTIME_DIR="$PWD/runtime" XDG_CACHE_HOME="$PWD/cache" \
+            XDG_CONFIG_HOME="$PWD/config" Hyprland --verify-config \
+            --config "$out/$preset.conf"
+        done
+      '';
 }

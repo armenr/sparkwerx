@@ -103,6 +103,8 @@
         pkgs = rootPkgs;
         plans = remoteDesktopPlans;
         sunshine = sunshinePackage;
+        ffmpeg = appsPkgs.ffmpeg-headless;
+        hyprland = hyprlandPackage;
       };
 
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
@@ -3613,10 +3615,15 @@
         sunshine = sunshinePackage;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
+        remote-desktop-gpu-test = remoteDesktopArtifacts.gpuTest;
+        remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
+        remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
       };
 
       checks.${system} = {
         remote-desktop-policy = remoteDesktopArtifacts.policy;
+        remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
+        remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
         chromium-package = chromiumPackage;
         chromium-policy = chromiumPolicyCheck;
         codex-cli-package = codexPackage;

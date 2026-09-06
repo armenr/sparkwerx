@@ -43,7 +43,7 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | Sunshine package and isolated Tailscale-only network tests passed; capture, input integration, and streaming still untested. See [remote desktop](remote-desktop.md) |
+| Remote desktop | Package/network checks, offscreen NVIDIA rendering, and short H.264/HEVC/AV1 NVENC tests passed. Hyprland accepts the virtual-display configs; real capture, input/audio, streaming, and sustained performance remain untested. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
 | KDE | Package selection, host integration, and validation |

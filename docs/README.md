@@ -55,6 +55,7 @@ dated records are the evidence behind it.
 | Did Nix-owned Tailscale survive a real reboot? | [Tailscale attempt 2](../root/tailscale/validation/2026-09-05-host-attempt-2.md) |
 | Was Home rollback exercised on the real host? | [Headless Home result](2026-09-03-home-headless-host.md) |
 | Why are some apps packaged by hand? | [Dependency refresh](2026-09-03-dependency-refresh.md) and the per-package records linked from the manifest |
+| Can Nix programs render and encode through the factory NVIDIA driver? | [Remote-desktop GPU tests](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md) |
 
 ## Reading historical records
 

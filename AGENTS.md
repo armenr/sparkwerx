@@ -43,6 +43,10 @@ target is Sunshine/Moonlight over Tailscale, not RDP as the primary experience.
 Its current artifacts are preparation only; no activation operator exists, and
 the selection must stay dormant while headless. Do not treat network-policy
 tests as GPU/capture or end-to-end streaming proof.
+`scripts/test-remote-desktop-graphics.sh` runs synthetic hardware checks as the
+normal user, without a compositor or listener. Its GPU evidence is separate
+from the virtual-display helper's fake-session and config-parser tests. Real
+Hyprland DRM/GBM access and Sunshine capture remain the next integration work.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full

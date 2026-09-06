@@ -9,10 +9,14 @@ and interactive AI work. It is optional, not part of the base CLI package set.
 The repository provides a Nix package candidate, configuration/network templates,
 client presets, and a read-only prerequisite check. There is **no activation
 command yet**. Selecting it does not install Sunshine, start graphics, or open
-ports. Capture, hardware encoding, and the service lifecycle still need testing.
+ports. Capture, input/audio, and the service lifecycle still need testing.
 
 The [package and isolated network tests passed](../remote-desktop/validation/2026-09-06-preparation.md).
 They verify the firewall's packet behavior, not a working graphical stream.
+The [GPU tests also passed](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md):
+Nix programs rendered offscreen through the factory NVIDIA driver and encoded
+changing synthetic video with H.264, HEVC, and AV1 NVENC. A Sunshine stream is
+the next integration step, not an outcome of those tests.
 
 ## Selection
 
@@ -90,6 +94,42 @@ refresh rate, and hardware decoder, not just its OS. Verify those capabilities
 on each device before targeting 120 FPS or choosing HEVC/AV1. Keep HDR off for
 the initial stream tests.
 
+## Graphics checks without a desktop
+
+Run as your normal user; no sudo or monitor is needed:
+
+```bash
+./scripts/test-remote-desktop-graphics.sh
+```
+
+This builds temporary test tools in the Nix store, checks the three virtual
+display configurations with the pinned Hyprland parser, and tests offscreen
+rendering plus all three NVENC codecs at each quality preset. It generates its
+own video, briefly uses the GPU, and opens no window or network listener.
+Protected services and the selected root profile must match before and after.
+Successful runs remove their temporary data; failures retain private diagnostics.
+
+For a shorter check or one preset:
+
+```bash
+./scripts/test-remote-desktop-gpu.sh
+./scripts/test-remote-desktop-gpu.sh --preset 4k60 --codec hevc
+```
+
+Each codec test encodes and decodes 60 frames and checks codec, dimensions,
+frame-rate metadata, frame count, and changing content. **This is not a sustained
+FPS benchmark.** Sunshine bundles different FFmpeg build inputs, so its own
+capture/encode path still needs an end-to-end test.
+
+The driver bridge exposes only reviewed factory NVIDIA libraries in a private
+directory. It neither replaces the driver nor adds all of Ubuntu's libraries
+to a Nix process. Shader caches are disabled for the test.
+
+The virtual-display helper is preparatory code, not a session launcher. Its
+tests reject another compositor's PID, existing outputs, invalid modes, and
+startup timeouts. The pinned compositor accepts the rendered configurations;
+no real virtual output has been created by these checks.
+
 ## Private access
 
 Manually add the Spark's Tailscale address or MagicDNS name in Moonlight. No
@@ -145,7 +185,9 @@ changing global network settings.
 - Test a cold start with no physical display or local graphical login, then
   verify changing frames from the intended virtual output. Sunshine's `wlr`
   capture is not a GNOME capture backend.
-- Prove the ARM64 Nix-to-factory-driver bridge and an actual NVENC encode.
+- Extend the proven offscreen/encoder bridge to Hyprland's DRM/GBM and
+  Sunshine's capture/encode path. The SSH user currently lacks access to the
+  NVIDIA DRM nodes; the pbuffer test does not exercise that permission path.
 - Scope input, audio, and session startup/shutdown. Do not grant blanket input
   access or `CAP_SYS_ADMIN` as a shortcut.
 - Implement guard-before-listener ordering, rollback, tailnet-loss handling,
