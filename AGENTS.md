@@ -32,9 +32,17 @@ Inspect the actual host before treating that checkpoint as current.
 | User profile | `./scripts/dgx-home`; later updates use `update-headless` |
 | Fresh-host root lifecycle | `./scripts/dgx-fleet-bootstrap` |
 | Historical pilot access/desktop status | `./scripts/dgx-tailscale status`, `./scripts/dgx-desktop status` |
+| Optional remote-desktop preparation | `./scripts/dgx-remote-desktop plan`, `./scripts/dgx-remote-desktop check` |
 
 Only `plan` and `status` are inspection routes. Do not invent subcommands;
 check the implementation and [operations guide](docs/operations.md).
+
+The separate remote-desktop `check` command is read-only too. Read
+[remote desktop](docs/remote-desktop.md) before remote graphics work. The chosen
+target is Sunshine/Moonlight over Tailscale, not RDP as the primary experience.
+Its current artifacts are preparation only; no activation operator exists, and
+the selection must stay dormant while headless. Do not treat network-policy
+tests as GPU/capture or end-to-end streaming proof.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full

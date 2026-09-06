@@ -1,0 +1,6 @@
+{
+  "selected": false,
+  "backend": "sunshine",
+  "transport": "tailscale",
+  "clientPreset": "1440p120"
+}

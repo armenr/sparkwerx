@@ -43,6 +43,7 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
+| Remote desktop | Optional Sunshine/Moonlight over Tailscale selected; package/policy preparation, not a running service. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
 | KDE | Package selection, host integration, and validation |

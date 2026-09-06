@@ -5,6 +5,11 @@
 The design is one mode: `headless`, factory `gnome`, `hyprland`, or `kde`.
 The complete four-way switching experience is **not implemented yet**.
 
+[Remote desktop](remote-desktop.md) is an optional Sunshine/Moonlight role over
+Tailscale. It stays dormant in compute-only headless mode. Streaming without a
+monitor still needs a graphical session; it is not a reason to start one during
+a headless apply.
+
 ## What's implemented
 
 | Mode | User composition | Host integration |

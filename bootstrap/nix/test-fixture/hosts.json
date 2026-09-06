@@ -27,13 +27,7 @@
       "desktop": {
         "mode": "headless",
         "hyprlandPortal": false,
-        "hostController": "system-manager",
-        "remoteDesktop": {
-          "selected": true,
-          "backend": "sunshine",
-          "transport": "tailscale",
-          "clientPreset": "1440p120"
-        }
+        "hostController": "system-manager"
       },
       "workloads": {
         "isaacOmniverse": {

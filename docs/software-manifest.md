@@ -15,6 +15,21 @@ upstream automatically. Historical root milestones describe the state at each
 milestone; the retained pilot is now generation five with Nix-owned Tailscale
 and headless mode.
 
+## Optional remote desktop
+
+Sunshine/Moonlight over Tailscale is selected for the pilot and defaults off for
+other consumers. Sunshine uses the locked `nixpkgs-apps` package (GPL-3.0-only),
+including its pinned upstream FFmpeg build dependency. It adds no global unfree
+exception, Moonlight client, or replacement NVIDIA driver. The package and
+network/configuration templates are preparation artifacts, not an activated
+Home/root role. Selection in `headless` installs and starts nothing. See
+[remote desktop](remote-desktop.md) for the remaining capture, graphics/input,
+credential, and service-lifecycle work.
+
+The realized ARM64 Sunshine 2026.516.143833 candidate has a 793.6 MiB complete
+Nix closure (much of it shared with other candidates); its own output is
+22.8 MiB. Realization only populated the Nix store, not the active profile.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

@@ -1,0 +1,13 @@
+# Apply only inside a reviewed activation transaction, before starting Sunshine.
+# Never flush the host ruleset. A pre-existing table of this name is a collision.
+# Both address families are filtered, including an accidental wildcard listener.
+table inet sparkwerx_sunshine {
+    chain input {
+        type filter hook input priority -20; policy accept;
+        # The web UI is reachable only through a local SSH forward, not directly
+        # from other tailnet members. Streaming still requires Moonlight pairing.
+        iifname != "lo" tcp dport 47990 counter drop
+        iifname != { "lo", "tailscale0" } tcp dport { 47984, 47989, 48010 } counter drop
+        iifname != { "lo", "tailscale0" } udp dport { 47998, 47999, 48000 } counter drop
+    }
+}
