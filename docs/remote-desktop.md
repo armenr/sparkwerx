@@ -11,6 +11,9 @@ client presets, and a read-only prerequisite check. There is **no activation
 command yet**. Selecting it does not install Sunshine, start graphics, or open
 ports. Capture, hardware encoding, and the service lifecycle still need testing.
 
+The [package and isolated network tests passed](../remote-desktop/validation/2026-09-06-preparation.md).
+They verify the firewall's packet behavior, not a working graphical stream.
+
 ## Selection
 
 Add this under a host's `desktop` object in `fleet/hosts.json`:
