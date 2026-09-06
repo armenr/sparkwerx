@@ -95,6 +95,13 @@
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
       hyprlandPackage = hyprland.packages.${system}.hyprland.overrideAttrs (oldAttrs: {
+        # Upstream reads VERSION from its filtered build source. During a
+        # read-only flake check that path may not exist in a fresh store yet.
+        # Read the identical file from the locked input instead; this preserves
+        # GIT_TAG and the package derivation, without prebuilding Hyprland.
+        env = oldAttrs.env // {
+          GIT_TAG = "v${lib.trim (builtins.readFile "${hyprland}/VERSION")}";
+        };
         postPatch = (oldAttrs.postPatch or "") + ''
           substituteInPlace CMakeLists.txt \
             --replace-fail "find_package(glaze 7...<8 QUIET)" \

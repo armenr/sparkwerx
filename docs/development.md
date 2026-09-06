@@ -38,6 +38,9 @@ No Prettier. The existing Nix shell is the workspace; a Devbox manifest would
 duplicate its pins. Betterer can be added when we have a broader set of quality
 metrics to track; it is not needed for this initial lint gate.
 
+Hyprland's version metadata is read from the locked input, not its filtered
+build source. This lets a fresh runner evaluate it without a previous build.
+
 Some older recovery files have formatting or ShellCheck findings.
 [`dev/legacy-checks.json`](../dev/legacy-checks.json) records exceptions against
 their exact SHA-256 hashes. Unchanged files keep their tested contents; editing
