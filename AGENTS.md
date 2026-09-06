@@ -59,7 +59,12 @@ NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
 reload GPU modules as an incidental fix. KMS changes require a separate host
 configuration and boot plan. The test rejects loaded `modeset=N` before launch.
 That preparation is now selected: read [the KMS plan](docs/nvidia-kms.md).
-`scripts/dgx-kms plan` and `check` inspect only; no activation command exists.
+`scripts/dgx-kms plan`, `check`, and `status` inspect only. Its optional
+`arm --console-ready` stages a one-boot entry; `cancel` revokes that entry and
+selection. Both are host changes, never reboot commands. Read the KMS plan
+before using them; independent keyboard/display/power recovery is required.
+The trial consumes and reads back a GRUB marker before adding the KMS argument.
+Failed marker I/O uses the original arguments. Firmware behavior remains untested.
 Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
 recognized GRUB header is not proof of boot-time environment write capability.
 
@@ -124,6 +129,9 @@ Never commit or print credentials, raw Tailscale status/preferences, node IDs,
 tailnet addresses, cookies, or private inventory. Keep root snapshots under
 `inventory/<host>/raw/`, user snapshots under `inventory/<host>/private/`,
 and models/application data outside Git and the Nix store.
+The KMS trial operator instead keeps its private boot snapshot under
+`/var/lib/dgx-setup/kms-trial`, with canceled trials in `kms-trial-history`;
+these are recovery material, not files to copy into the repository.
 
 Use plain language, distinguish recorded evidence from live observation, and
 label commands by their effects. Keep dated records intact except for clear

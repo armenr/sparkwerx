@@ -66,7 +66,8 @@ def report():
 
 class KmsTests(unittest.TestCase):
     def test_selected_intent_is_preparation_not_activation(self):
-        self.assertEqual(PLAN["stage"], "preparation-only")
+        self.assertEqual(PLAN["stage"], "one-boot-trial-tooling")
+        self.assertTrue(PLAN["oneBootArmingImplemented"])
         self.assertEqual(PLAN["defaultPolicy"], "preserve-factory")
         self.assertEqual(PLAN["use"], ["local", "remote-over-tailscale"])
         self.assertEqual(PLAN["fallbackDesktop"], "factory-gnome-xorg")

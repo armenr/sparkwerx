@@ -61,20 +61,38 @@ The capture-log inspector reuses the same locked Python runtime. It is a
 read-only test tool, not a profile package; it adds no third-party dependency,
 service, permission change, or activation path.
 
-## Optional KMS preparation
+## Optional KMS trial tooling
 
-`kms-preflight` and `kms-preparation-policy` use only the already locked root
-lane's Python runtime and standard-library code. The privileged inspector uses
+`kms-preflight` uses the already locked root lane's Python runtime and
+standard-library code. The privileged inspector uses
 the existing factory `grub-editenv list`, `grub-probe`, and `systemctl show`
 readers. It adds no driver, module, profile package, service, listener, ACL,
-initramfs, or GRUB configuration. Its Nix policy artifact records the proposed
-one-boot argument, not an installed boot entry. No activation command exists.
+initramfs, or GRUB configuration. Its Nix policy artifact does not itself install
+a boot entry.
+
+`kms-trial` adds an optional `arm/status/cancel` operator, using the same Python
+runtime and locked coreutils. It uses factory EFI/GRUB readers and the factory
+GRUB syntax checker. Only `arm --console-ready` publishes the private generated
+`/boot/grub/custom.cfg` and changes two GRUB environment keys: `next_entry` and
+`sparkwerx_kms_ticket`. It retains immutable code under a dedicated per-trial
+GC root and keeps root-private snapshots under `/var/lib/dgx-setup/kms-trial`.
+Cancellation revokes only these boot artifacts; snapshots and code roots remain.
+No existing profile, service, driver, module, device-permission, or default boot entry changes.
+No command reboots or makes KMS permanently enabled.
+
+Offline syntax tests use the locked root lane's GRUB 2.12 EFI package, matching
+the factory parser's upstream version, not replacing it. The pilot's no-link
+build plan adds 7.2 MiB of downloads / 32.8 MiB unpacked for GRUB and FUSE 2.9.9
+test dependencies. They are free, store-only test tools; no FUSE mount or service
+is started. Actual host arming also checks its generated entry with the factory
+Ubuntu-patched parser.
 
 The optional role is intended for Hyprland local/remote use with factory GNOME
 as fallback; it is not a compute-base dependency. See the
 [KMS plan and recovery requirements](nvidia-kms.md). Build outputs are ordinary
-store objects and can be retired like other unused test artifacts; the factory
-settings have not changed and need no rollback from running these checks.
+store objects; retained trial code roots and private snapshots are deliberate
+recovery material, not incidental cleanup. The factory settings have not
+changed and need no rollback from running inspection or offline tests.
 
 ## Status of this snapshot
 

@@ -1,5 +1,5 @@
 {
-  "stage": "preparation-only",
+  "stage": "one-boot-trial-tooling",
   "defaultPolicy": "preserve-factory",
   "pilotHost": "sparkle-01",
   "pilotRoot": "/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager",
@@ -13,6 +13,11 @@
     "keepHeadlessDuringInitialTest": true,
     "requiresIndependentRecovery": true
   },
+  "reviewedBoot": {
+    "kernel": "6.17.0-1031-nvidia",
+    "configSha256": "39e56bf35181a62ee02f8136478bfe825b6e43865576c835c39ed661e41511a7"
+  },
+  "oneBootArmingImplemented": true,
   "activationImplemented": false,
   "rebootImplemented": false,
   "replaceDriver": false,

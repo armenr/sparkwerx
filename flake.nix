@@ -3626,6 +3626,7 @@
         remote-desktop-session-inspect = remoteDesktopArtifacts.sessionInspect;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         kms-preflight = kmsArtifacts.preflight;
+        kms-trial = kmsArtifacts.trial;
         kms-preparation-policy = kmsArtifacts.policy;
       };
 

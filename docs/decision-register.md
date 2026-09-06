@@ -711,6 +711,14 @@ desktop round trip, portals, and complete remote streaming remain distinct
 work. Preparing or inspecting this option does not reboot or activate it.
 See [the KMS plan](nvidia-kms.md) for current commands, evidence, and recovery.
 
+The pilot's root-readable inspection matched the running factory kernel,
+ordinary EFI/ext-family storage, empty pending boot selections, and clean
+headless unit state. One-boot tooling now snapshots and verifies the existing
+boot route, gates the KMS argument on a consumed/read-back GRUB marker, and
+provides repeatable cancellation without a confirmation phrase or countdown.
+Repository tests are not a hardware boot result. Arming is an explicit host
+change with independent console/power recovery; reboot remains separate.
+
 ## Explicit non-selections
 
 | Item | Decision |

@@ -4,12 +4,22 @@ set -euo pipefail
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_dir"
 
-if [[ "$#" -ne 1 || ! "$1" =~ ^(plan|check)$ ]]; then
-  printf '%s\n' 'Usage: ./scripts/dgx-kms {plan|check}; both inspect only, neither enables KMS.' >&2
+if [[ "$#" -lt 1 || ! "$1" =~ ^(plan|check|arm|status|cancel)$ ]]; then
+  printf '%s\n' 'Usage: ./scripts/dgx-kms {plan|check|status|cancel|arm --console-ready}' \
+    'plan/check/status inspect; arm stages one boot; cancel revokes it. Never reboots.' >&2
+  exit 1
+fi
+if [[ "$1" == arm ]]; then
+  [[ "$#" -eq 2 && "$2" == --console-ready ]] || {
+    printf '%s\n' 'arm requires --console-ready: independent keyboard/display/power recovery must be available.' >&2
+    exit 1
+  }
+elif [[ "$#" -ne 1 ]]; then
+  printf '%s\n' 'Unexpected arguments.' >&2
   exit 1
 fi
 if [[ "$EUID" -eq 0 ]]; then
-  printf '%s\n' 'Run as your normal user; check asks sudo only to read boot configuration.' >&2
+  printf '%s\n' 'Run as your normal user; the operator asks sudo only after unprivileged builds/tests.' >&2
   exit 1
 fi
 if [[ "$1" == plan ]]; then
@@ -17,8 +27,10 @@ if [[ "$1" == plan ]]; then
 fi
 
 # Build/evaluate as the ordinary user; only immutable, tested code runs as root.
+artifact=kms-trial
+[[ "$1" != check ]] || artifact=kms-preflight
 nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
-  .#kms-preflight .#kms-preparation-policy
+  ".#$artifact" .#kms-preparation-policy
 bundle="$(nix --extra-experimental-features 'nix-command flakes' \
-  eval --raw --no-write-lock-file .#kms-preflight.outPath)"
-exec sudo -- "$bundle/bin/dgx-kms-preflight" check
+  eval --raw --no-write-lock-file ".#$artifact.outPath")"
+exec sudo -- "$bundle/bin/dgx-$artifact" "$@"

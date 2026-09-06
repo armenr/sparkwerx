@@ -18,9 +18,10 @@ graphical role.
 ```bash
 ./scripts/dgx-kms plan
 ./scripts/dgx-kms check
+./scripts/dgx-kms status
 ```
 
-Both commands inspect only. `plan` reads the repository's proposed policy.
+These commands inspect only. `plan` reads the repository's policy.
 `check` builds the small Nix-packaged inspector and its offline tests as the
 normal user, then asks sudo to read protected boot configuration. It reports
 the loaded KMS/fbdev booleans, factory override, GNOME policy, GRUB first-entry
@@ -30,34 +31,93 @@ environment values, and Tailscale identity.
 
 `KMS_STATUS=BOOT_REVIEW_REQUIRED` means the inspection completed, not that
 boot recovery or KMS has been tested. `reviewFindings` lists discrepancies to
-resolve. Even an empty list is not activation approval. No enable, arm, persist,
-or reboot command is implemented yet.
+resolve. An empty list is not permission to change or reboot the machine.
+The one-boot arming operator below performs its own
+fresh checks; permanent enablement is not implemented.
 
-The inspector's tests use synthetic boot configuration and mocked host reads.
-They check private-data filtering, pending boot selections, unsupported layouts,
-and the read-only command set. Build them with
+The tests use synthetic boot configuration and temporary filesystem trees.
+They cover private-data filtering, EFI routing, entry preservation, failed
+marker writes/readback, repeated entry selection, partial arming, cancellation,
+foreign collisions, and clean retry. GRUB 2.12's real syntax checker parses the
+generated test entry. Transaction tests use simulated writes and the real
+`grub-editenv` utility against temporary files; they do not change the real
+bootloader. Build them with
 `nix build --no-link .#kms-preparation-policy`; run the repository checks with
 `./scripts/dev check`. These tests do not exercise an actual KMS boot.
+See the [tooling test record](../root/graphics/validation/2026-09-06-one-boot-trial-tooling.md)
+for the exact artifacts and checks.
 
 ## First trial and recovery
 
-The proposed first trial is a separate GRUB entry for the **same factory kernel
+The first trial is a separate GRUB entry for the **same factory kernel
 and initramfs**, adding only `nvidia_drm.modeset=1`. Keep the usual entry and
-its default selection unchanged. Inspect the actual generated GRUB configuration
-and its environment storage before implementing this route; do not reconstruct
-boot arguments from assumptions or copy another machine's disk identifiers.
+its default selection unchanged. The operator copies the existing first entry's
+body, preserving its disk and boot arguments, and refuses unsupported layouts.
+It does not regenerate GRUB, create an initramfs, or copy another machine's
+disk identifiers. The reviewed configuration hash and kernel in
+`kms-plan.json` are pilot-specific inspection evidence, not fleet-wide defaults.
+
+When independent keyboard/display/power recovery is available, this command
+**changes the next boot selection, but does not reboot**:
+
+```bash
+./scripts/dgx-kms arm --console-ready
+```
+
+It verifies the current EFI boot entry, mounted EFI partition, Ubuntu forwarding
+configuration, factory custom-entry hook, and absence of conflicting boot state.
+It also reruns the original host preflight and the factory GRUB syntax checker.
+It snapshots privately, retains the exact Nix recovery code, publishes a new
+`/boot/grub/custom.cfg` without overwriting an existing file, and sets its trial
+marker followed by `next_entry`. It preserves `grub.cfg`, `/etc/default/grub`,
+all modprobe files, the normal default selection, and all root generations.
+
+Do not run factory updates, another deployment, or bootloader maintenance while
+the trial is armed. After a separately approved reboot, use `status` again.
+`KMS_TEST_BOOT` requires a new boot, a consumed marker, a cleared selection,
+unchanged normal GRUB configuration, and loaded `modeset=Y`. It is boot evidence,
+not proof of working capture or healthy CUDA workloads.
+
+To abandon the trial before reboot, or remove its boot entry after testing:
+
+```bash
+./scripts/dgx-kms cancel
+```
+
+Cancellation revokes the marker first, clears only this trial's selection, and
+removes only its checksum-matching custom entry. It never overwrites unrelated
+GRUB environment values. It does not unload KMS from the running kernel: if the
+trial is running, KMS stays loaded until a later reboot. The original boot entry
+still uses the factory setting. A canceled trial can be armed afresh; the prior
+private snapshot is archived and its code root retained.
+
+There is no confirmation phrase, countdown, automatic reboot, or silent
+permanent enablement. Snapshots live under root-owned mode-0700
+`/var/lib/dgx-setup/kms-trial` and `kms-trial-history`; they contain private boot
+configuration and stay out of Git/Nix. An interrupted transaction can be
+inspected with `status` and revoked with `cancel`. Unknown replacements are
+preserved for review, not deleted.
 
 GRUB can select an entry once and clear that selection before entering the
 kernel. But its own `grub-reboot` helper warns that the selection can persist
 when GRUB cannot write its environment block, including some LVM/RAID setups.
-The inspector only recognizes the expected header and storage clues. It cannot
-prove that firmware loads this GRUB, or that GRUB can write at boot. Those need
-verification before advertising automatic next-boot fallback.
+The original inspector only recognizes the expected header and storage clues.
+The arming preflight additionally verifies EFI routing. Neither can prove a
+future boot-time disk write. The trial therefore adds the KMS argument only if
+GRUB successfully saves a unique marker as consumed and reads that value back.
+A failed save/read, missing marker, or already-consumed marker leaves the
+factory boot arguments in effect—even if the trial menu selection repeats.
+These conditionals have algorithm and parser tests; actual firmware behavior
+still needs the first hardware trial. See the GNU documentation on
+[environment storage](https://www.gnu.org/software/grub/manual/grub/html_node/Environment-block.html)
+and [one-boot selection](https://www.gnu.org/software/grub/manual/grub/html_node/next_005fentry.html).
 
 Independent console/power recovery must be available for the actual trial.
 A userspace rollback timer cannot recover a kernel that hangs before systemd
 starts, and a one-shot entry does not power-cycle a hung machine. A reboot is
-separate from preparation and is never performed by the current command.
+separate from arming and is never performed by this operator. If boot hangs,
+use local recovery to select the unchanged Ubuntu entry; do not depend solely
+on an SSH connection or a userspace timer.
 
 Keep the host in its existing headless mode for the initial KMS boot. Check
 access and GPU compute first, then rerun the temporary Hyprland capture test.
@@ -106,5 +166,11 @@ Investigation on 2026-09-06 found:
 
 These findings justify an optional trial, not silently changing every Spark.
 The policy lives in [kms-plan.json](../root/graphics/kms-plan.json); the
-[Nix artifacts](../root/graphics/kms.nix) are preparation only and do not enter
-any active Home or System Manager profile.
+[Nix artifacts](../root/graphics/kms.nix) do not enter an active Home or System
+Manager profile. The optional operator stages boot state only when invoked.
+
+The matching kmod 31 [configuration reader](https://github.com/kmod-project/kmod/blob/v31/libkmod/libkmod-config.c)
+parses the kernel command line after modprobe configuration files. Linux's
+[module-option ordering documentation](https://www.kernel.org/doc/html/latest/admin-guide/dynamic-debug-howto.html#debug-messages-at-module-initialization-time)
+describes the same precedence. This supports the one-boot override without
+editing NVIDIA's file; the loaded sysfs value remains the real test result.
