@@ -94,7 +94,7 @@ jobs:
           RELEASE_PRS: ${{ steps.release.outputs.prs }}
         run: |
           while IFS=$'\t' read -r branch number; do
-            [[ "$branch" == 'release-please--branches--main' ]]
+            [[ "$branch" == 'release-please--branches--main--components--sparkwerx' ]]
             [[ "$number" =~ ^[1-9][0-9]*$ ]]
             gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch" -f "release_pr=$number"
           done < <(jq -r '.[] | [.headBranchName, .number] | @tsv' <<< "$RELEASE_PRS")

@@ -93,7 +93,8 @@ manifest, and [`CHANGELOG.md`](../CHANGELOG.md).
 Merge the release PR when you want to ship. After CI passes on `main`, the
 automation creates the `vX.Y.Z` tag and GitHub release with its generated notes.
 No separate changelog editing, version command, or manual tag is needed.
-The initial version is `0.0.0`; the first feature release becomes `0.1.0`.
+The unreleased version is `0.0.0`; `initial-version` explicitly sets the first
+release to `0.1.0`. Later versions follow the commit rules above.
 Release tags cannot be moved or deleted; ship a new version for corrections.
 
 The workflow uses GitHub's repository token, not a personal access token.
