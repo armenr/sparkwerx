@@ -1,7 +1,11 @@
-# DGX Spark setup
+# Sparkwerx
 
 Declarative userland and fleet configuration for the DGX Spark machines, while
 keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
+
+Sparkwerx is the project name; the checkout remains at `~/Development/DGX-setup`.
+Existing `dgx-*` commands and `dgx-setup` state paths keep their names so the
+validated workflows and recovery snapshots remain usable.
 
 ## Current status
 
