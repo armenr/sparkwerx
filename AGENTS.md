@@ -72,7 +72,13 @@ The Sunshine-only test now requires and exposes the existing `/dev/nvidia-uvm`
 node; capture-only does not, and both hide `/dev/nvidia-uvm-tools`. Preserve
 the existing-node validation and host metadata checks. Do not load modules,
 create nodes, or change host permissions as a workaround. The full corrected
-GPU startup test still needs a rerun. Read-only `inspect`
+test got past CUDA initialization, then [hit the DRM card's group permissions](remote-desktop/validation/2026-09-07-sunshine-drm-access.md).
+Sunshine opens the primary card directly; it does not use Hyprland's seatd FD.
+The Sunshine-test child now gets the existing card and render groups only for
+its lifetime; capture-only keeps render access alone. Preserve exact child
+group checks, zero effective child capabilities, and unchanged host groups/ACLs. This correction
+still needs a full GPU retry. Failures now print the existing redacted inspector
+summary automatically after shutdown and successful host postflight. Read-only `inspect`
 remains available; no persistent graphics or factory CUDA change is authorized.
 Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or

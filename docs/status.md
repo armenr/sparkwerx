@@ -45,7 +45,7 @@ remains to be tested on hardware.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | [Hyprland virtual-display capture passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md) at a configured 4k120 mode. Sunshine is rebuilt with CUDA; its next test [exposed a missing UVM device in the harness](../remote-desktop/validation/2026-09-06-sunshine-uvm-device.md). That correction is ready for hardware retry. Streaming, input/audio, and sustained FPS remain unverified; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
+| Remote desktop | [Hyprland virtual-display capture passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md) at a configured 4k120 mode. CUDA-enabled Sunshine now gets past CUDA initialization; its [direct DRM-card permission fix](../remote-desktop/validation/2026-09-07-sunshine-drm-access.md) is ready for hardware retry. Streaming, input/audio, and sustained FPS remain unverified; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Temporary NVIDIA DRM/GBM/EGL session passed; persistent local/remote session, GDM integration, and separate portal rollout remain |
 | KDE | Package selection, host integration, and validation |

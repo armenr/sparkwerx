@@ -21,9 +21,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT_PROFILE = Path("/nix/var/nix/profiles/system-manager-profiles/system-manager")
 PILOT = "/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager"
+DRM_CARD = Path("/dev/dri/card1")
+DRM_RENDER = Path("/dev/dri/renderD128")
 DEVICES = (
-    "/dev/dri/card1",
-    "/dev/dri/renderD128",
+    str(DRM_CARD),
+    str(DRM_RENDER),
     "/dev/nvidia0",
     "/dev/nvidiactl",
     "/dev/nvidia-modeset",
@@ -113,6 +115,40 @@ def validate_ipc_path(runtime_dir):
 
 def device_nodes(*, sunshine=False):
     return DEVICES + ((str(CUDA_DEVICE),) if sunshine else ())
+
+
+def direct_drm_nodes(*, sunshine=False):
+    # Hyprland obtains the primary-card FD through seatd. Sunshine's pinned
+    # CUDA/GL path instead opens that card O_RDWR itself; render access alone
+    # cannot satisfy it. The card is already in the private device allowlist.
+    return (DRM_RENDER, DRM_CARD) if sunshine else (DRM_RENDER,)
+
+
+def user_device_groups(*, sunshine=False):
+    groups = set()
+    for node in direct_drm_nodes(sunshine=sunshine):
+        info = node.lstat()
+        if (
+            not stat.S_ISCHR(info.st_mode)
+            or info.st_uid != 0
+            or info.st_gid == 0
+            or info.st_mode & 0o060 != 0o060
+        ):
+            raise ValueError(f"expected a root-owned, group-readable/writable DRM node: {node}")
+        groups.add(info.st_gid)
+    # Only these groups reach the temporary child. Do not inherit the user's
+    # other groups, edit /etc/group, chmod a node, or add application capabilities.
+    return sorted(groups)
+
+
+def verify_user_device_access(*, sunshine=False):
+    if set(os.getgroups()) != set(user_device_groups(sunshine=sunshine)):
+        raise RuntimeError("temporary user's supplementary device groups are not exact")
+    for node in direct_drm_nodes(sunshine=sunshine):
+        # Check DAC access without opening the primary node or taking DRM master
+        # before seatd/Hyprland. Actual device opens remain part of the GPU test.
+        if not os.access(node, os.R_OK | os.W_OK, effective_ids=True):
+            raise RuntimeError(f"temporary user lacks read/write access to {node}")
 
 
 def validate_cuda_device():
@@ -344,6 +380,7 @@ def capture_session(tools, preset_name, version):
     status = Path("/proc/self/status").read_text()
     if not re.search(r"^CapEff:\s+0+$", status, re.MULTILINE):
         raise RuntimeError("compositor user still has effective capabilities")
+    verify_user_device_access(sunshine="sunshine" in tools)
     directory = RUNTIME / "user"
     validate_ipc_path(directory / "r")
     env = session_environment(directory, version, tools)
@@ -455,6 +492,7 @@ def worker(tools, user, preset, version):
     account = pwd.getpwnam(user)
     if account.pw_uid != 1000 or user != "n0b0dy":
         raise ValueError("this pilot test requires the reviewed n0b0dy account")
+    groups = user_device_groups(sunshine="sunshine" in tools)
     RUNTIME.mkdir(mode=0o755)
     RUNTIME.chmod(0o755)
     directory = RUNTIME / "user"
@@ -490,7 +528,7 @@ def worker(tools, user, preset, version):
             ],
             user=account.pw_uid,
             group=account.pw_gid,
-            extra_groups=[Path("/dev/dri/renderD128").stat().st_gid],
+            extra_groups=groups,
             env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"},
             stdin=subprocess.DEVNULL,
         )
@@ -605,6 +643,7 @@ def preflight(*, sunshine=False):
         )
     if sunshine:
         validate_cuda_device()
+    user_device_groups(sunshine=sunshine)
     before = host_snapshot()
     if "NeedDaemonReload=yes" in before["units_profile"][0]:
         raise ValueError("a protected unit has a pending daemon reload")
@@ -662,6 +701,20 @@ def preflight(*, sunshine=False):
     ):
         raise ValueError("DRM card and render node do not belong to the same GPU")
     return before
+
+
+def print_failure_summary(snapshot):
+    # Reuse the read-only inspector after the unit has stopped and postflight
+    # passed. Do not make the operator run a second command for the same error.
+    # Its root-owned-path checks, redaction, and excerpt limits still apply.
+    try:
+        inspector = module("failed_capture_inspect", "inspect-session.py")
+        summary = inspector.read_summary(snapshot.name)
+    except (OSError, ValueError):
+        print("WARN|diagnostics|automatic summary unavailable; use the inspect command", flush=True)
+        return
+    print("INFO|diagnostics|redacted failure summary; raw log remains private", flush=True)
+    print(json.dumps(summary, indent=2, ensure_ascii=True), flush=True)
 
 
 def host(tools, repo, preset):
@@ -792,6 +845,8 @@ def host(tools, repo, preset):
                 "PASS|host_postflight|root profile, protected processes, access, files, and device permissions unchanged",
                 flush=True,
             )
+            if not completed:
+                print_failure_summary(snapshot)
         if completed:
             if "sunshine" in tools:
                 print(

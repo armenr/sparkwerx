@@ -41,6 +41,12 @@ even with a correctly compiled package. Fix that session prerequisite, not the
 driver or Sunshine source. The diagnostic checks for the existing node and
 does not create it or change its permissions.
 
+Its CUDA/GL path also opens the GPU's primary DRM card directly, unlike
+Hyprland's brokered access. The diagnostic's [temporary child groups](../../remote-desktop/validation/2026-09-07-sunshine-drm-access.md)
+must include that card's group as well as the render node's group. Missing
+card access is a session permission error, not a reason to patch Sunshine,
+run it as root, or change host device permissions.
+
 ## Updating it
 
 1. Review the stable Sunshine release and the `nixpkgs-apps` input together.

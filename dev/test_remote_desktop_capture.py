@@ -21,6 +21,156 @@ spec.loader.exec_module(capture)
 
 
 class CaptureTests(unittest.TestCase):
+    def test_direct_card_access_is_sunshine_only(self):
+        self.assertEqual(capture.direct_drm_nodes(), (Path("/dev/dri/renderD128"),))
+        self.assertEqual(
+            capture.direct_drm_nodes(sunshine=True),
+            (Path("/dev/dri/renderD128"), Path("/dev/dri/card1")),
+        )
+
+    def test_temporary_groups_follow_device_ownership_and_never_inherit_caller_groups(self):
+        def info(node):
+            return SimpleNamespace(
+                st_mode=stat.S_IFCHR | 0o660,
+                st_uid=0,
+                st_gid=993 if node == capture.DRM_RENDER else 44,
+            )
+
+        with (
+            mock.patch.object(Path, "lstat", autospec=True, side_effect=info) as call,
+            mock.patch.object(capture.os, "getgroups", return_value=[0, 27, 999]) as inherited,
+        ):
+            self.assertEqual(capture.user_device_groups(), [993])
+            self.assertEqual(call.call_args_list, [mock.call(capture.DRM_RENDER)])
+            self.assertEqual(capture.user_device_groups(sunshine=True), [44, 993])
+            inherited.assert_not_called()
+        # A host may use the same non-root group for both nodes.
+        with mock.patch.object(Path, "lstat", return_value=info(capture.DRM_RENDER)):
+            self.assertEqual(capture.user_device_groups(sunshine=True), [993])
+
+    def test_drm_groups_reject_symlinks_foreign_owners_root_group_and_missing_rw(self):
+        good = {"st_mode": stat.S_IFCHR | 0o660, "st_uid": 0, "st_gid": 44}
+        for changed in (
+            {"st_mode": stat.S_IFLNK | 0o777},
+            {"st_mode": stat.S_IFREG | 0o660},
+            {"st_uid": 1000},
+            {"st_gid": 0},
+            {"st_mode": stat.S_IFCHR | 0o640},
+            {"st_mode": stat.S_IFCHR | 0o620},
+        ):
+            with (
+                self.subTest(changed=changed),
+                mock.patch.object(Path, "lstat", return_value=SimpleNamespace(**(good | changed))),
+                self.assertRaisesRegex(ValueError, "DRM node"),
+            ):
+                capture.user_device_groups(sunshine=True)
+
+    def test_user_checks_exact_groups_and_rw_access_without_opening_gpu(self):
+        for sunshine, groups in ((False, [993]), (True, [44, 993])):
+            with (
+                self.subTest(sunshine=sunshine),
+                mock.patch.object(capture, "user_device_groups", return_value=groups) as expected,
+                mock.patch.object(capture.os, "getgroups", return_value=groups),
+                mock.patch.object(capture.os, "access", return_value=True) as access,
+                mock.patch.object(capture.os, "open") as open_device,
+            ):
+                capture.verify_user_device_access(sunshine=sunshine)
+            expected.assert_called_once_with(sunshine=sunshine)
+            self.assertEqual(
+                access.call_args_list,
+                [
+                    mock.call(node, os.R_OK | os.W_OK, effective_ids=True)
+                    for node in capture.direct_drm_nodes(sunshine=sunshine)
+                ],
+            )
+            open_device.assert_not_called()
+
+    def test_render_only_or_extra_groups_fail_the_sunshine_user_check(self):
+        for observed in ([], [993], [44], [0, 44, 993], [27, 44, 993]):
+            with (
+                self.subTest(observed=observed),
+                mock.patch.object(capture, "user_device_groups", return_value=[44, 993]),
+                mock.patch.object(capture.os, "getgroups", return_value=observed),
+                mock.patch.object(capture.os, "access") as access,
+                self.assertRaisesRegex(RuntimeError, "groups are not exact"),
+            ):
+                capture.verify_user_device_access(sunshine=True)
+            access.assert_not_called()
+
+    def test_drm_permission_denial_is_explicit_before_compositor_startup(self):
+        with (
+            mock.patch.object(capture, "user_device_groups", return_value=[44, 993]),
+            mock.patch.object(capture.os, "getgroups", return_value=[44, 993]),
+            mock.patch.object(capture.os, "access", side_effect=[True, False]),
+            mock.patch.object(capture.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(RuntimeError, "lacks read/write access to /dev/dri/card1"),
+        ):
+            capture.verify_user_device_access(sunshine=True)
+        popen.assert_not_called()
+
+    def test_worker_passes_only_selected_groups_to_the_unprivileged_child(self):
+        for sunshine, groups in ((False, [993]), (True, [44, 993])):
+            with (
+                self.subTest(sunshine=sunshine),
+                tempfile.TemporaryDirectory() as directory,
+                mock.patch.object(capture, "RUNTIME", Path(directory) / "runtime"),
+                mock.patch.object(capture, "RESULT", Path(directory) / "result.json"),
+                mock.patch.object(capture.os, "geteuid", return_value=0),
+                mock.patch.object(
+                    Path,
+                    "read_text",
+                    return_value="0::/system.slice/dgx-capture-test-aabbccddeeff.service",
+                ),
+                mock.patch.object(Path, "is_socket", return_value=True),
+                mock.patch.object(capture, "verify_isolation"),
+                mock.patch.object(capture, "user_device_groups", return_value=groups) as selected,
+                mock.patch.object(
+                    capture.pwd, "getpwnam", return_value=SimpleNamespace(pw_uid=1000, pw_gid=1000)
+                ),
+                mock.patch.object(capture.os, "chown"),
+                mock.patch.object(capture.subprocess, "Popen") as popen,
+                mock.patch.object(capture, "stop"),
+                self.assertRaisesRegex(RuntimeError, "private compositor/capture test failed"),
+            ):
+                popen.return_value.wait.return_value = 1
+                tools = {"seatd": "/fake/seatd", "manifest": "/fake/tools.json"}
+                if sunshine:
+                    tools["sunshine"] = "/fake/sunshine"
+                capture.worker(tools, "n0b0dy", "4k120", "580.173.02")
+            selected.assert_called_once_with(sunshine=sunshine)
+            child = popen.call_args_list[1]
+            self.assertEqual(child.kwargs["extra_groups"], groups)
+            self.assertEqual(child.kwargs["user"], 1000)
+            self.assertEqual(child.kwargs["group"], 1000)
+
+    def test_automatic_failure_diagnostics_use_only_the_existing_readonly_inspector(self):
+        summary = {"errors": ["example failure"], "raw_log_printed": False}
+        with (
+            mock.patch.object(capture, "module") as inspector,
+            mock.patch.object(capture.sys, "stdout", new_callable=io.StringIO) as output,
+            mock.patch.object(capture.subprocess, "run") as run,
+            mock.patch.object(capture.subprocess, "Popen") as popen,
+        ):
+            inspector.return_value.read_summary.return_value = summary
+            capture.print_failure_summary(Path("/private/20260906T203333Z-bd6f011fa180"))
+        inspector.assert_called_once_with("failed_capture_inspect", "inspect-session.py")
+        inspector.return_value.read_summary.assert_called_once_with("20260906T203333Z-bd6f011fa180")
+        self.assertIn(json.dumps(summary, indent=2), output.getvalue())
+        run.assert_not_called()
+        popen.assert_not_called()
+
+    def test_unreadable_summary_does_not_hide_the_original_test_failure(self):
+        for error in (OSError("private detail"), ValueError("private detail")):
+            with (
+                self.subTest(error=error),
+                mock.patch.object(capture, "module") as inspector,
+                mock.patch.object(capture.sys, "stdout", new_callable=io.StringIO) as output,
+            ):
+                inspector.return_value.read_summary.side_effect = error
+                capture.print_failure_summary(Path("/private/20260906T203333Z-bd6f011fa180"))
+            self.assertIn("WARN|diagnostics|", output.getvalue())
+            self.assertNotIn("private detail", output.getvalue())
+
     def test_private_ipc_paths_fit_with_the_full_upstream_instance_signature(self):
         capture.validate_ipc_path(capture.RUNTIME / "user/r")
         for runtime in (

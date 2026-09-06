@@ -29,6 +29,7 @@ let
     cp ${./session-test.py} "$out/session-test.py"
     cp ${./gpu-probe.py} "$out/gpu-probe.py"
     cp ${./virtual-display.py} "$out/virtual-display.py"
+    cp ${./inspect-session.py} "$out/inspect-session.py"
     ${pkgs.lib.optionalString (sunshine != null) ''
       cp ${./sunshine-startup.py} "$out/sunshine-startup.py"
     ''}
@@ -82,7 +83,6 @@ in
         mkdir -p tree/dev tree/scripts tree/remote-desktop runtime cache config "$out"
         chmod 700 runtime
         cp ${source}/*.py tree/remote-desktop/
-        cp ${./inspect-session.py} tree/remote-desktop/inspect-session.py
         ${pkgs.lib.optionalString (sunshine == null) ''
           cp ${./sunshine-startup.py} tree/remote-desktop/sunshine-startup.py
         ''}

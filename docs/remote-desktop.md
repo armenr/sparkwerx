@@ -178,6 +178,8 @@ access are checked before the compositor starts. Host session/system D-Bus
 sockets and user homes are hidden. A private root seatd broker handles DRM
 access without a VT switch. Hyprland and its clients run as the normal user
 with a temporary render-group membership and no effective capabilities.
+The Sunshine variant also needs the primary card's group, as explained below;
+neither test changes the account's persistent memberships.
 The private runtime path is deliberately short enough for Hyprland's full
 instance signature and Linux's Unix-socket pathname limit.
 
@@ -231,8 +233,13 @@ The [CUDA build and package checks passed](../remote-desktop/validation/2026-09-
 Its [next hardware attempt identified a harness omission](../remote-desktop/validation/2026-09-06-sunshine-uvm-device.md):
 CUDA initialization needs the existing `/dev/nvidia-uvm` node. The Sunshine
 variant now exposes that one additional GPU device; capture-only does not.
-Both still hide `/dev/nvidia-uvm-tools`. The full corrected startup test needs
-a rerun; no driver or Sunshine source patch is indicated by this failure.
+Both still hide `/dev/nvidia-uvm-tools`. The following run got past CUDA
+initialization, then [failed a direct DRM-card open](../remote-desktop/validation/2026-09-07-sunshine-drm-access.md).
+Sunshine opens `/dev/dri/card1` itself, while Hyprland uses seatd's brokered FD.
+The Sunshine-test child now receives the existing card's group as well as the
+render node's group, solely for that process tree's lifetime. Capture-only
+retains render membership alone. The corrected startup test still needs a
+hardware retry; this failure does not call for a driver or Sunshine source patch.
 
 Run the diagnostic as the normal user. It builds and checks the CUDA-enabled
 package first, then requests sudo for the same temporary GPU session:
@@ -261,6 +268,11 @@ private session; it never creates nodes, changes host permissions, or loads
 modules to satisfy that prerequisite. Host postflight also checks both UVM
 nodes' metadata.
 
+DRM group IDs come from the existing root-owned device nodes, not fixed group
+numbers or the caller's memberships. The unprivileged child verifies its exact
+supplementary groups and read/write permissions before starting the compositor.
+No account/group file, device mode, ACL, or application capability changes.
+
 This is deliberately a **startup** test. In the pinned
 [encoder probe](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/video.cpp),
 Sunshine initializes the selected display and tests encoding dummy images.
@@ -277,7 +289,9 @@ exit code alone is never success. Those socket failures are expected in this
 test, not a reason to loosen its isolation. A working server and Moonlight
 stream need a separate transport test.
 
-On failure, inspect the snapshot name printed by the wrapper:
+After a failed test shuts down and passes host postflight, the wrapper prints
+the redacted diagnostic summary automatically. To inspect the same evidence
+again without rerunning graphics:
 
 ```text
 ./scripts/test-remote-desktop-sunshine.sh inspect SNAPSHOT_NAME
