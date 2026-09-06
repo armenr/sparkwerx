@@ -104,6 +104,16 @@
       sunshineCaptureTest = sunshinePkgs.callPackage ./packages/sunshine/capture-test.nix {
         sunshine = sunshinePackage;
       };
+      sunshineWaylandInput = import ./packages/sunshine/wayland-input.nix {
+        pkgs = sunshinePkgs;
+        sunshine = sunshinePackage;
+        hyprland = hyprlandPackage;
+      };
+      remoteDesktopInput = import ./remote-desktop/input-test.nix {
+        pkgs = rootPkgs;
+        hyprland = hyprlandPackage;
+        sunshineInput = sunshineWaylandInput;
+      };
       sunshinePolicy = import ./packages/sunshine/policy.nix {
         pkgs = rootPkgs;
         sunshine = sunshinePackage;
@@ -3632,6 +3642,10 @@
         zed-editor = zedPackage;
         sunshine = sunshinePackage;
         sunshine-capture-test = sunshineCaptureTest;
+        sunshine-wayland-input = sunshineWaylandInput.package;
+        sunshine-wayland-input-test = sunshineWaylandInput.test;
+        remote-desktop-input-test = remoteDesktopInput.test;
+        remote-desktop-input-policy = remoteDesktopInput.policy;
         sunshine-policy = sunshinePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;

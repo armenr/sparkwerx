@@ -97,6 +97,31 @@ refresh rate, and hardware decoder, not just its OS. Verify those capabilities
 on each device before targeting 120 FPS or choosing HEVC/AV1. Keep HDR off for
 the initial stream tests.
 
+### Prepare a MacBook
+
+1. Download **macOS (Universal)** from the official
+   [Moonlight PC release page](https://github.com/moonlight-stream/moonlight-qt/releases/latest),
+   open the disk image, and place Moonlight in Applications. The Mac needs
+   Moonlight, not Sunshine.
+2. Keep Tailscale connected to the same tailnet as the Spark. Use the Spark's
+   Tailscale name/address when adding it in Moonlight; don't use its Wi-Fi/LAN
+   address. Pairing must wait until the trial server is ready.
+3. For the first connection, keep HDR off and choose automatic codec selection.
+   Start at 1440p120 on a 120 Hz display or 4k60 on a 60 Hz display. These are
+   starting settings, not measured performance. The Mac model/chip and any
+   external display determine what is worth testing next.
+4. During a stream, **Control–Option–Shift–S** opens Moonlight's performance
+   statistics. Record resolution/FPS, decoder, dropped frames, and latency;
+   don't send credentials or raw Tailscale output.
+
+The [Moonlight setup guide](https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide)
+documents pairing and shortcuts. A [direct Tailscale connection](https://tailscale.com/docs/reference/connection-types)
+is preferable for high-bitrate testing; a relay can limit throughput or add
+latency. No router port forwarding is needed for this design.
+
+The 30-minute client trial is approved but its live launcher is still being
+prepared. Installing Moonlight on the Mac does not start anything on the Spark.
+
 ## Graphics checks without a desktop
 
 Run as your normal user; no sudo or monitor is needed:
@@ -349,6 +374,44 @@ all three codecs with repeated decoded red/green changes and clean host postflig
 That does not establish Moonlight pairing, transport, input/audio, latency, or
 sustained FPS. There is no reason to repeat the passed test merely to proceed
 to client integration.
+
+## Private keyboard and mouse check
+
+Sunshine's usual Linux input backend creates kernel-wide virtual input devices.
+For the private trial, a [separate Nix package](../packages/sunshine/wayland-input.nix)
+instead sends keyboard/pointer events directly to the one named Hyprland
+output. It does not expose `/dev/uinput`, physical input devices, or an X11
+fallback. The normal Sunshine package and passed capture tests are unchanged.
+
+The adapter uses the pinned Hyprland
+[virtual keyboard](https://github.com/hyprwm/Hyprland/blob/v0.56.2/protocols/virtual-keyboard-unstable-v1.xml)
+and [virtual pointer](https://github.com/hyprwm/Hyprland/blob/v0.56.2/protocols/wlr-virtual-pointer-unstable-v1.xml)
+protocol definitions and Sunshine's existing keycode mapping. It requires one
+seat and only `SPARKWERX-REMOTE`; unexpected/missing globals fail without a
+kernel-input fallback. A real Unix-socket protocol fixture checks keys,
+modifiers, duplicate key suppression, coordinates, clicks, scrolling, and
+refusal cases without a GPU or root.
+
+Run the separate hardware check on the Spark:
+
+```bash
+./scripts/test-remote-desktop-input.sh
+```
+
+This builds and checks the adapter, then requests sudo for the existing private
+150-second Hyprland supervisor. It repeats color readback and NVENC startup,
+checks Sunshine's adapter initialization, and sends synthetic input to a
+dedicated fullscreen receiver. Success requires both lowercase and shifted
+uppercase input plus key releases, mouse movement, clicks, and both scroll
+axes. Only counts are recorded. All clients and the broker stop before host
+postflight. No IP socket, kernel input device, input ACL, persistent service,
+profile, desktop-mode switch, or reboot is added.
+
+This is not a Moonlight connection. The trial adapter initially uses a US
+keyboard layout and excludes clipboard text injection, touch, pen, gamepads,
+and audio. Client transport and the 30-minute server lifecycle remain separate
+work after this hardware check. See the
+[preparation record](../remote-desktop/validation/2026-09-07-wayland-input-preparation.md).
 
 ## Private access
 

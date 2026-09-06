@@ -56,6 +56,10 @@ remains to be tested on hardware.
 | Isaac/Omniverse | Exact workload pins, source/build plan, storage, and runtime validation |
 | Other AI services | Choose the workload before adding models, ports, daemons, or containers |
 
+The [private Wayland input adapter](../remote-desktop/validation/2026-09-07-wayland-input-preparation.md)
+now builds and passes its protocol/package checks. Its real Hyprland input
+check and the temporary MacBook/Moonlight trial are next; no listener is active.
+
 See [configuration limits](configuration.md#current-limits) before assuming a
 JSON option is an executable installation choice.
 

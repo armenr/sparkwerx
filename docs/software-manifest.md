@@ -95,8 +95,16 @@ service. The normal Sunshine output is unchanged. Its CPU fixtures validate
 the test verifier; the [separate hardware capture run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
 Moonlight transport remains untested.
 
-The pilot build fetched about 357 KiB / 1.9 MiB unpacked for these extra tool
-outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
+The approved temporary Moonlight trial adds a separate Sunshine input adapter
+using Wayland virtual-keyboard/virtual-pointer protocols, not kernel input
+devices. It reuses the locked Sunshine/Hyprland sources, Wayland scanner,
+libxkbcommon, and existing compiler dependencies. No new package pin or license
+exception is required. Its package and input test tools remain outside every
+profile. The 30-minute trial will need its own tested launcher and Tailscale
+network guard; building this adapter starts no session or listener.
+
+The original capture-tool build fetched about 357 KiB / 1.9 MiB unpacked for
+its extra tool outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
 The complete closure is larger because it includes the previously realized
 compositor and its shared dependencies.
 

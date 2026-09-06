@@ -64,6 +64,30 @@ the [separate changing-frame hardware run also passed](../../remote-desktop/vali
 for H.264, HEVC, and AV1. Neither diagnostic establishes Moonlight transport or
 sustained frame rate.
 
+## Private Wayland input trial
+
+[wayland-input.nix](wayland-input.nix) builds a separate trial-only Sunshine
+output. It replaces the Linux platform input implementation with
+[wayland-input.cpp](wayland-input.cpp) and [wayland-input.hpp](wayland-input.hpp).
+Capture, CUDA conversion, encoding, transport, and authentication remain the
+locked upstream implementation. The normal package and offline capture
+executable are not replaced.
+
+The adapter uses the pinned Hyprland virtual-input XML and upstream inputtino
+key mapping, with libxkbcommon's US layout. It connects only as a normal user,
+requires one seat and one output named `SPARKWERX-REMOTE`, and has no uinput,
+evdev, X11, or privileged fallback. A lost input connection terminates the
+trial server. Gamepads, pen/touch, and clipboard text injection are excluded.
+The output installs no service, udev rule, or desktop launcher.
+
+Run the [private input check](../../docs/remote-desktop.md#private-keyboard-and-mouse-check)
+before using this variant for a live client trial. Its real Wayland protocol
+fixture is part of the build; real Hyprland receipt is a separate hardware check.
+On updates, review the Linux input API, key mapping, both protocol XML files,
+and input/streaming feature advertisement. Retire this adapter when upstream
+provides equivalent session-local input and passes the same checks. Do not
+silently replace it with kernel-wide input or add host device permissions.
+
 ## Updating it
 
 1. Review the stable Sunshine release and the `nixpkgs-apps` input together.
@@ -84,9 +108,11 @@ sustained frame rate.
    never remove the source check just to make an update build.
 
 Remove an override when the locked upstream package supplies the same behavior
-and the checks still pass. If a real source patch becomes necessary, keep it
-next to this recipe, add it through Nix's `patches` attribute, and document its
-upstream issue or commit and removal condition. Never edit built store files.
+and the checks still pass. The two diagnostic entry points and private input
+implementation are explicit source replacements in their separate recipes.
+For smaller changes to upstream code, keep patch files beside the recipe, add
+them through Nix's `patches` attribute, and document the upstream issue or
+commit and removal condition. Never edit built store files.
 
 - [Locked Nixpkgs recipe](https://github.com/NixOS/nixpkgs/blob/9387b3fcc0c23c86661636da63faabad4235a0a6/pkgs/by-name/su/sunshine/package.nix)
 - [Sunshine CUDA build configuration](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/cmake/compile_definitions/linux.cmake)

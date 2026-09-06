@@ -87,10 +87,18 @@ capture executable, never the production package. Read its
 keep the engine-source checks, decoded-color verification, and existing
 150-second/no-IP/no-input isolation. Build and CPU-fixture results are not
 hardware capture or Moonlight evidence; the linked hardware record is separate.
-The next trial would enable Tailscale-only transport and temporary keyboard/mouse
-input. No launcher or authorization for that wider runtime scope exists yet.
-Preserve the offline diagnostic unchanged; do not add ports, input, or persistence
-to it as an incidental follow-up to a PASS.
+Armen authorized a separate 30-minute Tailscale-only Moonlight trial with
+temporary keyboard/mouse input and SSH-forwarded administration. His first
+client is a MacBook. Preparation may proceed; the launcher still needs its
+own network, input, shutdown, and host-state checks before use. Preserve the
+passed offline diagnostics unchanged. This authorization does not extend to
+persistent services, a desktop-mode switch, reboot, audio, or host input ACLs.
+The separate `scripts/test-remote-desktop-input.sh` first checks the trial-only
+Sunshine Wayland adapter and synthetic input receipt in real Hyprland. Read its
+[contract](docs/remote-desktop.md#private-keyboard-and-mouse-check). It keeps the
+150-second supervisor, denied IP sockets/kernel input, and host postflight.
+Only its dedicated package replaces the platform input backend; ordinary
+Sunshine and the passed capture/encoder outputs must remain unchanged.
 Failures print the existing redacted inspector
 summary automatically after shutdown and successful host postflight. Read-only `inspect`
 remains available; no persistent graphics or factory CUDA change is authorized.

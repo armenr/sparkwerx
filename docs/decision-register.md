@@ -726,6 +726,20 @@ provides repeatable cancellation without a confirmation phrase or countdown.
 Repository tests are not a hardware boot result. Arming is an explicit host
 change with independent console/power recovery; reboot remains separate.
 
+### D-021: temporary Moonlight client trial
+
+Armen approved a separate 30-minute trial over Tailscale with keyboard/mouse
+input, SSH-forwarded Sunshine administration, and automatic shutdown. The first
+client is a MacBook; Linux and Windows remain client targets. Keep persistent
+headless mode, factory services, KMS boot selection, and the passed offline
+diagnostics unchanged. Audio and permanent session deployment remain separate.
+
+Use a session-local Wayland keyboard/pointer adapter for this private Hyprland
+trial. Do not expose physical input devices, grant access to host `/dev/uinput`,
+or modify device permissions. Package the adapter separately from the tested
+Sunshine capture build; preserve its original encoder and transport sources.
+Validate input delivery and cleanup before enabling the temporary listener.
+
 ## Explicit non-selections
 
 | Item | Decision |
