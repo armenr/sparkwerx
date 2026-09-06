@@ -47,6 +47,13 @@ tests as GPU/capture or end-to-end streaming proof.
 normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
 Hyprland DRM/GBM access and Sunshine capture remain the next integration work.
+`scripts/test-remote-desktop-session.sh` is the separately authorized temporary
+GPU/capture diagnostic for the current pilot. Read its
+[contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
+It starts real Hyprland briefly inside a private transient service, not through
+the root desktop controller. Its 150-second deadline and host postflight must
+remain intact. The prepared diagnostic has not yet passed on hardware; don't
+claim otherwise from its offline policy tests or successful build.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full

@@ -7,6 +7,7 @@
 }:
 let
   plansFile = pkgs.writeText "remote-desktop-plans.json" (builtins.toJSON plans);
+  capture = import ./session-test.nix { inherit pkgs hyprland; };
   eglProbe =
     pkgs.runCommandCC "sparkwerx-egl-probe"
       {
@@ -20,6 +21,8 @@ let
       '';
 in
 {
+  sessionTest = capture.test;
+  capturePolicy = capture.policy;
   policy =
     pkgs.runCommand "sparkwerx-remote-desktop-policy" { nativeBuildInputs = [ pkgs.python3 ]; }
       ''

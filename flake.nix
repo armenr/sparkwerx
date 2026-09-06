@@ -3618,9 +3618,12 @@
         remote-desktop-gpu-test = remoteDesktopArtifacts.gpuTest;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
         remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
+        remote-desktop-session-test = remoteDesktopArtifacts.sessionTest;
+        remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
       };
 
       checks.${system} = {
+        remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
         remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;

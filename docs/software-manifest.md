@@ -41,6 +41,22 @@ through the factory NVIDIA EGL driver without opening a display or compositor.
 They install no CUDA toolkit, driver, service, listener, or permissions. A
 successful FFmpeg encode is not proof of Sunshine capture or streaming.
 
+The temporary Hyprland capture test also uses the locked root lane's seatd
+0.9.3, Grim 1.5.0, Wayland 1.25.0, wayland-protocols 1.48, libdrm 2.4.133,
+and Mesa's **GBM loader only** (26.0.3). These are free, test-only dependencies;
+they add no permanent packages or replacement GPU driver. A small local Wayland
+client supplies solid-color frames. The factory NVIDIA allocator and EGL GBM
+platform remain the renderer. Its private seat broker needs temporary root
+access to the NVIDIA DRM device; the compositor and capture clients run as the
+normal user. No input devices, TCP/UDP sockets, profile activation, or boot
+services are enabled. Real capture results belong in a separate test record,
+not in the earlier offscreen-rendering evidence.
+
+The pilot build fetched about 357 KiB / 1.9 MiB unpacked for these extra tool
+outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
+The complete closure is larger because it includes the previously realized
+compositor and its shared dependencies.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

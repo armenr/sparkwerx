@@ -130,6 +130,53 @@ tests reject another compositor's PID, existing outputs, invalid modes, and
 startup timeouts. The pinned compositor accepts the rendered configurations;
 no real virtual output has been created by these checks.
 
+## Temporary capture test on the pilot
+
+This is a hardware diagnostic, not a remote-desktop installation. It needs
+explicit permission to start temporary graphics and a sudo password, but no
+local graphical login or confirmation phrase:
+
+```bash
+./scripts/test-remote-desktop-session.sh
+```
+
+The default is a 3840×2160 virtual output configured at 120 Hz. Pass `1440p120`
+or `4k60` to test a smaller mode. The script currently accepts only the reviewed
+`sparkle-01` headless generation five and its NVIDIA DRM card/render-node pair;
+it is not a general fleet launcher.
+
+It builds an immutable test bundle, snapshots protected host state, then starts
+a uniquely named transient systemd service with a **150-second hard limit**.
+The service has private `/run`, `/dev`, temporary files, and networking. Only
+the NVIDIA graphics nodes are exposed; TCP/UDP socket creation and input-device
+access are checked before the compositor starts. Host session/system D-Bus
+sockets and user homes are hidden. A private root seatd broker handles DRM
+access without a VT switch. Hyprland and its clients run as the normal user
+with a temporary render-group membership and no effective capabilities.
+
+The test verifies the named virtual output, reads back red and green frames
+through Grim, and checks Hyprland's log for the NVIDIA GB10 renderer. It stops
+the compositor and broker, then compares the root profile, protected processes,
+Tailscale identity/SSH health, configuration hashes, and GPU/input permissions
+with the snapshot. Disconnecting cannot leave the test running indefinitely:
+systemd kills the entire test process group at its deadline.
+
+No package profile, boot link, user group, ACL, firewall rule, or normal desktop
+mode changes. No Sunshine server, pairing, audio, or input injection starts.
+The test does briefly access the **real shared GPU**; it is not a virtual GPU
+test. Run it when no other graphical session or deployment guard is active.
+
+Logs and before/after records stay root-owned under
+`inventory/sparkle-01/raw/remote-desktop-session/`. Generated screenshots are
+discarded. On failure, keep that evidence; don't relax device permissions or
+activate a desktop just to make the test pass.
+
+Grim 1.5.0 uses the compositor's image-copy protocol when available, otherwise
+wlr-screencopy. Neither is Sunshine's wlr-export-dmabuf capture path. A pass
+therefore proves this temporary compositor/readback path, **not sustained
+120 FPS, Sunshine streaming, or Moonlight performance**. Hardware results are
+still pending; see the [test preparation record](../remote-desktop/validation/2026-09-06-temporary-capture-preparation.md).
+
 ## Private access
 
 Manually add the Spark's Tailscale address or MagicDNS name in Moonlight. No
