@@ -15,8 +15,9 @@ The [package and isolated network tests passed](../remote-desktop/validation/202
 They verify the firewall's packet behavior, not a working graphical stream.
 The [GPU tests also passed](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md):
 Nix programs rendered offscreen through the factory NVIDIA driver and encoded
-changing synthetic video with H.264, HEVC, and AV1 NVENC. A Sunshine stream is
-the next integration step, not an outcome of those tests.
+changing synthetic video with H.264, HEVC, and AV1 NVENC.
+[Real Hyprland virtual-display readback also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md)
+during the KMS trial. These are working components, not yet a Sunshine stream.
 
 ## Selection
 
@@ -151,8 +152,8 @@ Do not delete that factory-owned file, purge its package, or reload GPU modules
 to get past the test. Enabling KMS needs a separately reviewed, reversible
 host configuration and boot plan while preserving the existing NVIDIA driver.
 The [first optional KMS trial boot passed](../root/graphics/validation/2026-09-06-kms-test-boot.md),
-and offscreen rendering/encoding passed again with KMS enabled. The temporary
-capture retry is next. Factory GNOME/Xorg remains the alternate to local and
+and offscreen rendering/encoding plus temporary Hyprland capture passed with
+KMS enabled. Factory GNOME/Xorg remains the alternate to local and
 remote Hyprland. Use `./scripts/dgx-kms status` for the running trial; `check`
 is the pre-arm inspection, not its postboot verifier. Neither command reboots.
 
@@ -211,8 +212,60 @@ It does not print the raw log, change file permissions, or rerun the GPU test.
 Grim 1.5.0 uses the compositor's image-copy protocol when available, otherwise
 wlr-screencopy. Neither is Sunshine's wlr-export-dmabuf capture path. A pass
 therefore proves this temporary compositor/readback path, **not sustained
-120 FPS, Sunshine streaming, or Moonlight performance**. Hardware results are
-still pending; see the [test preparation record](../remote-desktop/validation/2026-09-06-temporary-capture-preparation.md).
+120 FPS, Sunshine streaming, or Moonlight performance**. The
+[4k120-preset hardware run passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md);
+the earlier [preparation record](../remote-desktop/validation/2026-09-06-temporary-capture-preparation.md)
+documents its construction and isolation checks.
+
+## Temporary Sunshine startup test
+
+Run the next diagnostic as the normal user; it requests sudo for the same
+temporary GPU session:
+
+```bash
+./scripts/test-remote-desktop-sunshine.sh
+```
+
+It repeats the virtual-display/red-green readback checks, then starts the
+already pinned Sunshine 2026.516.143833 package inside that private session.
+It requires Sunshine's Wayland display initialization at the expected dimensions
+and its final H.264, HEVC, and AV1 NVENC success messages, then stops Sunshine,
+Hyprland, and seatd. `1440p120` and `4k60` are also accepted.
+
+The whole service still has a 150-second hard limit, and Sunshine gets at most
+60 seconds of startup time. Input devices and TCP/UDP remain denied. Audio,
+tray, UPnP, and display reconfiguration are disabled; the application list is
+empty. Homes and host D-Bus sockets stay hidden. Application state and logs are
+private, with no profile install, listener exposure, persistent service, device
+permission, desktop switch, or reboot. The wrapper repeats the same protected
+host postflight before reporting success.
+
+This is deliberately a **startup** test. In the pinned
+[encoder probe](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/video.cpp),
+Sunshine initializes the selected display and tests encoding dummy images.
+It uses its own 1080p/60 encoder-test configuration, not the virtual output's
+4k120 mode as a performance test. The
+[Wayland backend](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/platform/linux/wlgrab.cpp)
+fetches actual display frames in its separate capture loop. A startup PASS
+therefore does not establish Sunshine changing-frame capture or throughput.
+
+The [startup sequence](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/main.cpp)
+probes encoders before starting the streaming/admin listeners. The diagnostic
+can recognize that stage even if the process then exits on denied sockets;
+exit code alone is never success. Those socket failures are expected in this
+test, not a reason to loosen its isolation. A working server and Moonlight
+stream need a separate transport test.
+
+On failure, inspect the snapshot name printed by the wrapper:
+
+```text
+./scripts/test-remote-desktop-sunshine.sh inspect SNAPSHOT_NAME
+```
+
+The shared inspector prints redacted Sunshine/backend/encoder diagnostics,
+not the raw private log. This new diagnostic has [offline test/build checks](../remote-desktop/validation/2026-09-06-sunshine-startup-preparation.md);
+its real-hardware startup result is still pending. It does not change the
+already recorded capture-only result or authorize another reboot.
 
 ## Private access
 
@@ -269,9 +322,9 @@ changing global network settings.
 - Test a cold start with no physical display or local graphical login, then
   verify changing frames from the intended virtual output. Sunshine's `wlr`
   capture is not a GNOME capture backend.
-- Extend the proven offscreen/encoder bridge to Hyprland's DRM/GBM and
-  Sunshine's capture/encode path. The SSH user currently lacks access to the
-  NVIDIA DRM nodes; the pbuffer test does not exercise that permission path.
+- Carry the tested temporary NVIDIA DRM/GBM/EGL bridge into a reviewed session
+  lifecycle, and verify Sunshine's actual changing-frame capture/encode path.
+  The temporary broker is not a permanent device-permission policy.
 - Scope input, audio, and session startup/shutdown. Do not grant blanket input
   access or `CAP_SYS_ADMIN` as a shortcut.
 - Implement guard-before-listener ordering, rollback, tailnet-loss handling,

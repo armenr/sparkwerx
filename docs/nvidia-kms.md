@@ -16,7 +16,8 @@ graphical role.
 The pilot's [first trial boot passed](../root/graphics/validation/2026-09-06-kms-test-boot.md):
 KMS loaded, the one-use marker was consumed, and the normal GRUB configuration
 stayed unchanged. Headless/access services and short rendering/encoding checks
-passed afterward. Temporary Hyprland capture is next; KMS is not permanently
+passed afterward. [Temporary Hyprland capture also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md);
+Sunshine's own pipeline is next. KMS is not permanently
 enabled.
 
 ## Current commands

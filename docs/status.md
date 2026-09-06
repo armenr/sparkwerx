@@ -45,9 +45,9 @@ remains to be tested on hardware.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | The [one-boot KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md) passed, with headless/access services healthy. Offscreen rendering and short H.264/HEVC/AV1 NVENC tests passed again with KMS enabled. Retry the temporary Hyprland capture test next; real capture, input/audio, streaming, and sustained performance remain unverified. KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
+| Remote desktop | [Hyprland virtual-display capture passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md) at a configured 4k120 mode during the KMS trial. Sunshine's own pipeline, input/audio, Moonlight streaming, and sustained FPS remain unverified. KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
-| Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
+| Hyprland | Temporary NVIDIA DRM/GBM/EGL session passed; persistent local/remote session, GDM integration, and separate portal rollout remain |
 | KDE | Package selection, host integration, and validation |
 | Chromium | Exact root sandbox integration; no unsandboxed browsing workaround |
 | Zed | Factory-GNOME Vulkan/portal checks and profile activation |

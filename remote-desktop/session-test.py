@@ -369,6 +369,17 @@ def capture_session(tools, preset_name, version):
         check_renderer(
             (Path(env["XDG_RUNTIME_DIR"]) / "hypr" / signature / "hyprland.log").read_text()
         )
+        if "sunshine" in tools:
+            # Only the separately selected startup-test bundle supplies this
+            # package. The original capture command never starts Sunshine.
+            startup = module("capture_sunshine_startup", "sunshine-startup.py")
+            report = startup.probe(tools, preset, display.OUTPUT, env, stop, verify_isolation)
+            display.assert_dedicated_instance(instances(), signature, child.pid)
+            if not display.validate_monitors(
+                control(signature, "monitors", "all"), preset, ready=True
+            ):
+                raise RuntimeError("private output mode changed during Sunshine startup")
+            (directory / "sunshine.json").write_text(json.dumps(report))
         # Only generated pixels were read; do not persist screenshots.
         (directory / "frames.json").write_text(json.dumps(frames))
     except subprocess.CalledProcessError as error:
@@ -452,7 +463,26 @@ def worker(tools, user, preset, version):
             or frames["red"] == frames["green"]
         ):
             raise RuntimeError("invalid capture result")
-        report = {"passed": True, "preset": preset, "frames": frames}
+        report = {"passed": False, "preset": preset, "frames": frames}
+        if "sunshine" in tools:
+            startup = module("worker_sunshine_startup", "sunshine-startup.py")
+            descriptor = os.open(directory / "sunshine.json", os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(descriptor, "r") as stream:
+                info = os.fstat(stream.fileno())
+                if (
+                    not stat.S_ISREG(info.st_mode)
+                    or info.st_uid != account.pw_uid
+                    or info.st_size > 1024
+                ):
+                    raise ValueError("Sunshine summary is not a small regular user-owned file")
+                startup_report = json.load(stream)
+            expected = startup.expected_report(
+                PRESETS[preset], tools["sunshineVersion"], display.OUTPUT
+            )
+            if startup_report != expected:
+                raise RuntimeError("Sunshine startup summary is not exact")
+            report["sunshine"] = startup_report
+        report["passed"] = True
     finally:
         stop(child)
         stop(broker)
@@ -674,6 +704,13 @@ def host(tools, repo, preset):
             report = json.loads((results / "result.json").read_text())
             if report.get("passed") is not True:
                 raise RuntimeError("capture did not pass")
+            if "sunshine" in tools:
+                startup = module("host_sunshine_startup", "sunshine-startup.py")
+                expected = startup.expected_report(
+                    PRESETS[preset], tools["sunshineVersion"], display.OUTPUT
+                )
+                if report.get("sunshine") != expected:
+                    raise RuntimeError("Sunshine startup did not pass")
             completed = True
         finally:
             # --wait returns only after the unit is down. On interruption also
@@ -698,6 +735,10 @@ def host(tools, repo, preset):
                 flush=True,
             )
         if completed:
+            if "sunshine" in tools:
+                print(
+                    "PASS|sunshine_startup|Wayland display and H.264/HEVC/AV1 NVENC initialized; server stopped"
+                )
             print(
                 f"PASS|temporary_capture|{preset}; red/green pixels verified; compositor and broker stopped"
             )

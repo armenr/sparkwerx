@@ -8,6 +8,7 @@
 let
   plansFile = pkgs.writeText "remote-desktop-plans.json" (builtins.toJSON plans);
   capture = import ./session-test.nix { inherit pkgs hyprland; };
+  sunshineStartup = import ./session-test.nix { inherit pkgs hyprland sunshine; };
   eglProbe =
     pkgs.runCommandCC "sparkwerx-egl-probe"
       {
@@ -24,6 +25,8 @@ in
   sessionTest = capture.test;
   sessionInspect = capture.inspect;
   capturePolicy = capture.policy;
+  sunshineStartupTest = sunshineStartup.test;
+  sunshineStartupPolicy = sunshineStartup.policy;
   policy =
     pkgs.runCommand "sparkwerx-remote-desktop-policy" { nativeBuildInputs = [ pkgs.python3 ]; }
       ''

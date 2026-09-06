@@ -3625,12 +3625,15 @@
         remote-desktop-session-test = remoteDesktopArtifacts.sessionTest;
         remote-desktop-session-inspect = remoteDesktopArtifacts.sessionInspect;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
+        remote-desktop-sunshine-startup-test = remoteDesktopArtifacts.sunshineStartupTest;
+        remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
         kms-preflight = kmsArtifacts.preflight;
         kms-trial = kmsArtifacts.trial;
         kms-preparation-policy = kmsArtifacts.policy;
       };
 
       checks.${system} = {
+        remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
         kms-preparation-policy = kmsArtifacts.policy;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;

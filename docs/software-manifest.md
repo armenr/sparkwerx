@@ -52,6 +52,17 @@ normal user. No input devices, TCP/UDP sockets, profile activation, or boot
 services are enabled. Real capture results belong in a separate test record,
 not in the earlier offscreen-rendering evidence.
 
+The separate Sunshine startup diagnostic reuses that same transient service,
+driver bridge, and the already realized Sunshine candidate. It adds only
+repository Python code/configuration and no new third-party runtime dependency.
+It starts Sunshine as the normal user with a private empty application list,
+input/audio/tray/UPnP disabled, and TCP/UDP still denied by the service. Any
+generated application state remains in private temporary storage. Its final
+encoder messages prove startup initialization only: upstream tests dummy images,
+not real captured frames. No profile, persistent service, firewall, device
+permission, or package pin changes. See the
+[startup-test contract](remote-desktop.md#temporary-sunshine-startup-test).
+
 The pilot build fetched about 357 KiB / 1.9 MiB unpacked for these extra tool
 outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
 The complete closure is larger because it includes the previously realized

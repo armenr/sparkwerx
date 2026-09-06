@@ -737,8 +737,8 @@ change with independent console/power recovery; reboot remains separate.
   five numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- The factory-GNOME-to-headless live pilot is confirmed. Its headless cold boot
-  has container coverage but no recorded physical-host reboot yet. A general
+- The factory-GNOME-to-headless live pilot is confirmed. Its physical-host boot
+  into headless also passed during the [KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md). A general
   retained-headless-to-GNOME round trip still needs a tested operator. Hyprland
   and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for

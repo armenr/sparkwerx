@@ -48,8 +48,20 @@ def summarize(log):
     errors = []
     frames = []
     native = []
+    sunshine = []
     for original in log.splitlines():
         line = ANSI.sub("", original)
+        sunshine_line = re.match(
+            r"^\[\d{4}-\d{2}-\d{2}[^\]]*\]: (Debug|Info|Warning|Error|Fatal): (.*)", line
+        )
+        if sunshine_line and (
+            sunshine_line[1] in ("Warning", "Error", "Fatal")
+            or re.match(
+                r"Sunshine version:|Screencasting with |\[wlgrab\]|Trying encoder |Found .+ encoder:",
+                sunshine_line[2],
+            )
+        ):
+            sunshine.append(redact(sunshine_line[1] + ": " + sunshine_line[2]))
         frame = re.match(r'\s+File "[^"]*/([^/" ]+\.py)", line (\d+), in (\w+)', line)
         if frame:
             frames.append({"file": frame[1], "line": int(frame[2]), "function": frame[3]})
@@ -63,6 +75,7 @@ def summarize(log):
         "traceback": frames[-12:],
         "errors": errors[-12:],
         "compositor_diagnostics": native[-40:],
+        "sunshine_diagnostics": sunshine[-40:],
         "raw_log_printed": False,
     }
 

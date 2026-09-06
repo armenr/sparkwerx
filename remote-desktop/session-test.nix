@@ -1,4 +1,11 @@
-{ pkgs, hyprland }:
+{
+  pkgs,
+  hyprland,
+  sunshine ? null,
+}:
+# The startup verifier follows this release's log/config contract. An upstream
+# update needs source review and retesting, not an automatic evidence carryover.
+assert sunshine == null || sunshine.version == "2026.516.143833";
 let
   client =
     pkgs.runCommandCC "sparkwerx-wayland-color-client"
@@ -22,17 +29,26 @@ let
     cp ${./session-test.py} "$out/session-test.py"
     cp ${./gpu-probe.py} "$out/gpu-probe.py"
     cp ${./virtual-display.py} "$out/virtual-display.py"
+    ${pkgs.lib.optionalString (sunshine != null) ''
+      cp ${./sunshine-startup.py} "$out/sunshine-startup.py"
+    ''}
   '';
   manifest = pkgs.writeText "sparkwerx-private-session-tools.json" (
-    builtins.toJSON {
-      Hyprland = "${hyprland}/bin/Hyprland";
-      hyprctl = "${hyprland}/bin/hyprctl";
-      seatd = "${pkgs.lib.getBin pkgs.seatd}/bin/seatd";
-      grim = "${pkgs.grim}/bin/grim";
-      client = "${client}/bin/sparkwerx-color-client";
-      "libgbm.so.1" = "${pkgs.libgbm}/lib/libgbm.so.1";
-      "libdrm.so.2" = "${pkgs.libdrm}/lib/libdrm.so.2";
-    }
+    builtins.toJSON (
+      {
+        Hyprland = "${hyprland}/bin/Hyprland";
+        hyprctl = "${hyprland}/bin/hyprctl";
+        seatd = "${pkgs.lib.getBin pkgs.seatd}/bin/seatd";
+        grim = "${pkgs.grim}/bin/grim";
+        client = "${client}/bin/sparkwerx-color-client";
+        "libgbm.so.1" = "${pkgs.libgbm}/lib/libgbm.so.1";
+        "libdrm.so.2" = "${pkgs.libdrm}/lib/libdrm.so.2";
+      }
+      // pkgs.lib.optionalAttrs (sunshine != null) {
+        sunshine = "${sunshine}/bin/sunshine";
+        sunshineVersion = sunshine.version;
+      }
+    )
   );
 in
 {
@@ -44,7 +60,11 @@ in
     '';
   };
   test = pkgs.writeShellApplication {
-    name = "dgx-remote-desktop-session-test";
+    name =
+      if sunshine == null then
+        "dgx-remote-desktop-session-test"
+      else
+        "dgx-remote-desktop-sunshine-startup-test";
     runtimeInputs = [ pkgs.python3 ];
     text = ''
       exec python3 ${source}/session-test.py host --tools ${manifest} "$@"
@@ -63,9 +83,15 @@ in
         chmod 700 runtime
         cp ${source}/*.py tree/remote-desktop/
         cp ${./inspect-session.py} tree/remote-desktop/inspect-session.py
+        ${pkgs.lib.optionalString (sunshine == null) ''
+          cp ${./sunshine-startup.py} tree/remote-desktop/sunshine-startup.py
+        ''}
+        cp ${../dev/test_remote_desktop_sunshine.py} tree/dev/test_remote_desktop_sunshine.py
         cp ${../dev/test_remote_desktop_capture.py} tree/dev/test_remote_desktop_capture.py
         cp ${../dev/test_remote_desktop_inspect.py} tree/dev/test_remote_desktop_inspect.py
-        python3 -m unittest discover -s tree/dev
+        ${
+          pkgs.lib.optionalString (sunshine != null) "DGX_TEST_SUNSHINE=${sunshine}/bin/sunshine "
+        }python3 -m unittest discover -s tree/dev
         PYTHONPATH=tree/remote-desktop python3 - <<'PY'
         import importlib.util
         from pathlib import Path

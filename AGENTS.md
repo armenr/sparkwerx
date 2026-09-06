@@ -46,15 +46,22 @@ tests as GPU/capture or end-to-end streaming proof.
 `scripts/test-remote-desktop-graphics.sh` runs synthetic hardware checks as the
 normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
-Hyprland DRM/GBM access and Sunshine capture remain the next integration work.
+Hyprland DRM/GBM and Grim readback now have separate hardware evidence;
+Sunshine's changing-frame capture remains integration work.
 `scripts/test-remote-desktop-session.sh` is the separately authorized temporary
 GPU/capture diagnostic for the current pilot. Read its
 [contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
 It starts real Hyprland briefly inside a private transient service, not through
 the root desktop controller. Its 150-second deadline and host postflight must
-remain intact. The prepared diagnostic has not yet passed on hardware; don't
-claim otherwise from its offline policy tests or successful build.
-Use its read-only `check-kms` argument before retrying capture. The pilot has
+remain intact. The [4k120-preset hardware run passed](remote-desktop/validation/2026-09-06-temporary-capture-host.md);
+that means configured 120 Hz and verified colors, not measured 120 FPS streaming.
+`scripts/test-remote-desktop-sunshine.sh` selects a separate diagnostic bundle
+that also starts Sunshine under the same isolation. Read its
+[startup-test contract](docs/remote-desktop.md#temporary-sunshine-startup-test).
+Sunshine's startup probe encodes dummy images: its final encoder messages are
+not proof of changing-frame capture, a working server, or Moonlight streaming.
+Keep TCP/UDP and input denied; don't turn this probe into a deployment path.
+Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
 reload GPU modules as an incidental fix. KMS changes require a separate host
 configuration and boot plan. The test rejects loaded `modeset=N` before launch.
