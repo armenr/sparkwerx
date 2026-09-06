@@ -15,6 +15,9 @@ Use an ARM64 Linux machine with Nix and Git installed.
 The hook works outside the development shell too. It invokes the same pinned
 workspace, checks staged changes through pre-commit, and blocks a failing
 commit. Existing hooks and custom hook directories are left alone.
+Run `./scripts/dev hooks` again after updating the development pins or running
+Nix garbage collection: pre-commit's generated hook contains Nix store paths.
+This refreshes the hook without changing the host package profiles.
 
 ## Tools and formatting
 
