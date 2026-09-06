@@ -57,6 +57,10 @@ outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
 The complete closure is larger because it includes the previously realized
 compositor and its shared dependencies.
 
+The capture-log inspector reuses the same locked Python runtime. It is a
+read-only test tool, not a profile package; it adds no third-party dependency,
+service, permission change, or activation path.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

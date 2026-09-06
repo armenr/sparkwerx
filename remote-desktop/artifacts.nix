@@ -22,6 +22,7 @@ let
 in
 {
   sessionTest = capture.test;
+  sessionInspect = capture.inspect;
   capturePolicy = capture.policy;
   policy =
     pkgs.runCommand "sparkwerx-remote-desktop-policy" { nativeBuildInputs = [ pkgs.python3 ]; }

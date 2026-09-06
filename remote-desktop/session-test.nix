@@ -36,6 +36,13 @@ let
   );
 in
 {
+  inspect = pkgs.writeShellApplication {
+    name = "dgx-remote-desktop-session-inspect";
+    runtimeInputs = [ pkgs.python3 ];
+    text = ''
+      exec python3 ${./inspect-session.py} "$@"
+    '';
+  };
   test = pkgs.writeShellApplication {
     name = "dgx-remote-desktop-session-test";
     runtimeInputs = [ pkgs.python3 ];
@@ -55,7 +62,9 @@ in
         mkdir -p tree/dev tree/remote-desktop runtime cache config "$out"
         chmod 700 runtime
         cp ${source}/*.py tree/remote-desktop/
+        cp ${./inspect-session.py} tree/remote-desktop/inspect-session.py
         cp ${../dev/test_remote_desktop_capture.py} tree/dev/test_remote_desktop_capture.py
+        cp ${../dev/test_remote_desktop_inspect.py} tree/dev/test_remote_desktop_inspect.py
         python3 -m unittest discover -s tree/dev
         PYTHONPATH=tree/remote-desktop python3 - <<'PY'
         import importlib.util

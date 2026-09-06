@@ -171,6 +171,17 @@ Logs and before/after records stay root-owned under
 discarded. On failure, keep that evidence; don't relax device permissions or
 activate a desktop just to make the test pass.
 
+To inspect a failed attempt without restarting anything, pass the snapshot
+name printed in its log path:
+
+```bash
+./scripts/test-remote-desktop-session.sh inspect 20260906T135057Z-b9a45dfe19c3
+```
+
+This uses sudo only to read the root-private log and prints a redacted error
+summary. It does not print the raw log, change file permissions, or rerun the
+GPU test.
+
 Grim 1.5.0 uses the compositor's image-copy protocol when available, otherwise
 wlr-screencopy. Neither is Sunshine's wlr-export-dmabuf capture path. A pass
 therefore proves this temporary compositor/readback path, **not sustained

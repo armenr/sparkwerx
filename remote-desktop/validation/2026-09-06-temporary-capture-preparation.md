@@ -65,3 +65,17 @@ reclassifying the preparation checks as capture proof.
 
 This diagnostic cannot establish Sunshine capture, client pairing, audio/input,
 end-to-end latency, or sustained frame rate. Those remain separate work.
+
+## First hardware attempt
+
+The operator subsequently ran the test from commit `0938cfc`. Snapshot
+`20260906T135057Z-b9a45dfe19c3` reported a passing protected-host postflight
+followed by a failed transient GPU test. The system journal records service
+startup at 13:50:57 UTC and exit code 1 at 13:50:58 UTC, not a runtime timeout.
+The transient unit is no longer loaded. Its current `systemctl show` defaults
+are not the historical exit result; the journal preserves that failure.
+
+The error itself remains in the root-private log and is not readable without
+sudo. A separate `inspect SNAPSHOT_NAME` branch now produces a redacted error
+summary without retrying the test, changing permissions, or modifying host
+state. No cause or successful capture is claimed before that inspection.
