@@ -5,6 +5,10 @@
 The design is one mode: `headless`, factory `gnome`, `hyprland`, or `kde`.
 The complete four-way switching experience is **not implemented yet**.
 
+Armen's selected target is Hyprland for both local and remote use, with factory
+GNOME/Xorg kept as the familiar alternate. [Optional KMS preparation](nvidia-kms.md)
+is the next prerequisite; its inspection tools do not change the desktop.
+
 [Remote desktop](remote-desktop.md) is an optional Sunshine/Moonlight role over
 Tailscale. It stays dormant in compute-only headless mode. Streaming without a
 monitor still needs a graphical session; it is not a reason to start one during

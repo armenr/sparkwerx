@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_dir"
+
+if [[ "$#" -ne 1 || ! "$1" =~ ^(plan|check)$ ]]; then
+  printf '%s\n' 'Usage: ./scripts/dgx-kms {plan|check}; both inspect only, neither enables KMS.' >&2
+  exit 1
+fi
+if [[ "$EUID" -eq 0 ]]; then
+  printf '%s\n' 'Run as your normal user; check asks sudo only to read boot configuration.' >&2
+  exit 1
+fi
+if [[ "$1" == plan ]]; then
+  exec python3 -I -B root/graphics/kms-preflight.py plan --plan-file root/graphics/kms-plan.json
+fi
+
+# Build/evaluate as the ordinary user; only immutable, tested code runs as root.
+nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
+  .#kms-preflight .#kms-preparation-policy
+bundle="$(nix --extra-experimental-features 'nix-command flakes' \
+  eval --raw --no-write-lock-file .#kms-preflight.outPath)"
+exec sudo -- "$bundle/bin/dgx-kms-preflight" check

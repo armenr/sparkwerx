@@ -1,0 +1,21 @@
+{
+  "stage": "preparation-only",
+  "defaultPolicy": "preserve-factory",
+  "pilotHost": "sparkle-01",
+  "pilotRoot": "/nix/store/djp7ap9gc7kq6c5hhbqzzslvmg4vq3m1-system-manager",
+  "preferredDesktop": "hyprland",
+  "use": ["local", "remote-over-tailscale"],
+  "fallbackDesktop": "factory-gnome-xorg",
+  "proposedTrial": {
+    "method": "separate-one-boot-grub-entry",
+    "kernelArguments": ["nvidia_drm.modeset=1"],
+    "normalBootUnchanged": true,
+    "keepHeadlessDuringInitialTest": true,
+    "requiresIndependentRecovery": true
+  },
+  "activationImplemented": false,
+  "rebootImplemented": false,
+  "replaceDriver": false,
+  "removeFactoryOverride": false,
+  "reloadGpuModules": false
+}

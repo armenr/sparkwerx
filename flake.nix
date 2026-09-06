@@ -107,6 +107,10 @@
         hyprland = hyprlandPackage;
       };
 
+      # Separate optional KMS preparation; the current root generations and
+      # factory GPU/boot configuration remain unchanged.
+      kmsArtifacts = import ./root/graphics/kms.nix { pkgs = rootPkgs; };
+
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
       hyprlandPackage = hyprland.packages.${system}.hyprland.overrideAttrs (oldAttrs: {
@@ -3621,9 +3625,12 @@
         remote-desktop-session-test = remoteDesktopArtifacts.sessionTest;
         remote-desktop-session-inspect = remoteDesktopArtifacts.sessionInspect;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
+        kms-preflight = kmsArtifacts.preflight;
+        kms-preparation-policy = kmsArtifacts.policy;
       };
 
       checks.${system} = {
+        kms-preparation-policy = kmsArtifacts.policy;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;

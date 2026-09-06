@@ -43,7 +43,7 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | Package/network checks, offscreen NVIDIA rendering, and short H.264/HEVC/AV1 NVENC tests passed. The first Hyprland capture attempt failed at KMS/backend startup; NVIDIA's factory KMS override needs review. Real capture, input/audio, streaming, and sustained performance remain unproven. See [remote desktop](remote-desktop.md) |
+| Remote desktop | Package/network checks, offscreen NVIDIA rendering, and short H.264/HEVC/AV1 NVENC tests passed. The first Hyprland capture attempt failed at KMS/backend startup. [Optional KMS preparation](nvidia-kms.md) is approved; root-readable boot inspection and recovery validation come before the trial. Real capture, input/audio, streaming, and sustained performance remain unproven. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
 | KDE | Package selection, host integration, and validation |

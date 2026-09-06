@@ -61,6 +61,21 @@ The capture-log inspector reuses the same locked Python runtime. It is a
 read-only test tool, not a profile package; it adds no third-party dependency,
 service, permission change, or activation path.
 
+## Optional KMS preparation
+
+`kms-preflight` and `kms-preparation-policy` use only the already locked root
+lane's Python runtime and standard-library code. The privileged inspector uses
+the existing factory `grub-editenv list`, `grub-probe`, and `systemctl show`
+readers. It adds no driver, module, profile package, service, listener, ACL,
+initramfs, or GRUB configuration. Its Nix policy artifact records the proposed
+one-boot argument, not an installed boot entry. No activation command exists.
+
+The optional role is intended for Hyprland local/remote use with factory GNOME
+as fallback; it is not a compute-base dependency. See the
+[KMS plan and recovery requirements](nvidia-kms.md). Build outputs are ordinary
+store objects and can be retired like other unused test artifacts; the factory
+settings have not changed and need no rollback from running these checks.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

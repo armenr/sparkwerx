@@ -150,6 +150,10 @@ is not proof of the current loaded value, so the check reads sysfs instead.
 Do not delete that factory-owned file, purge its package, or reload GPU modules
 to get past the test. Enabling KMS needs a separately reviewed, reversible
 host configuration and boot plan while preserving the existing NVIDIA driver.
+The approved next step is [optional KMS trial preparation](nvidia-kms.md), with
+factory GNOME/Xorg kept as the alternate to local and remote Hyprland. Use
+`./scripts/dgx-kms check` to collect sanitized boot evidence; it does not enable
+KMS or reboot.
 
 This is a hardware diagnostic, not a remote-desktop installation. It needs
 explicit permission to start temporary graphics and a sudo password, but no

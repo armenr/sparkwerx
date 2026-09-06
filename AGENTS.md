@@ -58,6 +58,10 @@ Use its read-only `check-kms` argument before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
 reload GPU modules as an incidental fix. KMS changes require a separate host
 configuration and boot plan. The test rejects loaded `modeset=N` before launch.
+That preparation is now selected: read [the KMS plan](docs/nvidia-kms.md).
+`scripts/dgx-kms plan` and `check` inspect only; no activation command exists.
+Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
+recognized GRUB header is not proof of boot-time environment write capability.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full

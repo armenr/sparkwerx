@@ -689,6 +689,28 @@ access. Live graphical rollout still requires tested capture/input permissions,
 the guarded desktop round trip, private pairing, and a real client check.
 See [remote desktop](remote-desktop.md) for options and upstream breadcrumbs.
 
+### D-020: Hyprland local/remote use with factory GNOME fallback; optional KMS
+
+**Status:** ACCEPTED DESIGN; KMS TRIAL PREPARATION APPROVED
+
+Armen intends to use Hyprland at the physical machine and through the optional
+Tailscale-only remote desktop. Keep factory GNOME/Xorg as the familiar alternate
+and recovery desktop. KDE stays a future optional role; XFCE is a possible
+alternative to discuss, not an additional selected package set.
+
+Prepare a reversible NVIDIA DRM KMS trial for the pilot without replacing the
+factory driver or deleting NVIDIA's modeset override package/file. Prefer a
+separate one-boot entry using the existing kernel and initramfs, subject to the
+actual bootloader and recovery checks. Preserve the regular boot configuration
+and keep the first trial headless. Other hosts retain their factory setting by
+default. A KMS-enabled machine can still be in compute-only headless mode.
+
+Do not accidentally make factory GNOME use its older Wayland stack while
+enabling Hyprland's KMS prerequisite. Local session integration, a repeatable
+desktop round trip, portals, and complete remote streaming remain distinct
+work. Preparing or inspecting this option does not reboot or activate it.
+See [the KMS plan](nvidia-kms.md) for current commands, evidence, and recovery.
+
 ## Explicit non-selections
 
 | Item | Decision |
