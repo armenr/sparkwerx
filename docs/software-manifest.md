@@ -18,28 +18,39 @@ and headless mode.
 ## Optional remote desktop
 
 Sunshine/Moonlight over Tailscale is selected for the pilot and defaults off for
-other consumers. Sunshine uses the locked `nixpkgs-apps` package (GPL-3.0-only),
-including its pinned upstream FFmpeg build dependency. It adds no global unfree
+other consumers. Sunshine uses the locked `nixpkgs-apps` source (GPL-3.0-only),
+including its pinned upstream FFmpeg build dependency, with a local CUDA build
+adapter. It adds no global unfree
 exception, Moonlight client, or replacement NVIDIA driver. The package and
 network/configuration templates are preparation artifacts, not an activated
 Home/root role. Selection in `headless` installs and starts nothing. See
 [remote desktop](remote-desktop.md) for the remaining capture, graphics/input,
 credential, and service-lifecycle work.
 
-The realized ARM64 Sunshine 2026.516.143833 candidate has a 793.6 MiB complete
+The original ARM64 Sunshine 2026.516.143833 stock candidate has a 793.6 MiB complete
 Nix closure (much of it shared with other candidates); its own output is
 22.8 MiB. Realization only populated the Nix store, not the active profile.
 
 That stock candidate was subsequently found to have CUDA support compiled out;
 its [Sunshine startup attempt failed](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md).
-Rebuilding the same release for Wayland/NVENC needs additional Nix CUDA
-components. The locked recipe's direct additions are `cuda_nvcc` 12.9.86
-(compiler) and `cuda_cudart` 12.9.79 (runtime/headers); its runtime headers also
-pull the free `cuda_cccl` 12.9.27 headers. These are a proposed Sunshine-specific
-build, not accepted additions or replacements for factory CUDA or the driver.
-Evaluation currently stops at the existing unfree-package policy. No exception
-was broadened, CUDA package realized, or replacement closure size measured.
-Review and approval of those dependencies precede the rebuild.
+Armen approved the same-release CUDA rebuild and its required dependencies.
+The [adapter](../packages/sunshine/default.nix) uses `cuda_nvcc` 12.9.86
+(compiler), `cuda_cudart` 12.9.79 (runtime/headers), and its required
+`cuda_cccl` 12.9.27 headers from the existing apps lock. Contrary to the earlier
+inventory, this CCCL redistributable's Nix metadata also uses the CUDA EULA.
+An isolated [Sunshine package configuration](../packages/sunshine/config.nix)
+permits exactly those three names, without changing the stable/general-apps
+policies. No factory package, active profile, or service is replaced.
+
+The initial dry run requires 1.1 GiB of cached build dependencies (3.8 GiB
+unpacked), plus the hash-pinned NVIDIA SBSA compiler/runtime/header archives
+and the locked CCCL source patch. These populate only the Nix store. The
+compiler is forbidden from Sunshine's runtime closure. The [completed build](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md)
+has a 24.2 MiB application output and a 795.0 MiB runtime closure: about 1.4 MiB
+more than stock, with the other 234 runtime paths unchanged. No standalone
+CUDA compiler/runtime package or Nix NVIDIA driver remains in that closure.
+Build dependencies consume additional store space, not permanent fleet-profile
+space.
 
 Encoder diagnostics use the locked apps lane's `ffmpeg-headless` 9.0.1 binary
 output as a temporary test tool, not a profile package. Its libraries are
@@ -63,9 +74,9 @@ normal user. No input devices, TCP/UDP sockets, profile activation, or boot
 services are enabled. Real capture results belong in a separate test record,
 not in the earlier offscreen-rendering evidence.
 
-The separate Sunshine startup diagnostic reuses that same transient service,
-driver bridge, and the already realized Sunshine candidate. It adds only
-repository Python code/configuration and no new third-party runtime dependency.
+The separate Sunshine startup diagnostic reuses that same transient service
+and driver bridge, with the CUDA-enabled Sunshine adapter described above.
+Its own harness adds only repository Python code/configuration.
 It starts Sunshine as the normal user with a private empty application list,
 input/audio/tray/UPnP disabled, and TCP/UDP still denied by the service. Any
 generated application state remains in private temporary storage. Its final
@@ -547,9 +558,14 @@ also denies unfree by default and permits only the exact Nix package name
 `lmstudio`. The policy evaluation confirms that:
 
 - `ncdu`, `lazydocker`, `devbox`, `ghostty`, Chromium, and Zed are free;
-- `lmstudio` is the only accepted unfree evaluation exception;
+- `lmstudio` is the only general-apps unfree evaluation exception;
 - VS Code remains rejected in both package sets;
 - ChatGPT has no selected Nix packaging path, so no exception exists for it.
+
+Sunshine alone uses a separate package set permitting `cuda_nvcc`,
+`cuda_cudart`, and `cuda_cccl` for its approved CUDA build. The package policy
+rejects unrelated applications, cuDNN, replacement drivers, and `cuda_compat`.
+This does not grant CUDA exceptions to the base or general-apps package sets.
 
 The exception installs nothing by itself. Do not broaden it “for convenience.”
 If an approved closure fails because another package is unfree, stop and

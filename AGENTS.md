@@ -63,9 +63,12 @@ not proof of changing-frame capture, a working server, or Moonlight streaming.
 Keep TCP/UDP and input denied; don't turn this probe into a deployment path.
 The [first Sunshine attempt failed](remote-desktop/validation/2026-09-06-sunshine-startup-failure.md):
 the locked stock package disables CUDA and cannot provide its Wayland CUDA/GL
-encoder device. The front door now rejects it before sudo. Its CUDA-enabled
-rebuild needs explicit compiler/runtime dependency approval; don't broaden the
-unfree predicate or replace factory CUDA. Read-only `inspect` remains available.
+encoder device. The front door rejects it before sudo. The approved local
+[CUDA adapter](packages/sunshine/default.nix) must preserve the factory-driver
+bridge and pass its package checks before hardware retry. Its
+[build checks passed](remote-desktop/validation/2026-09-06-sunshine-cuda-build.md);
+the corrected binary still needs the GPU startup test. Read-only `inspect`
+remains available; no persistent graphics or factory CUDA change is authorized.
 Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
 reload GPU modules as an incidental fix. KMS changes require a separate host
@@ -105,7 +108,9 @@ changes require that gate again. Read
   Keep their sandbox/GPU/portal gates. Never bypass Chromium's sandbox or
   globally relax AppArmor. Preserve Zed's updater-disable wrapper and LM
   Studio's byte-identical Deno CLI; its Electron fallback remains unresolved.
-- No global `allowUnfree = true`; the exact current exception is `lmstudio`.
+- No global `allowUnfree = true`; general apps permit only `lmstudio`.
+  Sunshine's isolated package set permits only `cuda_nvcc`, `cuda_cudart`, and
+  required `cuda_cccl` headers; no driver or broader CUDA-stack exception.
   No VS Code, Google Chrome, NIM, AI Enterprise, 1Password desktop, or LM Link
   unless the user changes the recorded selection.
 - `lazydocker` does not grant Docker access. Devbox does not own Nix upgrades.

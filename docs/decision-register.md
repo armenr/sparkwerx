@@ -64,6 +64,13 @@ name `lmstudio`, including the current direct vendor-artifact adapter. The
 predicate installs nothing by itself. Any future ChatGPT package is evaluated
 separately.
 
+For the approved Sunshine CUDA rebuild, a separate package set permits only
+`cuda_nvcc`, `cuda_cudart`, and the runtime's required `cuda_cccl` headers.
+The locked Nix redistributables mark all three with the CUDA EULA. This does
+not broaden the stable/general-apps predicates or replace factory CUDA/driver
+packages; these are the build/runtime dependencies of the selected optional
+remote-desktop application.
+
 ### D-004: compose independent layers
 
 **Status:** ACCEPTED

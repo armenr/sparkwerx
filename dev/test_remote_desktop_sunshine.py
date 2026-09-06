@@ -276,6 +276,7 @@ elif name == 'test-remote-desktop-session.sh':
         self.assertEqual(result.returncode, 73)  # Stub sudo only, never real sudo.
         self.assertEqual([event[0] for event in events], ["nix", "nix", "nix", "sudo"])
         self.assertIn("build", events[1])
+        self.assertIn(".#sunshine-policy", events[1])
         self.assertIn(".#remote-desktop-sunshine-startup-policy", events[1])
         self.assertEqual(events[3][1], "--")
         self.assertEqual(

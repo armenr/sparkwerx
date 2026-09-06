@@ -35,7 +35,7 @@ if [[ "$cuda_required" != true ]]; then
   exit 1
 fi
 nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
-  .#remote-desktop-sunshine-startup-test .#remote-desktop-sunshine-startup-policy
+  .#sunshine-policy .#remote-desktop-sunshine-startup-test .#remote-desktop-sunshine-startup-policy
 test_bundle="$(nix --extra-experimental-features 'nix-command flakes' \
   eval --raw --no-write-lock-file .#remote-desktop-sunshine-startup-test.outPath)"
 printf '%s\n' 'INFO|sunshine_test|temporary Hyprland plus Sunshine startup; no input or TCP/UDP; not a stream/FPS test'

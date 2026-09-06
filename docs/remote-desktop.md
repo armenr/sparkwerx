@@ -222,19 +222,23 @@ documents its construction and isolation checks.
 The [first hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
 found the virtual display but failed encoder initialization. The locked stock
 Sunshine build disables CUDA, which removes its Wayland CUDA/GL encoder device.
-The front door now rejects that build before sudo or a GPU session. Don't retry
-it until the CUDA-enabled package and its new build dependencies are reviewed.
-The separate capture-only test remains available.
+The front door rejects CUDA-disabled builds before sudo or a GPU session.
+The approved [Nix adapter](../packages/sunshine/README.md) enables that code and
+preserves the temporary session's factory-driver library path. Its isolated
+package set permits the required CUDA compiler, runtime, and CCCL headers;
+factory CUDA and the driver remain unchanged.
+The [CUDA build and package checks passed](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md);
+GPU startup with that corrected build still needs verification.
 
-Once a compatible build is supplied, run the diagnostic as the normal user;
-it requests sudo for the same temporary GPU session:
+Run the diagnostic as the normal user. It builds and checks the CUDA-enabled
+package first, then requests sudo for the same temporary GPU session:
 
 ```bash
 ./scripts/test-remote-desktop-sunshine.sh
 ```
 
 It repeats the virtual-display/red-green readback checks, then starts the
-already pinned Sunshine 2026.516.143833 package inside that private session.
+CUDA-enabled Sunshine 2026.516.143833 package inside that private session.
 It requires Sunshine's Wayland display initialization at the expected dimensions
 and its final H.264, HEVC, and AV1 NVENC success messages, then stops Sunshine,
 Hyprland, and seatd. `1440p120` and `4k60` are also accepted.
@@ -349,8 +353,10 @@ GNOME RDP is only a possible setup/recovery aid, not an additional default.
 
 ## Updates and references
 
-Sunshine uses the existing locked `nixpkgs-apps` package, not a handwritten
-version override. Compare with the latest **stable** release, not daily
+Sunshine uses the existing locked `nixpkgs-apps` source with a small
+[build-option and wrapper adapter](../packages/sunshine/README.md), not a
+handwritten version override. Follow that recipe's update checks, including
+its CUDA toolchain and runtime-closure checks. Compare with the latest **stable** release, not daily
 prereleases or a moving documentation version. Review capture, ports, settings,
 bundled FFmpeg, and input permissions before updating. Rebuild and retest before
 activation. Moonlight belongs on the client, not every Spark's base.

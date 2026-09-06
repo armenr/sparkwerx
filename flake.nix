@@ -61,8 +61,8 @@
       nixBootstrapSpec = builtins.fromJSON (builtins.readFile ./bootstrap/nix/source.json);
       nixRuntimeStorePaths = import ./root/nix/store-paths.nix;
 
-      # This is an evaluation exception, not a package selection. LM Studio is
-      # the only currently selected package whose Nix metadata is unfree.
+      # This is an evaluation exception, not a package selection. The general
+      # apps set permits only LM Studio; Sunshine's CUDA tools are isolated below.
       approvedUnfreePackageNames = [ "lmstudio" ];
 
       pkgs = import nixpkgs {
@@ -93,9 +93,19 @@
       zedPackage = pkgs.callPackage ./packages/zed-editor { };
 
       # Optional remote-desktop preparation. This does not add a package to
-      # Home/root profiles or start any server. Use the stock locked stable
-      # Sunshine release; its faster prerelease channel is not selected.
-      sunshinePackage = appsPkgs.sunshine;
+      # Home/root profiles or start any server. Keep the stock locked stable
+      # release, with a CUDA-enabled build and a bridge-preserving wrapper.
+      # This isolated package set cannot broaden the fleet/apps unfree policy.
+      sunshinePkgs = import nixpkgs-apps {
+        inherit system;
+        config = import ./packages/sunshine/config.nix { inherit lib; };
+      };
+      sunshinePackage = sunshinePkgs.callPackage ./packages/sunshine { };
+      sunshinePolicy = import ./packages/sunshine/policy.nix {
+        pkgs = rootPkgs;
+        sunshine = sunshinePackage;
+        inherit (sunshinePkgs) vulkan-loader;
+      };
       remoteDesktopPlans = lib.mapAttrs (
         _: hostSpec: import ./remote-desktop/policy.nix { inherit lib hostSpec; }
       ) fleetHosts;
@@ -3617,6 +3627,7 @@
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
         zed-editor = zedPackage;
         sunshine = sunshinePackage;
+        sunshine-policy = sunshinePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
         remote-desktop-gpu-test = remoteDesktopArtifacts.gpuTest;
@@ -3633,6 +3644,8 @@
       };
 
       checks.${system} = {
+        sunshine-package = sunshinePackage;
+        sunshine-policy = sunshinePolicy;
         remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
         kms-preparation-policy = kmsArtifacts.policy;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
