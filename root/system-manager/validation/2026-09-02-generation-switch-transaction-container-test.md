@@ -13,7 +13,7 @@ the build log shows all eleven named subtests completed. Independent read-only
 host postflight found no root-manager drift and no protected-service, system,
 GPU, or sanitized Tailscale regression.
 
-This pass validates the tested two-generation transaction and bounded rollback.
+This pass validates the tested two-generation transaction and exact rollback.
 It permits repository design of a separate live snapshot/timed-rollback/local-
 console wrapper. It does not authorize creating the generation-two host pilot
 root, switching the live profile, activating generation two, changing boot

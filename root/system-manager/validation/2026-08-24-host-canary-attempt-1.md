@@ -1,6 +1,6 @@
 # System Manager host canary attempt 1 — 2026-08-24
 
-This record documents the first bounded live activation of the exact System
+This record documents the first live activation of the exact System
 Manager canary on `sparkle-01`. The canary activated successfully, but the
 guarded helper stopped on an incorrect symlink assertion and deliberately left
 the timed rollback armed. The exact deactivation program ran on schedule and

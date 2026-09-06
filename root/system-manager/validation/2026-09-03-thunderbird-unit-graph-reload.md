@@ -64,7 +64,7 @@ The observed guard output was:
 PASS|daemon_reload|all protected processes/fragments/start-times unchanged; exact generation three retained
 ```
 
-Only after that PASS did the helper invoke the separately bounded disposable
+Only after that PASS did the helper invoke the separately scoped disposable
 reboot-recovery lifecycle test. It completed with `TEST_STATUS=0`.
 
 ## Post-state

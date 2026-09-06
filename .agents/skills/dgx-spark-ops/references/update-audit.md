@@ -132,7 +132,7 @@ the Nix package.
 
 Read [tailscale.md](tailscale.md) before auditing, migrating, or updating
 Tailscale. It is repository-owned fleet infrastructure, not an NVIDIA-owned
-component. On `sparkle-01`, current stable 1.102.3 and its unit are inherited
+component. On `sparkle-01`, reviewed stable 1.102.3 and its unit are inherited
 unchanged by exact headless System Manager generation five; apt remains only as
 fallback.
 
@@ -221,11 +221,17 @@ Bubblewrap user namespace; keep that a visible activation gate and never weaken
 the host policy silently. Never claim that all dependencies are current merely
 because `flake.lock` is reproducible or both branch-head checks succeeded.
 
-### Retained System Manager canary
+### Root state and historical canary evidence
 
-Resolve the exact current root-canary output, then run the repository's
-`scripts/audit-root-canary-state.sh` classifier with the registration
-expectation declared for the local host. It emits only `INACTIVE_ABSENT`,
+Choose the current host's lifecycle first. On the retained `sparkle-01` pilot,
+use `scripts/dgx-desktop status` and `scripts/dgx-tailscale status`. A host
+provisioned through generic convergence uses `scripts/dgx-fleet-bootstrap status`.
+See [the operations guide](../../../../docs/operations.md#status-checks).
+
+`scripts/audit-root-canary-state.sh` is a historical classifier for the
+generation-one-through-three pilot work, not today's general status command.
+Only use it when working on that matching historical transaction. It emits
+`INACTIVE_ABSENT`,
 `INACTIVE_EMPTY`, `ACTIVE_RETAINED`, `ACTIVE_REGISTERED_RETAINED`,
 `ACTIVE_REGISTERED_GENERATION_ONE_DUAL_RETAINED`,
 `ACTIVE_REGISTERED_GENERATION_TWO_RETAINED`,
@@ -236,8 +242,8 @@ Its explicit post-reboot mode may additionally emit
 the reactivation-only sysinit target inactive. Use that mode only inside the
 reviewed active recovery lifecycle, not for the normal retained state.
 That classifier stops at the historical generation-three canary boundary. On
-`sparkle-01`, use `scripts/dgx-tailscale status` for the current root-level
-exact state; healthy authority is `MIGRATION_STATUS=CONFIRMED_NIX_OWNED` with
+`sparkle-01`, healthy authority is `MIGRATION_STATUS=CONFIRMED_NIX_OWNED` and
+`DESKTOP_STATUS=HEADLESS_CONFIRMED`, with
 generation five selected/live/boot-linked in headless mode and the inherited
 Nix unit active.
 

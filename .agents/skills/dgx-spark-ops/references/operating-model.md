@@ -1,288 +1,108 @@
 # Operating model
 
-## Purpose
+[Architecture](../../../../docs/architecture.md) ·
+[Current checkpoint](../../../../docs/status.md) ·
+[Decision register](../../../../docs/decision-register.md)
 
-Preserve NVIDIA DGX OS as the supported hardware layer while managing userland,
-configuration, workload definitions, and fleet differences reproducibly.
+This is the policy reference, not a chronological pilot log. Read the matching
+dated transaction records when changing that transaction.
 
-This repository is the source of truth for desired configuration. It is not a
-replacement operating system and must not silently take ownership of vendor
-components.
+## Ownership and composition
 
-## Ownership boundaries
+NVIDIA owns DGX OS, firmware, kernel, NVIDIA driver, system CUDA, Docker,
+Container Toolkit, and factory applications. Sparkwerx manages the chosen
+software and specific configuration above that layer. Never give a component
+two active owners or install a competing system GPU stack.
 
-| Layer | Owner | Update path |
-| --- | --- | --- |
-| Firmware, boot chain, kernel, NVIDIA driver, system CUDA | NVIDIA DGX OS and DGX Dashboard | Dashboard and NVIDIA release guidance |
-| Docker engine and NVIDIA Container Toolkit | NVIDIA DGX OS | Dashboard/vendor packages |
-| Nix daemon installation | Official NixOS `nix-installer` plus reviewed bootstrap | Root Nix profile with guarded upgrade |
-| Non-NixOS root integration | This repository after pilot approval | Pinned System Manager canary with reviewed state, registration, and rollback |
-| Fleet access: Tailscale package, daemon unit, and headless enablement | This repository after migration | Pinned Nix package plus reviewed root configuration; control-plane policy remains separate |
-| Exact permanent fleet CLI base | This repository | Locked `ncdu`, `lazydocker`, and current `devbox` packages |
-| Desktop mode and desktop-specific XDG/portal/session configuration | This repository plus reviewed root integration | One of headless/GNOME/Hyprland/KDE |
-| Shared graphical terminal | This repository | Ghostty in graphical modes; absent from headless |
-| Named personal tools and dotfiles | This repository | Explicit user overlays; `armen` is not a fleet default |
-| Nixpkgs, Home Manager, individually approved CLI tools | This repository | Locked flake inputs and validation |
-| CUDA-heavy AI application userlands | Pinned NVIDIA/upstream OCI images | Reviewed image/tag/digest update |
-| Models, caches, databases, media, logs | Persistent workload storage | Backup/retention policy, not package updates |
-| Per-host workload selection | Host roles in this repository | Reviewed fleet rollout |
+Compose the exact fleet CLI base, explicit access role, one desktop mode,
+shared graphical role, named user overlays, and independent workloads.
+A choice in one layer must not silently enable a different one.
 
-Do not make the same component belong to two layers. In particular, do not
-install another system CUDA toolkit, NVIDIA driver, Docker engine, or NVIDIA
-Container Toolkit through Nix.
+- Base: exactly ncdu, lazydocker, and Devbox.
+- Repository tooling: dev shells, not permanent profile expansion.
+- Ghostty: shared graphical role; absent from headless.
+- Armen: explicit per-host mapping; Codex in all modes, personal graphical
+  apps separate and currently not activated.
+- Tailscale: optional native host role, not a containerized access plane.
+- Workloads: selected separately; no automatic model download, listener, or autostart.
 
-## Composition and personal scope
+The current [configuration limits](../../../../docs/configuration.md#current-limits)
+matter: lower-level module options are broader than the tested operator path.
+Do not describe arbitrary user/package selection as implemented.
 
-Compose `factory -> exact CLI base -> host services -> one desktop mode ->
-shared graphical role -> named user overlays -> workload/project roles`. The
-[decision register](../../../../docs/decision-register.md) controls selections
-and the [software manifest](../../../../docs/software-manifest.md) controls
-what may proceed to closure review.
+## Package and data rules
 
-Ghostty is shared across GNOME, Hyprland, and KDE, but is inactive in headless
-mode. On the pilot, `armen` maps to `n0b0dy@sparkle-01`; its personal
-graphical tools never become a common default. Isaac is a workload, not a
-personal application bundle.
+Use Nix for supported ARM64 packages, tools, configuration, and source pins.
+Use pinned vendor-compatible containers or source builds for CUDA-heavy
+applications when the Spark playbook supports that route. Record both the
+readable container tag and exact architecture-specific digest.
 
-## Nix and containers
+Review the [software manifest](../../../../docs/software-manifest.md) before
+realization or deployment. No global unfree permission; the current exact
+exception is `lmstudio`. Honor the decision register's explicit exclusions.
 
-Nix and containers are complementary:
+Keep models, datasets, caches, databases, generated media, credentials,
+browser profiles, Tailscale identity, and account state outside Git, Nix store
+outputs, and images. `/srv/dgx` is a proposed convention, not a created storage
+root or a completed backup policy.
 
-- Nix owns tools, configuration, wrappers, development shells, evaluation, and
-  pins for source repositories.
-- Containers own vendor-validated combinations of CUDA user-space libraries,
-  Python, PyTorch, framework wheels, and application dependencies.
-- DGX OS supplies the kernel driver and GPU device interface used by those
-  containers.
+The LM Studio desktop app does not select `llmster`, LM Link, a server, or a
+model. Isaac and additional Omniverse components are a separate workload—not
+permission to deploy the whole NVIDIA catalog.
 
-Use a native Nix package when it is well-supported on `aarch64-linux`, does not
-duplicate the vendor GPU stack, and its build can be validated. Use a pinned
-container when NVIDIA's Spark playbook validates that path or the CUDA/Python
-matrix is otherwise fragile. Use a pinned vendor source-build workflow when
-that is the current Spark-supported route, as with Isaac.
+## Access and desktop continuity
 
-The LM Studio desktop app and headless `llmster` daemon are different roles.
-Selecting one does not select, expose, or autostart the other.
+Tailscale must start at multi-user boot and survive a desktop-mode transition.
+A daemon restart can terminate Tailscale SSH; independent console access and
+the reviewed timed rollback are required before an access transition.
 
-Devbox is a client of the existing Nix runtime. Managing the `devbox` package
-does not give its bootstrap installer ownership of Nix or define the Nix
-upgrade procedure.
+The current pilot runs Nix-owned Tailscale inherited by headless generation
+five. Its apt package/source is deliberately retained fallback, not active
+ownership or automatic cleanup material. Read [tailscale.md](tailscale.md)
+before changing that role.
 
-A container is reproducible only when its architecture-specific digest is
-recorded. A Compose file using `:latest` or `:main` is still mutable.
+Headless retains factory desktop packages but stops GDM and Dashboard GUI.
+Dashboard Admin, Docker, NVIDIA persistence, networking, and selected Tailscale
+remain independent. Preserve the explicit headless conflict with the GUI's
+factory default-target edge and the GNOME target's non-fatal GUI dependency.
 
-## Mutable state
+Hyprland and its portal have separate selection/validation. Keep GNOME as the
+recovery desktop for future graphical pilots. Chromium's sandbox, Zed's
+updater/GPU checks, and LM Studio's Electron/Deno behavior remain distinct
+activation gates; never solve them by weakening host AppArmor globally.
 
-Do not place these in the Nix store or bake them into application images:
+## Root integration and rollback
 
-- model weights and Hugging Face caches;
-- Ollama model data;
-- Open WebUI chat/database state;
-- ComfyUI models, inputs, outputs, and custom user workflows;
-- training datasets, checkpoints, adapters, and experiment logs;
-- RAG indexes and databases;
-- credentials or registry tokens;
-- Tailscale node identity and daemon state under `/var/lib/tailscale`; and
-- Tailscale enrollment keys, tailnet policy, and device approvals.
+Use the documented operator, not raw System Manager or Home Manager activation.
+Registration, live activation, boot linkage, and store retention are separate.
+Preserve the exact declared files/services, all required roots/generations,
+and the previous candidate throughout a transition.
 
-The intended fleet convention is a reviewed persistent root such as
-`/srv/dgx`, divided by workload. Until that host directory is approved, use an
-explicit user-owned path and document it. Never invent a storage location during
-an update audit.
+System Manager's root lane remains frozen independently of user packages.
+Preserve its private reviewed Nix runtime, rejection of stale Nix and real
+userborn, disabled users/wrappers/global PATH/packages, exact-version
+empty-tmpfiles patch, and unmanaged-rule regression test. Version changes
+require patch reassessment and current exact test evidence.
 
-## Current pilot lessons
+The historical pilot has five generations; the generic fresh-host workflow has
+two. Never replay spent canary/recovery scripts to satisfy a historical
+classifier. Use [the appropriate status route](../../../../docs/operations.md#status-checks).
 
-The dated inventory under `inventory/sparkle-01/` is evidence, not an eternal
-fact. Re-audit before acting. The initial 2026-08-23 pilot established:
-- repository-only Phase 1 pins stable Nixpkgs separately from the narrow apps
-  input and uses current Devbox 0.18.0 through an exact source/vendor adapter,
-  without invoking its installer;
-- the evaluated headless fleet base is exactly `ncdu`, `lazydocker`, and
-  `devbox`, with Armen's Codex overlay composed above it. XDG/MIME/portal,
-  Home Manager user-systemd, manpage, Home Manager CLI, and graphical roles
-  are off;
-- the flake's `lib.dgxProfileManifests.aarch64-linux` output and
-  `./scripts/check.sh` are the canonical no-build profile audit;
-- Ghostty is current but its cache closure is roughly 1.1 GiB, so its build
-  remains behind explicit graphical-role approval;
-- exact Chromium 152.0.7977.75, Zed 1.18.0, and LM Studio 0.4.23-1 ARM64
-  packages passed their candidate-only build/closure gates and remain absent
-  from Home profiles. Chromium needs a separately proved exact root sandbox;
-  reject `--no-sandbox` and global userns relaxation. Zed still needs factory
-  Vulkan/portal validation. LM Studio's vendor launcher falls back to Electron
-  `--no-sandbox` because Ubuntu AppArmor blocks the generic AppImage wrapper's
-  user namespace; do not weaken host policy or activate it without resolving
-  that explicit gate;
+An idle Nix daemon can be healthy behind its exact listening socket. Parse
+whole systemd unit records and diagnose pending reloads rather than clearing
+them blindly. Preserve root-test local-store execution, temporary flags, and
+user-config isolation; don't change daemon configuration to silence a warning.
 
-- DGX OS is Ubuntu-based `aarch64-linux` with a GB10 GPU and Secure Boot;
-- Nix was provisioned by the official NixOS `nix-installer` as a multi-user
-  daemon installation, even though Devbox triggered it;
-- the repository's exact fresh-host Nix operator passed its disposable
-  clean-install, injected post-runtime failure, receipt-driven rollback,
-  clean-retry, and second no-mutation adoption lifecycle on 2026-09-03. The
-  Nix-only branch is eligible for a declared clean ARM64 host; unified apply
-  and every optional role remain separate gates;
-- the guarded pilot rollout moved `/nix/var/nix/profiles/default` and the
-  daemon to Nix 2.35.2, while the installer-created root-user 2.35.1 profile
-  remains a separate GC-rooted rollback anchor;
-- System Manager 1.1.0 is the selected root manager. Its exact
-  six-path/three-service generation-three canary was retained after the
-  successful retry-safe restoration; generation four inherits that boundary
-  and adds only Nix-managed Tailscale, while generation five inherits the
-  access plane and adds only the thin desktop controller. Generations one
-  through five are registered and directly pilot-rooted; generation five is
-  selected, upstream-rooted, live in headless mode, and linked by the reviewed
-  `default.target` edge. Recovery, migration, and desktop guards are absent and
-  no rollback timer is armed. Its
-  109-path / 230.0 MiB closure is forced to private Nix 2.35.2,
-  rejects Nix 2.34.8 and real `userborn`, and owns only the canary/control and
-  registration surfaces documented in `root/system-manager/README.md`;
-- the first root-local disposable activation exposed System Manager 1.1.0's
-  global empty-list tmpfiles behavior without touching the host; the candidate
-  now carries an exact-version skip patch and an unmanaged-rule regression
-  sentinel, and any version change requires patch reassessment;
-- the exact patched disposable activation/deactivation derivation passed on
-  2026-08-24, including the unmanaged tmpfiles sentinel, protected-file hashes,
-  bounded state, rollback, and clean host postflight; any derivation change
-  invalidates that evidence;
-- three separately authorized low-level host canaries activated within the exact
-  five-path/three-service boundary: two timed rollbacks completed successfully,
-  and the third passed local-console confirmation and remains active with the
-  exact bounded version-1 state under `/var/lib/system-manager/state`. A later,
-  separately guarded transaction registered and retained exact generation one
-  without changing that activation;
-- low-level activation does not itself retain the store output. A live pilot
-  must first create the manifest-declared direct root at
-  `/nix/var/nix/gcroots/dgx-setup-root-canary-pilot`. It is distinct from the
-  later upstream generation registration and must remain alongside its profile
-  links and `system-manager-current` root until a separately verified
-  deactivation/registration rollback milestone;
-- source inspection found System Manager 1.1.0 registration is non-transactional:
-  its Nix profile can advance before a later extra-GC-root collision fails, and
-  selecting a generation changes neither live activation nor that extra root.
-  The exact two-generation disposable lifecycle derivation passed on
-  2026-09-01 with a hash-valid output and clean host postflight. That pass
-  authorized only transaction design; the later live registration required its
-  own snapshot, rollback, authorization, repeated postflight, and independent
-  console confirmation;
-- a marker-only generation-two candidate and exact generation-switch
-  transaction passed their distinct eleven-subtest disposable failure-injection
-  derivation with a hash-valid output and clean host postflight. A later
-  separately authorized live pilot used fresh snapshot `20260902T083437Z`,
-  repeated postflight, and local-console confirmation to retain exact
-  registered/live generation two. At that milestone, generation one remained
-  registered and directly retained, both pilot roots remained, and no boot
-  link existed;
-- an exact generation-three boot-persistence candidate and transaction passed
-  a distinct 13-subtest/two-restart disposable derivation with a hash-valid
-  output and clean real-host postflight. Generation three adds only its marker
-  and one tracked `default.target` edge. Its disposable pass granted no live
-  authority by itself;
-- the separately authorized generation-three live activation used fresh
-  snapshot `20260902T110421Z`, protected-process continuity, local console, an
-  armed generation-two rollback, repeated postflight, and exact
-  `KEEP GENERATION THREE`. It retained exact registered/live boot-linked
-  generation three while preserving all earlier generations and roots. The
-  transient rollback was disarmed before its service ran. That activation
-  record is now historical authority;
-- the current persistent first-reboot recovery bundle and transaction passed a
-  distinct 13-subtest/two-restart disposable lifecycle. It proved boot-ID
-  gating, collision preservation, partial-failure cleanup, exact same-boot
-  cancellation and re-arming, automatic generation-two rollback, confirmed
-  generation-three retention, and exact cleanup. Hash-pinned live snapshot,
-  arm, same-boot disarm, status, post-boot confirmation, rollback-verification,
-  and cleanup helpers are complete and deliberately have no reboot action;
-- the separately authorized first real reboot used snapshot
-  `20260902T204546Z`. The ten-minute deadline expired before valid
-  confirmation, automatic rollback restored exact registered/live no-boot
-  generation two, verification passed, and exact cleanup removed the recovery
-  surface. The first restoration attempt then safely timed back after a
-  mistyped phrase; retry-safe attempt two used one Enter, passed two automatic
-  postflights, and retained generation three without rebooting. That was the
-  exact pre-migration recovery authority. The later guarded Tailscale handoff
-  and reboot retained generation four, and the corrected guarded desktop
-  switch retained headless generation five without rebooting. All five
-  numbered generations and direct roots remain, generation five is selected/
-  upstream-rooted/live, its boot edge and headless dispatcher exist, and no
-  recovery or rollback timer exists. Postboot checks
-  must accept a cleanly idle
-  `nix-daemon.service` behind active `nix-daemon.socket` while preserving strict
-  same-boot process continuity. `scripts/dgx-recovery` supplies the short
-  no-reboot operator path;
-- the 2026-09-01 reboot audit confirmed the prior rollback state and healthy
-  factory/access services; a factory Firefox Snap refresh one minute later
-  changed the unit graph and correctly invalidated the earlier preflight until
-  a daemon reload and full recheck passed without restarting protected
-  services; the later third attempt is now the retained live state;
-- the built-in `nix upgrade-nix` target is a manually maintained literal store
-  path with no downgrade guard; it still proposes 2.34.8 over active 2.35.2;
-- Hyprland is pinned and build-tested for ARM64 but remains disabled;
-- exact headless Home generation one is active after two guarded activations
-  and a successful real rollback to pre-Home state. It contains the three-tool
-  fleet base plus Armen's Codex overlay and no Home Manager user-systemd units.
-  The later root-controller switch now makes the host itself headless while GDM
-  remains installed and inactive. Snapshot `20260903T120519Z` and
-  `docs/2026-09-03-home-headless-host.md` remain user-profile authority. Later reviewed dependency commits use guarded
-  `scripts/dgx-home update-headless`; its disposable rollback passed and its
-  current-candidate path is a mutation-free no-op;
-- Docker, Compose, and NVIDIA Container Toolkit are vendor-installed;
-- the pilot user is not currently a member of the Docker group;
-- Tailscale `1.102.3` was originally installed from Tailscale's official apt
-  repository; its identity and Tailscale SSH remain active under the now
-  Nix-managed multi-user service; and
-- locked stable/apps Nixpkgs expose older Tailscale `1.98.10`/`1.102.2`, so the
-  repository pins official stable `1.102.3`. Exact System Manager generation
-  four owns the live daemon; apt remains only as inactive fallback.
+## Rollout discipline
 
-The Tailscale versions above are dated baseline evidence. Re-audit them and read
-[the dedicated Tailscale reference](tailscale.md) before changing ownership.
+Pilot on one ARM64 Spark before additional hosts. Distinguish evaluation, build,
+container lifecycle, real activation, application health, and workload
+correctness. None is proof of all the others.
 
-Do not add Docker group membership casually. Access to the Docker daemon is
-effectively root-equivalent and belongs in the reviewed host bootstrap.
+Keep factory updates, Nix runtime, package pins, root generations, and workload
+activation as separate changes with their own rollback. Devbox does not own Nix
+maintenance; lazydocker does not grant Docker-group membership.
 
-## Fleet invariants
-
-- Pilot changes on one Spark before fleet rollout.
-- Keep GNOME available as the recovery desktop during every graphical pilot.
-- In headless mode, stop desktop/display/portal services but retain factory
-  packages and `tailscaled.service`.
-- Treat the factory `dgx-dashboard.service` UI as a desktop service: stop it in
-  headless and start it with factory GNOME. Keep the separate
-  `dgx-dashboard-admin.service` active in both modes. The repository does not
-  own either factory package or unit. Preserve the explicit headless-target
-  conflict that defeats the GUI service's factory `default.target.wants` edge
-  on cold headless boots.
-- Keep the permanent base limited to `ncdu`, `lazydocker`, and `devbox`.
-- Keep Ghostty shared across graphical modes and absent from headless.
-- Keep user overlays explicit; never infer Armen's overlay for another user.
-- Honor the non-selections in the decision register instead of re-proposing
-  nearby catalog products.
-- Keep old Nix generations, old container digests, and prior configuration
-  revisions until validation is complete.
-- The exact System Manager, Tailscale, and Dashboard-aware desktop tests and
-  retained host transitions passed. The first desktop attempt safely returned
-  to factory GNOME; the corrected retry retained generation five/headless.
-  Preserve exact live generation five, all five numbered profile links and
-  direct pilot roots, the upstream generation-five root, the inherited canary
-  plus Nix-managed Tailscale surface, its boot/headless edges, and absent
-  recovery/migration/desktop guards.
-  Snapshots `20260902T110421Z`, `20260902T204546Z`, and every earlier live
-  snapshot are spent; do not rerun their wrappers. Read the boot-persistence
-  records and first-reboot result before touching this state. The persistent
-  recovery mechanism passed on the real host and is now clean/unarmed. The
-  completed restoration path is spent and should refuse this current state.
-  Later arming, reboot, rollback, restoration, generation selection/removal,
-  and pilot-root retirement require separate authority.
-  Never let it own host Nix, users, wrappers, global PATH, any additional boot
-  link, or factory services, or process global factory tmpfiles rules when its
-  managed set is empty; preserve the exact-version patch, regression sentinel,
-  current-test match, exact registration links, all three current retention
-  roots, and the single-boot-edge maximum.
-- Run one memory-heavy GPU workload per node by default. Multiple services may
-  share a node only after memory and performance validation.
-- Treat multi-node networking, QSFP topology, NCCL, and passwordless SSH as
-  explicit fleet infrastructure work—not incidental application setup.
-- Keep `tailscaled.service` in the headless `multi-user.target` role. Never
-  restart it through the fleet's only active Tailscale SSH recovery path.
-- Separate build success, activation success, application health, and workload
-  correctness as distinct gates.
+Prefer one memory-heavy GPU workload per node until coexistence is validated.
+Multi-node links, QSFP topology, NCCL, and additional SSH infrastructure require
+their own design; they are not incidental application-install steps.

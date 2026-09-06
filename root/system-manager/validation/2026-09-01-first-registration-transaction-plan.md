@@ -45,7 +45,7 @@ separate extra GC root. A collision at the latter can therefore leave a partial
 profile. Its GC-root replacement is also remove-then-create.
 
 The guarded program still exercises the exact upstream helper, but wraps it
-with an exact pre-state, full post-state verification, and bounded cleanup:
+with an exact pre-state, full post-state verification, and exact cleanup:
 
 1. require the dedicated profile directory and upstream extra root to be
    entirely absent;
@@ -64,7 +64,7 @@ wrapper has no failure-injection path.
 ## Disposable test matrix
 
 The distinct test keeps the exact canary active inside its Ubuntu container and
-asserts protected-file hashes and the bounded five-path/three-service state
+asserts protected-file hashes and the exact five-path/three-service state
 through every case:
 
 1. active retained canary starts exactly unregistered;

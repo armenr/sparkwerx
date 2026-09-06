@@ -36,8 +36,9 @@ Run it with:
 sudo ./scripts/test-tailscale-unit-lifecycle.sh
 ```
 
-The wrapper accepts either exact pre-migration generation three/vendor
-ownership or exact post-migration generation four/Nix ownership and proves the
+The wrapper accepts exact pre-migration generation three/vendor ownership,
+post-migration generation four/Nix ownership, or confirmed headless generation
+five with inherited Nix ownership. It proves the
 real host's selected state and running Tailscale process are identical before
 and after the disposable test. See the
 [current recorded result](validation/2026-09-05-migration-lifecycle-container-test.md).
@@ -54,7 +55,9 @@ For the post-migration fleet/front-door regression, run
 the read-only plan test, root-assisted disposable Nix-bootstrap and Tailscale
 lifecycles, and the live no-op staged-apply test behind one command.
 
-The reviewed live operator is `scripts/dgx-tailscale`. `plan` is read-only.
+The historical one-time migration operator is `scripts/dgx-tailscale`.
+Do not replay `migrate` on the retained pilot or use it as a package updater.
+`plan` is read-only.
 `migrate` reruns the exact disposable test, creates a private snapshot, arms a
 persistent ten-minute rollback, and launches the daemon handoff in a detached
 systemd worker. It never reboots the host. After the intentional SSH disconnect,
@@ -75,10 +78,11 @@ unit, use `cleanup-rolled-back` only after `status` reports the verified rollbac
 Neither path removes the apt package, its repository, or mutable node state.
 
 `migrate` is now a completed one-time operation on `sparkle-01`; do not rerun it
-while current generation five inherits exact generation-four ownership. For a
-new host, do not run it until independent
-local console access has been verified. The deliberate daemon restart will
-terminate the current Tailscale SSH connection. The apt package and repository
+while current generation five inherits exact generation-four ownership. New
+hosts use [`dgx-setup converge`](../../docs/getting-started.md), which has its
+own optional-access lifecycle and recovery checks. Any deliberate Tailscale
+daemon restart can terminate the current Tailscale SSH connection.
+The apt package and repository
 remain installed on `sparkle-01` as inactive rollback material; their removal
 is a separate cleanup decision. Follow
 [`tailscale.md`](../../.agents/skills/dgx-spark-ops/references/tailscale.md) for

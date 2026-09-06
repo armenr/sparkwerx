@@ -1,142 +1,118 @@
 # Desktop modes
 
-The fleet needs one reversible host-level mode switch, not a collection of
-loosely related booleans:
+[Documentation](README.md) · [Status](status.md) · [Roadmap](roadmap.md)
 
-`dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
+The design is one mode: `headless`, factory `gnome`, `hyprland`, or `kde`.
+The complete four-way switching experience is **not implemented yet**.
 
-The enum, Home Manager composition, root-level `headless` and factory-`gnome`
-candidates, and guarded switch operator are implemented. The first live switch
-reached headless safely and then rolled back because it exposed a missing DGX
-Dashboard fixture in the disposable tests. That rollback returned the host to
-exact generation four and factory GNOME. The corrected Dashboard-aware transaction, mode,
-guarded-switch, and post-Tailscale integration stack then passed with exact
-evidence. A separately authorized retry retained exact generation five in
-headless mode without rebooting. See the
-[candidate record](2026-09-05-desktop-controller-candidates.md),
-[current test validation](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md),
-and [current host result](../root/desktop/validation/2026-09-05-host-attempt-2.md).
-The subsequent
-[complete retained-state integration](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md)
-is current authority for `READY`/`COMPLETE` fleet convergence in this mode.
+## What's implemented
 
-## Mode behavior
+| Mode | User composition | Host integration |
+| --- | --- | --- |
+| `headless` | CLI base and all-modes overlay; no graphical packages or Home Manager user units | Live-confirmed on the pilot; supported final state for fresh-host converge |
+| `gnome` | Graphical profile with Ghostty and MIME machinery; personal app activation still separate | Factory stack retained; controller and reversible transitions tested in containers |
+| `hyprland` | Pinned build-tested candidate; portal is independent | NVIDIA graphics bridge and GDM session rollout still open |
+| `kde` | Mode value exists | No selected Plasma package set or proven host integration |
 
-| Mode | Graphical boot/session | Desktop services and portals | Armen graphical overlay | Recovery/access |
-| --- | --- | --- | --- | --- |
-| `headless` | Boot to `multi-user.target`; GDM and graphical sessions inactive | Desktop portals, graphical autostarts, and the user-facing `dgx-dashboard.service` inactive; `dgx-dashboard-admin.service` remains active | Not linked into the active Home Manager profile | `tailscaled` remains enabled; factory desktop packages remain on disk |
-| `gnome` | Boot graphically through factory GDM into Ubuntu GNOME | Use the factory GNOME session/portal stack and user-facing DGX Dashboard | Active after its own approval | Normal local desktop; Tailscale and Dashboard Admin remain independent |
-| `hyprland` | Boot graphically through GDM; select the pinned Nix Hyprland session | Use only the reviewed Hyprland/GTK portal combination | Active after its own approval | Factory GNOME session remains available locally as fallback |
-| `kde` | Boot graphically; initially reuse GDM unless testing proves another display manager necessary | Use only the reviewed Plasma/KDE portal combination | Active after its own approval | Factory GNOME session remains available during pilot |
+[`modules/home/desktop.nix`](../modules/home/desktop.nix) controls user
+composition. [The root controller](../modules/system/desktop-mode.nix) controls
+boot/runtime targets. Changing the Home profile alone cannot stop GDM.
 
-The factory Dashboard GUI has its own `default.target.wants` edge. The
-headless target explicitly conflicts with `dgx-dashboard.service` so that edge
-cannot start the GUI on a cold headless boot. This is runtime orchestration of
-the existing vendor unit, not Nix ownership, masking, or package removal. A
-direct isolate of the named GNOME target does not traverse that default-target
-edge, so `dgx-gnome.target` also non-fatally wants the existing Dashboard GUI.
-This ensures both cold-boot and same-boot transitions implement the same
-mode boundary.
+## What headless does
 
-Only one mode owns the default session, portal selection, and graphical
-autostarts at a time. Ghostty is the shared terminal in `gnome`, `hyprland`,
-and `kde`; it is absent from the active `headless` profile. Installed desktop
-packages may coexist on disk; that costs disk space, not idle RAM. The selected
-mode controls what runs after root integration exists.
+On the confirmed pilot:
 
-The exported pilot Home profile is active as retained user-layer
-`headless` generation one after guarded activation, real rollback, and fresh
-reactivation. The root controller's first guarded attempt returned the host to
-factory GNOME and cleaned up; the corrected retry then retained host-level
-headless generation five. User-profile
-composition and the host desktop-mode controller remain separate even though
-both now select headless behavior.
+- GDM, the graphical target, and the Dashboard GUI are inactive.
+- Dashboard Admin, Docker, NVIDIA persistence, and selected Tailscale remain active.
+- The Home profile has no graphical packages or Home Manager user-systemd units.
+- The default boot dispatcher selects the headless target.
+- Factory GNOME/GDM packages stay installed for recovery and later desktop work.
 
-## What headless means
+This is not an Ubuntu-desktop uninstall. It also isn't a blanket process
+killer: a separately launched application or unmanaged lingering user service
+needs its own diagnosis. Don't claim every graphics-related process is absent
+without inspecting it.
 
-Once the root controller exists, headless is a reversible runtime state, not an
-Ubuntu-desktop uninstall:
+Installed packages use disk; stopping their services saves runtime resources.
+GPU compute does not require a running desktop. A workload's headless rendering
+option is a separate workload setting, not a host desktop switch.
 
-- the graphical target and display manager are inactive;
-- the factory user-facing DGX Dashboard is inactive while its headless-safe
-  admin daemon remains active;
-- GNOME, Hyprland, KDE, XDG portals, and graphical autostarts do not run;
-- the graphical part of every user overlay is inactive;
-- terminal access, networking, Nix, approved compute workloads, and
-  `tailscaled.service` remain available from `multi-user.target`;
-- factory GNOME packages stay installed so `gnome` can be restored without
-  reconstructing the vendor OS.
+## Commands and limits
 
-Some workloads, especially Isaac, may have their own validated headless render
-mode. That is a workload setting and does not silently change the host desktop
-mode.
+For the current historical pilot, inspect without switching:
 
-## Why XDG is not in the minimal base
+```bash
+./scripts/dgx-desktop status
+```
 
-`xdg.enable` in the locked Home Manager version manages the XDG base-directory
-environment variables such as `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and
-`XDG_STATE_HOME`. It is not itself a desktop daemon and does not materially eat
-RAM. We keep it out of the small CLI base because enabling it makes Home
-Manager take ownership of environment behavior before a profile needs that
-ownership.
+The actual command interface is:
 
-The XDG features that matter to the package graph or desktop behavior are
-separate:
+```text
+plan | headless | status | confirm | rollback | cleanup-rolled-back
+```
 
-- `xdg.mime.enable` defaults to true on Linux in Home Manager. It adds
-  `shared-mime-info`, two directory-sentinel derivations, and profile-build
-  commands that regenerate the shared MIME and desktop databases. It does not
-  choose default applications or run a persistent daemon.
-- `xdg.mimeApps.enable` writes a read-only `mimeapps.list` and therefore takes
-  ownership of default applications and file associations.
-- `xdg.userDirs.enable` takes ownership of user-directory definitions.
-- `xdg.portal.enable` adds portal packages, configuration, environment, and
-  user services for file pickers, opening URLs, screenshots, screen sharing,
-  and secrets.
+There is no `gnome`, `hyprland`, or `kde` subcommand. The operator implements
+the pilot's initial factory-to-headless transaction and its in-flight recovery.
+After a confirmed transition removes its guard, `rollback` is not a general
+“turn the desktop back on” command.
 
-The implemented policy therefore sets both `xdg.enable` and `xdg.mime.enable`
-false in `headless`, and true in graphical profiles. It leaves
-`xdg.mimeApps.enable`, `xdg.userDirs.enable`, and `xdg.portal.enable` false
-until a specific role owns them. This is why headless evaluates to only the
-three selected base tools plus Home Manager's intrinsic session-variable
-package. Home Manager's user-systemd layer is disabled in this profile, so even
-its otherwise generic `tray.target` is absent. Graphical profiles explicitly
-show the additional MIME and user-systemd machinery in the manifest.
+The fresh-host route uses `dgx-setup converge` and `dgx-fleet-bootstrap`
+instead. It keeps factory GNOME for the first root generation, requires a
+separate reboot, then transitions to headless. See
+[fresh-host convergence](fresh-host-convergence.md).
 
-Hyprland's Home Manager module normally enables its portal implicitly. This
-repository sets its `portalPackage` to `null`; the independent
-`dgx.desktop.hyprland.portal.enable` option is the only way to add the reviewed
-Hyprland/GTK portal graph.
+A general retained-headless → GNOME → headless operator is remaining work.
+Implement and test that route before advertising a toggle. Don't substitute
+raw `systemctl isolate`, enable GDM manually, or activate an unreviewed Nix
+output on the retained host.
 
-## Switching contract
+## Why the Dashboard matters
 
-The implemented `scripts/dgx-desktop` command must:
+The factory Dashboard GUI has a `default.target.wants` edge, separate from
+GDM. Simply avoiding the graphical target is insufficient on a cold boot.
 
-1. show the current and proposed mode;
-2. show the root units, session files, portals, packages, and user profiles that
-   change;
-3. verify the target closure and ARM64 build before host mutation;
-4. preserve Tailscale and an independent recovery path;
-5. retain factory GNOME and the previous Nix generation;
-6. require explicit activation approval;
-7. validate the new login/session or headless boot;
-8. expose one documented rollback command.
+The headless target explicitly conflicts with the existing GUI service. The
+GNOME target explicitly wants it, because a direct named-target transition
+does not traverse the factory default-target edge. Neither mode replaces,
+masks, or owns the factory unit/package.
 
-Switching into headless can terminate local GUI sessions. Switching display
-manager or portal state can break screen sharing, file pickers, and Electron
-apps. These effects must be stated before activation; a repository build does
-not authorize the switch.
+Dashboard Admin is a different service. Keep it active in both modes. This
+distinction caused the first pilot verification failure and is now covered by
+the [Dashboard-aware lifecycle tests](../root/desktop/validation/2026-09-05-dashboard-aware-stack.md).
 
-## Implementation hold points
+## Why XDG and MIME are separate
 
-- Preserve the passed Dashboard-aware transaction, mode, guarded-switch,
-  post-Tailscale integration evidence, and confirmed live headless host record
-  for any future transition.
-- Keep host-level systemd/GDM ownership separate from Home Manager.
-- Review Ghostty's measured graphical closure before building it, then validate
-  it under factory GNOME and each approved Wayland mode.
-- Review and build the Hyprland portal independently from Hyprland.
-- Test `headless -> gnome -> hyprland -> gnome -> headless` on `sparkle-01`
-  before adding KDE or rolling out to another Spark.
-- Add KDE only after its package, portal, GDM/session, closure, and rollback are
-  reviewed independently.
+`xdg.enable` manages base-directory environment behavior; it is not a daemon
+or a meaningful RAM-saving toggle. The minimal profile leaves that ownership
+alone until a role needs it.
+
+| Home Manager option | What it adds or owns |
+| --- | --- |
+| `xdg.enable` | XDG base-directory environment variables |
+| `xdg.mime.enable` | Shared MIME data, directory sentinels, and database regeneration—not default apps or a persistent daemon |
+| `xdg.mimeApps.enable` | Default application/file-association policy |
+| `xdg.userDirs.enable` | User-directory definitions |
+| `xdg.portal.enable` | Portal packages, configuration, and user services |
+
+The current module disables XDG/MIME management in headless and enables those
+two pieces in graphical profiles. MIME defaults, user directories, and portals
+remain independent.
+
+Hyprland's module would normally include its portal implicitly. Sparkwerx sets
+`portalPackage = null`; only the separate
+`dgx.desktop.hyprland.portal.enable` choice adds the reviewed portal graph.
+
+## What a graphical rollout still needs
+
+Keep factory GNOME available as recovery. Validate the graphics bridge and
+version-matched NVIDIA userspace, session entry, file pickers, URL handling,
+screen sharing, suspend/wake, Electron apps, and compute continuity. Inspect
+the portal closure separately from the compositor.
+
+Ghostty is shared graphical infrastructure, not part of the headless base or
+Armen-only overlay. Chromium, Zed, and LM Studio still require their individual
+sandbox/GPU/runtime checks before entering a profile.
+
+Evidence: [successful host transition](../root/desktop/validation/2026-09-05-host-attempt-2.md),
+[retained-headless integration](../root/desktop/validation/2026-09-05-confirmed-headless-integration.md),
+and [candidate details](2026-09-05-desktop-controller-candidates.md).

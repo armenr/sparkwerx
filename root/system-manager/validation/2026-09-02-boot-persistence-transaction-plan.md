@@ -96,7 +96,7 @@ The test must prove:
     service starts automatically;
 11. final cleanup returns the disposable filesystem to empty, unregistered
     System Manager state;
-12. `/etc/nix/nix.conf`, passwd, group, shadow, and the bounded ownership
+12. `/etc/nix/nix.conf`, passwd, group, shadow, and the declared ownership
     surface remain unchanged throughout.
 
 The wrapper reclassifies the real host afterward and fails if its state changed

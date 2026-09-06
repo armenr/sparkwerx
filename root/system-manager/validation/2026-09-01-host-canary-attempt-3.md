@@ -4,10 +4,10 @@ This record documents the first retained live activation of the exact System
 Manager canary on `sparkle-01`. The guarded helper passed every pre-activation
 and post-activation check, Armen verified the independent physical console and
 entered the exact `KEEP CANARY` confirmation, and the rollback timer was
-disarmed. Independent read-only postflight then confirmed the bounded active
+disarmed. Independent read-only postflight then confirmed the exact active
 state.
 
-The result is **PASS for a retained bounded host canary**. System Manager is
+The result is **PASS for a retained host canary**. System Manager is
 active only on its five-path/three-service canary surface. It remains
 unregistered and is not linked into boot.
 

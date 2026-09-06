@@ -4,6 +4,10 @@ This is the durable source of truth for choices made while designing the DGX
 Spark fleet. It prevents a later session from reopening settled questions or
 mistaking provisional scaffold code for approved policy.
 
+For the latest implementation checkpoint, read [status](status.md). Earlier
+entries retain the reasoning and pilot history; later decisions supersede
+their deployment state without erasing that history.
+
 ## Status language
 
 - **ACCEPTED** means the design is settled.
@@ -86,16 +90,18 @@ The single option is:
 
 `dgx.desktop.mode = "headless" | "gnome" | "hyprland" | "kde"`
 
-Headless disables the graphical target, display manager, desktop session
+The intended headless role disables the graphical target, display manager, desktop session
 services, portals, and graphical autostarts while retaining factory packages on
 disk and keeping Tailscale available. GNOME means the factory Ubuntu desktop.
 Hyprland and KDE are independently gated Nix-managed alternatives. GNOME stays
 available as the local recovery session during graphical pilots.
 
-The Home Manager profile-composition half is implemented. It currently controls
-only user packages and user-level XDG ownership; it cannot stop GDM or change
-the host target. The non-NixOS root controller, actual switch command, and
-rollback implementation remain OPEN.
+Home Manager controls user packages and user-level XDG ownership; it cannot
+stop GDM or change the host target. The separate root controller and guarded
+factory-to-headless transition are now implemented and live-confirmed on the
+pilot; D-018 records that work. A general retained-headless-to-GNOME round trip
+and the Hyprland/KDE host integrations remain OPEN. See
+[desktop modes](desktop-modes.md) for the actual command interface and limits.
 
 ### D-006: keep Armen's tools in a personal overlay
 
@@ -161,22 +167,24 @@ from Armen's personal desktop overlay.
 
 **Status:** ACCEPTED
 
-Tailscale and Tailscale SSH are outside the factory substrate and will move from
-the current official apt installation to reviewed Nix/root-service ownership.
-The migration must preserve node identity and remote access and must keep
+Tailscale and Tailscale SSH are outside the factory substrate and belong under
+reviewed Nix/root-service ownership. A migration must preserve node identity
+and remote access and must keep
 `tailscaled.service` available in headless mode whenever the host selects the
 access role. Tailscale is an explicit optional per-host role, not an implicit
 dependency of the fleet base or every machine. The dedicated Tailscale
 reference controls this work.
 
-The repository now pins and build-validates the official current-stable 1.102.3
+The repository pins and build-validates the reviewed official stable 1.102.3
 ARM64 artifact plus the root unit. Its exact apt-to-Nix transaction,
 injected-failure rollback, candidate/vendor reboots, and persistent
 unconfirmed-reboot rollback pass in a disposable container. The guarded live
 operator requires a clean commit, private snapshot, console recovery, rollback
 before mutation, a separately authorized real reboot, and a fresh connection
-before confirmation. Apt remains live; this evidence does not itself authorize
-the daemon restart or systemd ownership change.
+before confirmation. That one-time migration has now passed on the pilot:
+Nix owns the running service and apt remains inactive fallback. D-017 records
+the live result; it is not an instruction to repeat the migration on updates
+or new machines.
 
 ### D-011: Nix and containers are complementary
 
@@ -233,9 +241,14 @@ installer-created 2.35.1 environment remains an independent GC-rooted rollback
 anchor. Future hosts and releases require the same separate authorization and
 validation.
 
-### D-014: System Manager is the bounded root-manager candidate
+### D-014: System Manager is the minimal root-manager candidate
 
 **Status:** SELECTED
+
+This entry records the original selection and historical pilot sequence.
+The retained pilot is now generation five; D-017, D-018, and
+[status](status.md) describe its current ownership. Do not replay this sequence
+as new-host setup instructions.
 
 Pin System Manager 1.1.0 from its matching `release-26.05` branch for a
 non-NixOS pilot above the existing Ubuntu/DGX substrate. Selection authorizes
@@ -511,7 +524,7 @@ separately initiated reboot, a second headless generation, and the generic
 Home composition. Both root phases arm exact persistent rollback before
 mutation. A newly enrolled Tailscale identity remains external mutable state;
 disabling the role omits its package and unit. The implementation remains
-bounded to the initial two-generation deployment; later root updates and
+limited to the initial two-generation deployment; later root updates and
 workload activation remain separate.
 
 Validated on 2026-09-06: the complete gate passed from clean commit
@@ -666,12 +679,14 @@ with the transition itself recorded in the
 ## Open decisions
 
 - The first recovery reboot/rollback and later Tailscale reboot/retention are
-  proven. Generation four is selected/upstream-rooted/live/boot-linked, all
-  four numbered generations and direct pilot roots remain, and recovery is
+  proven. Generation five is selected/upstream-rooted/live/boot-linked, all
+  five numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- Run and confirm the guarded factory-GNOME-to-headless live pilot through
-  `scripts/dgx-desktop`. Hyprland and KDE remain later independent extensions.
+- The factory-GNOME-to-headless live pilot is confirmed. Its headless cold boot
+  has container coverage but no recorded physical-host reboot yet. A general
+  retained-headless-to-GNOME round trip still needs a tested operator. Hyprland
+  and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
   installation on a host.
 - Design and prove Chromium's exact root sandbox integration, then wire and
@@ -723,9 +738,9 @@ At that Phase 1 checkpoint, the exported pilot Home profile was active as
 retained user-layer `headless` generation one. This did not change the running
 factory GNOME host. Devbox was active through the Nix user profile; Tailscale
 was still candidate-only and apt-owned. D-017 and its live evidence supersede
-that historical Tailscale state. GDM/desktop state remains unchanged. The
-separately approved root Nix
-runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
+that historical Tailscale state. The Home activation did not change GDM;
+D-018 records the subsequent host headless transition. The separately approved
+root Nix runtime update to 2.35.2 completed and passed daemon, build, rollback-root, and
 Tailscale-continuity checks. The software manifest remains the
 application/service/desktop install and activation gate.
 

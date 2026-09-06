@@ -12,7 +12,7 @@ all nine named subtests completed. Independent read-only host postflight found
 no root-manager drift and no protected-service, system, GPU, or sanitized
 Tailscale regression.
 
-This pass validates the tested first-generation transaction and bounded
+This pass validates the tested first-generation transaction and exact
 rollback. It does not authorize live host registration, activation, boot
 linkage, Tailscale migration, desktop switching, or removal of the pilot root.
 
@@ -61,7 +61,7 @@ All nine named subtests completed:
    links and direct extra root without changing live activation;
 8. exact rollback was idempotent and restored the active-unregistered state;
    and
-9. disposable cleanup removed the canary and pilot fixture and left bounded
+9. disposable cleanup removed the canary and pilot fixture and left only expected
    empty version-0 manager state.
 
 Throughout the test, the container's `/etc/nix/nix.conf`, `/etc/passwd`,

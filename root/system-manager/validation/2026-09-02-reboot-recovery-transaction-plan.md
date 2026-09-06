@@ -144,7 +144,7 @@ The disposable test must prove:
    generation three and removes the recovery surface;
 10. final cleanup returns the container to empty, unregistered System Manager
    state; and
-11. the bounded manager surface and protected Nix, passwd, group, and shadow
+11. the declared manager surface and protected Nix, passwd, group, and shadow
     files remain unchanged outside the intended transitions.
 
 After the build, the root wrapper reclassifies the real host and refuses

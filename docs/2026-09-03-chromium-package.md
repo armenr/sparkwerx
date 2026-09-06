@@ -74,7 +74,7 @@ The preferred next design is a narrow graphical root role that installs this
 exact version-matched helper at Chromium's expected `/run/wrappers/bin` path as
 root-owned mode `4755`. This matches the locked Nixpkgs
 [`security.chromiumSuidSandbox` module](https://github.com/NixOS/nixpkgs/blob/9387b3fcc0c23c86661636da63faabad4235a0a6/nixos/modules/security/chromium-suid-sandbox.nix).
-It is still a setuid/root-security change, so it requires a new bounded System
+It is still a setuid/root-security change, so it requires a dedicated System
 Manager generation, disposable test, collision snapshot, timed rollback, and
 separate live authorization. An exact-path AppArmor user-namespace profile is a
 possible alternative, but it likewise belongs in that reviewed root role and

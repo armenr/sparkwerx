@@ -8,6 +8,13 @@ before anything is installed.
 This is not a license registry. Record free/unfree status only when it affects
 Nix evaluation, redistribution, or the installation method.
 
+Read [current status](status.md) for what's active now and
+[configuration](configuration.md) for how selections are made. Versions and
+closure sizes below are dated measurements, not a claim to track today's
+upstream automatically. Historical root milestones describe the state at each
+milestone; the retained pilot is now generation five with Nix-owned Tailscale
+and headless mode.
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

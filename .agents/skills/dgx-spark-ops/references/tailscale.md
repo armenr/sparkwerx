@@ -3,28 +3,28 @@
 ## Read this before touching Tailscale
 
 Tailscale is not part of the NVIDIA factory substrate. It is the current remote
-management plane and must ultimately be owned by this repository. The manual apt
-installation on `sparkle-01` is a working bootstrap and migration source, not a
-permanent exception.
+management plane and is Nix-owned on `sparkle-01`. Generation four took over
+the service; current headless generation five inherits it unchanged. The
+manual apt package remains installed only as inactive recovery material.
 
 Do not casually replace it with `pkgs.tailscale`. At the 2026-08-23 baseline:
 
-- the installed official apt package is Tailscale `1.102.3` for `arm64`;
-- Tailscale SSH is enabled and working;
-- `tailscaled.service` is active, enabled, and wanted by
+- the installed official apt package was Tailscale `1.102.3` for `arm64`;
+- Tailscale SSH was enabled and working;
+- `tailscaled.service` was active, enabled, and wanted by
   `multi-user.target`; and
-- this repository's locked stable/apps Nixpkgs provide only `1.98.10` and
+- this repository's locked stable/apps Nixpkgs provided only `1.98.10` and
   `1.102.2`, respectively; and
-- `packages.aarch64-linux.tailscale` pins current stable `1.102.3` from the
-  official ARM64 tarball, and both it and the inert unit output have passed a
+- `packages.aarch64-linux.tailscale` pinned stable `1.102.3` from the
+  official ARM64 tarball, and both it and the inert unit output passed a
   no-link build/SBOM review.
 
 Those are dated observations, not eternal pins. Re-audit before planning a
 change. They explain why the reviewed custom derivation currently exists:
-using either locked stock package today would downgrade the machine's
+using either of those stock versions would downgrade the machine's
 remote-access daemon. Building the adapter did not migrate service ownership.
 
-## Intended ownership
+## Ownership
 
 | Concern | Owner and location |
 | --- | --- |
@@ -33,7 +33,7 @@ remote-access daemon. Building the adapter did not migrate service ownership.
 | Node identity and daemon state | Mutable root-owned state under `/var/lib/tailscale`; never copy into Git or the Nix store |
 | Tailscale SSH preference | Declarative desired state applied without embedding an auth key |
 | Tailnet ACLs, grants, SSH policy, and device approval | Tailscale control-plane state; document and manage separately from the host package |
-| Enrollment/auth keys | External secret storage and bounded provisioning; never Git, logs, derivations, or world-readable files |
+| Enrollment/auth keys | External secret storage and host-specific provisioning; never Git, logs, derivations, or world-readable files |
 
 Do not put this host networking and SSH service in a container. It must start at
 normal multi-user boot, survive graphical-session changes, own host networking
@@ -100,7 +100,7 @@ belong in inventory, chat, or CI logs.
 Compare four values separately:
 
 1. the running/installed version;
-2. the repository pin, once one exists;
+2. the repository pin;
 3. `pkgs.tailscale.version` from this repository's locked Nixpkgs; and
 4. the current official stable candidate.
 
@@ -111,9 +111,9 @@ official changelog and security bulletins. A newer version is only
 compatibility, and rollback are reviewed. An older candidate is `HOLD`; never
 downgrade the access plane to make package ownership look tidy.
 
-## Update procedure
+## Updating the package and service
 
-Before an update or the initial apt-to-Nix migration:
+Package review and live root deployment are different operations:
 
 1. Capture the sanitized audit fields, the active unit source, and the current
    root configuration generation. Do not export node identity or daemon state.
@@ -129,17 +129,22 @@ Before an update or the initial apt-to-Nix migration:
    state paths, `multi-user.target` enablement, and a single deliberate daemon
    restart. Never put an auth key in a Nix derivation or command line captured
    by logs.
-6. Verify physical console or another independent recovery path. Arm an
-   automatic rollback/restart guard before cutting over.
-7. Activate on `sparkle-01` only through `scripts/dgx-tailscale migrate`. Expect
-   the current Tailscale SSH connection to terminate when `tailscaled` restarts;
-   the detached worker and persistent rollback continue independently.
-8. Reconnect and run `scripts/dgx-tailscale status`. Healthy same-boot state is
-   `AWAITING_REBOOT`, not a completed migration. Separately authorize and
-   perform one reboot while the rollback remains armed, reconnect again, and
-   require `AWAITING_CONFIRMATION` before running `confirm`.
-9. Keep the previous package and root configuration generation until remote
-   access, reboot, and headless-mode tests pass.
+6. Treat a changed root fingerprint as a separate root-generation deployment,
+   not permission to activate from a dependency updater. A general later-root
+   upgrade operator is not implemented yet; prepare and test that transaction
+   before a live service update.
+7. For an approved live deployment, verify independent recovery, arm automatic
+   rollback before the handoff, and expect the Tailscale SSH connection to end.
+   Reconnect and verify identity, SSH, unit ownership, and headless reachability.
+   Reboot validation is a separately planned host action.
+8. Retain the previous package and root generation until the deployment's
+   access and recovery checks pass. Do not remove apt fallback implicitly.
+
+`dgx-tailscale migrate` is **not** an update command. It expects the original
+generation-three/vendor state and byte-identical apt/Nix binaries. Reusing it
+for a later release or the retained generation-five host is incorrect.
+
+## Completed pilot migration
 
 These gates passed on `sparkle-01` on 2026-09-05. Exact generation four took
 ownership, and current headless generation five inherits its Nix unit and
@@ -150,8 +155,11 @@ retained only as inactive fallback material. Access-plane authority is
 `root/tailscale/validation/2026-09-05-host-attempt-2.md`; current host authority
 is `root/desktop/validation/2026-09-05-host-attempt-2.md`.
 
-For the one-time migration, do not remove the apt package or repository first.
-The reviewed operator is now the runbook:
+The following is the historical one-time migration sequence, not instructions
+for the current retained pilot. New hosts use
+[`dgx-setup converge`](../../../../docs/getting-started.md) and its independent
+optional-access workflow. The original migration deliberately kept the apt
+package and repository in place:
 
 ```bash
 ./scripts/dgx-tailscale plan
@@ -169,18 +177,19 @@ disposable lifecycle, validates byte-identical apt/Nix binaries, snapshots only
 sanitized metadata plus protected-file hashes, roots both rollback closures,
 and arms the timer before launching the detached handoff. `confirm` refuses the
 original boot. `rollback` restores generation three and the apt unit;
-`cleanup-rolled-back` removes only a verified guard after rollback. Remove apt
-ownership only after the Nix-managed daemon has survived the guarded reboot and
-a fresh Tailscale SSH connection.
+`cleanup-rolled-back` removes only a verified guard after rollback. Retiring
+the apt fallback remains a separate cleanup decision even after a successful
+reboot and reconnect.
 
 The reusable migration proof is
 `scripts/test-tailscale-unit-lifecycle.sh`. It runs the apt-shaped vendor unit,
 generation-three preservation, injected post-registration failure, generation-
 four takeover with one explicit restart, a candidate reboot, exact generation-
 three rollback, a vendor reboot, and persistent unconfirmed-reboot rollback
-entirely inside a disposable container. It accepts only the exact real-host
-generation-three/vendor boundary or the exact generation-four/Nix-managed
-boundary and compares the host daemon PID/start time before and after. Passing
+entirely inside a disposable container. Its host wrapper accepts exact
+generation-three/vendor ownership, generation-four/Nix ownership, or confirmed
+headless generation-five/inherited Nix ownership, and compares the host daemon
+PID/start time before and after. Passing
 this test does not authorize a live restart.
 
 ## Headless and rollback invariants

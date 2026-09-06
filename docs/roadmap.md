@@ -1,5 +1,24 @@
 # Roadmap
 
+[Documentation](README.md) · [Current status](status.md) ·
+[Configuration](configuration.md)
+
+## Remaining work at a glance
+
+The headless pilot and complete fresh-host integration gate have passed.
+The main unfinished pieces are:
+
+- a tested operator for returning a retained headless host to factory GNOME;
+- graphical integration for Ghostty, Chromium, Zed, LM Studio, and Hyprland;
+- reproducible ChatGPT and browser-extension packaging;
+- a general later-root-generation update lifecycle and broader user/package choices;
+- the first real second-host deployment; and
+- separately selected AI/robotics workloads and multi-node validation.
+
+These are remaining tasks, not deployed capabilities or automatic installation
+instructions. The detailed phases below retain the original sequence and
+completed milestones; do not replay a historical pilot step on the live host.
+
 ## Phase 0: baseline, decisions, and scaffold
 
 - [x] Confirm OS, architecture, driver, display manager, and storage
@@ -39,7 +58,7 @@ the measured software manifest; evaluation did not authorize realization.
       2.35.1 rollback environment and verify daemon/build/Tailscale continuity
 - [x] Resolve the Nix systemd daemon-reload warning during the approved runtime
       rollout; restart only nix-daemon and verify GDM/Tailscale continuity
-- [x] Select and pin System Manager 1.1.0 as the bounded non-NixOS
+- [x] Select and pin System Manager 1.1.0 as the minimal non-NixOS
       candidate; build and inspect its inert 109-path / 230.0 MiB ARM64 closure,
       force its private wrapper to Nix 2.35.2, and reject Nix/user/wrapper/PATH/
       boot defaults
@@ -48,7 +67,7 @@ the measured software manifest; evaluation did not authorize realization.
       an unmanaged-rule regression sentinel, rebuild policy, and verify the host
       remained untouched
 - [x] Pass the exact patched `sudo ./scripts/test-root-canary.sh` derivation;
-      prove bounded activation/deactivation, an untouched unmanaged tmpfiles
+      prove exact activation/deactivation, an untouched unmanaged tmpfiles
       sentinel, and clean host postflight without activating or registering the
       host
 - [x] Pass the non-configuring host collision/service preflight and prove from
@@ -234,7 +253,7 @@ approval, graphical validation, activation approval, and rollback.
       roles, review plan/SBOM, guarded converge, and health verification—after
       its combined disposable gate passed
 - [ ] Add the remaining host definitions and explicit user-overlay mappings
-- [x] Add bounded Nix bootstrap plus optional Tailscale ownership/enrollment
+- [x] Add guarded Nix bootstrap plus optional Tailscale ownership/enrollment
       handoff; keep authentication and node identity external
 - [ ] Establish pilot and rollout rings
 - [ ] Add drift checks for the DGX substrate, Nix generations, desktop mode,

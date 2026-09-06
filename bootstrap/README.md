@@ -1,5 +1,8 @@
 # Bootstrap boundary
 
+For a new machine, start with [getting started](../docs/getting-started.md).
+This is the detailed Nix bootstrap contract, not the complete setup sequence.
+
 Nix is the one unavoidable bootstrap exception on a factory DGX: an absent Nix
 cannot install itself. This repository therefore keeps the bootstrap inputs in
 plain JSON so the host declaration and installer provenance can be reviewed
@@ -33,7 +36,8 @@ artifact with:
 ./scripts/update-nix-installer.sh --check
 ```
 
-`--apply` updates only `nix/source.json`; it never executes the installer. The
+`--apply` updates only `nix/source.json`; it never installs Nix or activates
+host configuration. Verification runs the downloaded binary's version check. The
 full dependency updater invokes this verified pin updater before the flake
 refresh.
 
@@ -101,8 +105,10 @@ The live Nix runtime is a separately reviewed root concern. The default
 `upgrade-nix` fallback points backward and must not be run. Read the exact
 [Nix runtime diagnosis and candidate](../root/nix/README.md).
 
-System Manager generation three is the retained, boot-linked canary foundation
-for future bounded root roles. It still owns no Nix configuration, desktop, or
-Tailscale state. Read
+System Manager generation three was the boot-linked canary foundation. The
+pilot is now on generation five, which adds Nix-owned Tailscale and headless
+target control without taking over Nix configuration or mutable node identity.
+New hosts follow the separate [two-generation convergence workflow](../docs/fresh-host-convergence.md).
+Read
 [root/system-manager/README.md](../root/system-manager/README.md) before any
 broader root change.

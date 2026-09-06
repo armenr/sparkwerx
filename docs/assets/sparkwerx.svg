@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-labelledby="title desc">
+  <title id="title">Sparkwerx</title>
+  <desc id="desc">Factory core. Your stack. Repeatable. Nix-powered configuration for NVIDIA DGX Spark.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#101a22"/>
+      <stop offset="1" stop-color="#172d2d"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#95f7cb" stroke-opacity=".055"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="280" rx="20" fill="url(#background)"/>
+  <rect width="1200" height="280" rx="20" fill="url(#grid)"/>
+  <path d="M52 59h34" stroke="#b5f36d" stroke-width="5" stroke-linecap="round"/>
+  <g font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
+    <text x="101" y="65" fill="#9cbea9" font-size="15" letter-spacing="3">NIX-POWERED / DGX SPARK</text>
+    <text x="50" y="156" fill="#f0f6ef" font-size="79" font-weight="750" letter-spacing="-3">Sparkwerx<tspan fill="#b5f36d">.</tspan></text>
+    <text x="55" y="214" fill="#b3c8c3" font-size="24">Factory core. Your stack. Repeatable.</text>
+  </g>
+  <g fill="none" stroke="#52746b" stroke-width="2">
+    <path d="M823 86h69l35 54h87M823 194h69l35-54"/>
+    <rect x="778" y="65" width="46" height="42" rx="9"/>
+    <rect x="778" y="173" width="46" height="42" rx="9"/>
+    <rect x="1014" y="104" width="75" height="72" rx="14" stroke="#b5f36d"/>
+    <path d="M1051 78V62m0 157v-17m62-62h17" stroke="#b5f36d"/>
+  </g>
+  <path d="m1056 119-18 25h13l-4 19 18-27h-13z" fill="#b5f36d"/>
+  <circle cx="801" cy="86" r="4" fill="#86ccb2"/>
+  <circle cx="801" cy="194" r="4" fill="#86ccb2"/>
+  <circle cx="927" cy="140" r="5" fill="#b5f36d"/>
+</svg>

@@ -98,7 +98,7 @@ by a complete clean-tree rerun:
   store.
 - `cc1069cbce87974a545095b3361b78837d618437` persisted the disposable host's
   declared name through reboot and replaced a silent 15-minute wait with a
-  bounded diagnostic wait. Before that fix, the generic transaction correctly
+  timed diagnostic check. Before that fix, the generic transaction correctly
   rejected the `sparkle-01` candidate after the fixture reverted to `ubuntu`;
   the refusal was useful proof that cross-host candidates fail closed.
 

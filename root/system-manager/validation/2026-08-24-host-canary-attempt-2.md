@@ -1,6 +1,6 @@
 # System Manager host canary attempt 2 — 2026-08-24
 
-This record documents the second bounded live activation of the exact System
+This record documents the second live activation of the exact System
 Manager canary on `sparkle-01`. The corrected helper passed its full automatic
 activation and post-activation checks. The required `KEEP CANARY` confirmation
 was not entered because Enter was pressed accidentally, so the helper failed
@@ -39,7 +39,7 @@ before activation.
   Tailscale state, and collision boundary.
 - It armed `dgx-root-canary-rollback.timer` for ten minutes, with its transient
   service bound to the exact candidate's `bin/deactivate` program.
-- Low-level activation completed and wrote the bounded version-1 state.
+- Low-level activation completed and wrote the exact version-1 state.
 - `2026-08-24T07:07:29Z`: corrected automatic postflight passed.
 - The confirmation prompt received an empty line instead of exactly
   `KEEP CANARY`. The helper exited and correctly left rollback armed.

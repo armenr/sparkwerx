@@ -1,5 +1,8 @@
 # User overlays
 
+[Documentation](README.md) · [Configuration](configuration.md) ·
+[Current status](status.md)
+
 A user overlay is a named, opt-in layer above the fleet base, host desktop
 mode, and shared graphical role. It exists so personal tools never become fleet
 defaults.
@@ -45,8 +48,11 @@ Current package evidence:
 - [LM Studio 0.4.23-1](2026-09-03-lmstudio-package.md)
 
 The graphical overlay is inactive in `headless` mode. Its selection persists in
-Git so returning to a graphical mode restores the intended package graph, but
-headless activation must not launch or autostart these applications.
+Git, but selecting a graphical mode does not yet install these candidate apps:
+their profile wiring and runtime checks remain unfinished. Headless activation
+must not launch or autostart them. The intended overlay model is broader than
+the currently tested user lifecycle; see
+[configuration limits](configuration.md#current-limits).
 
 ## Codex permission defaults
 

@@ -102,7 +102,7 @@ Same-boot checks remain unchanged and strict.
 Attempt three then passed the exact 12-subtest predecessor. A subsequent live
 workflow review found that an operator who armed recovery but canceled the
 maintenance window had no exact supported way to disarm without rebooting. The
-current transaction and 13th subtest add that bounded cancellation path. The
+current transaction and 13th subtest add that same-boot cancellation path. The
 third attempt remains historical evidence for its exact predecessor but no
 longer matches the current transaction/test derivation.
 

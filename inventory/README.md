@@ -12,7 +12,7 @@ contain hostnames and software versions, but must not contain:
   unfiltered status/preferences, auth keys, or policy contents;
 - 1Password item names or secret references.
 
-Use `scripts/collect-baseline.sh` to print the bounded JSON snapshot reviewed by
+Use `scripts/collect-baseline.sh` to print the selected JSON inventory reviewed by
 this project. Raw diagnostic bundles belong outside Git.
 
 Keep the original dated baseline intact. Record later approved host changes as

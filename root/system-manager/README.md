@@ -1,6 +1,12 @@
 # System Manager root canary
 
-This directory documents the bounded non-NixOS root-manager pilot for the
+**Detailed pilot runbook and history.** For a new machine, use
+[getting started](../../docs/getting-started.md) and the separate
+[fresh-host lifecycle](../../docs/fresh-host-convergence.md). For the latest
+retained state, read [status](../../docs/status.md). The historical commands and
+snapshots below are not a sequence to replay on the current host.
+
+This directory documents the minimal non-NixOS root-manager pilot for the
 existing Ubuntu-based DGX OS substrate. The configuration is defined by
 `hosts/sparkle-01/system.nix` and `modules/system/minimal-root.nix`.
 
