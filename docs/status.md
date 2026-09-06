@@ -34,8 +34,10 @@ passed at commit `cc1069cbce87974a545095b3361b78837d618437`. It covers:
 - factory/headless transitions and persistent rollback across three container reboots;
 - the real pilot's plan/apply/converge paths remaining exact no-ops.
 
-Still to test on hardware: provisioning a second Spark and rebooting the pilot
-in headless generation five. The Tailscale reboot test ran on generation four.
+The pilot also booted into headless generation five during the
+[one-boot KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md),
+with Tailscale and the expected services active. Provisioning a second Spark
+remains to be tested on hardware.
 
 ## What is not ready
 
@@ -43,7 +45,7 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | Package/network checks, offscreen NVIDIA rendering, and short H.264/HEVC/AV1 NVENC tests passed. The first Hyprland capture attempt failed at KMS/backend startup. The root-readable KMS inspection passed; [one-boot trial tooling](nvidia-kms.md) is prepared but no KMS boot has occurred. Independent local recovery is required before the hardware trial. Real capture, input/audio, streaming, and sustained performance remain unproven. See [remote desktop](remote-desktop.md) |
+| Remote desktop | The [one-boot KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md) passed, with headless/access services healthy. Offscreen rendering and short H.264/HEVC/AV1 NVENC tests passed again with KMS enabled. Retry the temporary Hyprland capture test next; real capture, input/audio, streaming, and sustained performance remain unverified. KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
 | KDE | Package selection, host integration, and validation |

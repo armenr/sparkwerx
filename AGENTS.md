@@ -64,7 +64,11 @@ That preparation is now selected: read [the KMS plan](docs/nvidia-kms.md).
 selection. Both are host changes, never reboot commands. Read the KMS plan
 before using them; independent keyboard/display/power recovery is required.
 The trial consumes and reads back a GRUB marker before adding the KMS argument.
-Failed marker I/O uses the original arguments. Firmware behavior remains untested.
+Failed marker I/O uses the original arguments. The pilot's
+[first KMS boot](root/graphics/validation/2026-09-06-kms-test-boot.md) consumed
+the marker and loaded KMS; failure/repeated-selection cases remain offline tests.
+The trial entry/snapshot/code remain, with no confirmation timer. Do not re-arm,
+cancel, or reboot as incidental cleanup; inspect current status first.
 Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
 recognized GRUB header is not proof of boot-time environment write capability.
 

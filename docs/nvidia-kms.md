@@ -13,6 +13,12 @@ Enabling it is an optional host-configuration exception, not a new GPU driver.
 Other hosts keep their factory setting unless they select and validate this
 graphical role.
 
+The pilot's [first trial boot passed](../root/graphics/validation/2026-09-06-kms-test-boot.md):
+KMS loaded, the one-use marker was consumed, and the normal GRUB configuration
+stayed unchanged. Headless/access services and short rendering/encoding checks
+passed afterward. Temporary Hyprland capture is next; KMS is not permanently
+enabled.
+
 ## Current commands
 
 ```bash
@@ -107,8 +113,9 @@ future boot-time disk write. The trial therefore adds the KMS argument only if
 GRUB successfully saves a unique marker as consumed and reads that value back.
 A failed save/read, missing marker, or already-consumed marker leaves the
 factory boot arguments in effect—even if the trial menu selection repeats.
-These conditionals have algorithm and parser tests; actual firmware behavior
-still needs the first hardware trial. See the GNU documentation on
+These conditionals have algorithm and parser tests. The first pilot boot
+confirmed successful marker consumption and KMS loading; failed marker I/O and
+repeated-selection recovery have not been exercised on hardware. See the GNU documentation on
 [environment storage](https://www.gnu.org/software/grub/manual/grub/html_node/Environment-block.html)
 and [one-boot selection](https://www.gnu.org/software/grub/manual/grub/html_node/next_005fentry.html).
 
