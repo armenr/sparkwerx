@@ -22,14 +22,19 @@ if [[ "${1:-}" == inspect ]]; then
   exec sudo -- "$inspect_bundle/bin/dgx-remote-desktop-session-inspect" "$2"
 fi
 preset="${1:-4k120}"
-if [[ "$#" -gt 1 || ! "$preset" =~ ^(1440p120|4k60|4k120)$ ]]; then
-  printf '%s\n' 'Usage: ./scripts/test-remote-desktop-session.sh [1440p120|4k60|4k120]' >&2
+if [[ "$#" -gt 1 || ! "$preset" =~ ^(1440p120|4k60|4k120|check-kms)$ ]]; then
+  printf '%s\n' 'Usage: ./scripts/test-remote-desktop-session.sh [1440p120|4k60|4k120|check-kms]' >&2
   exit 1
 fi
 nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
   .#remote-desktop-session-test .#remote-desktop-capture-policy
 test_bundle="$(nix --extra-experimental-features 'nix-command flakes' \
   eval --raw --no-write-lock-file .#remote-desktop-session-test.outPath)"
+
+if [[ "$preset" == check-kms ]]; then
+  # Only read the loaded kernel parameter. No graphics, module, or service call.
+  exec sudo -- "$test_bundle/bin/dgx-remote-desktop-session-test" --check-kms
+fi
 
 # The immutable bundle contains all privileged code. No command is downloaded
 # or evaluated as root. Its transient unit ends automatically if SSH disappears.

@@ -35,7 +35,10 @@ PRESETS = {
     "4k60": {"width": 3840, "height": 2160, "fps": 60},
     "4k120": {"width": 3840, "height": 2160, "fps": 120},
 }
-RUNTIME = Path("/run/sparkwerx-session")
+# Keep this private-namespace path short: Hyprland appends its commit/time/random
+# instance signature and a socket name inside Linux's 107-byte pathname limit.
+RUNTIME = Path("/run/sw")
+KMS_MODESET = Path("/sys/module/nvidia_drm/parameters/modeset")
 RESULT = Path("/run/sparkwerx-result/result.json")
 SERVICE_PREFIX = "dgx-capture-test-"
 
@@ -64,6 +67,37 @@ def run(args, **kwargs):
 
 def text(args, **kwargs):
     return run(args, **kwargs).stdout.decode().strip()
+
+
+def kms_enabled():
+    # Read the loaded module, not a config file that might have been overridden
+    # or changed after boot. In particular, NVIDIA ships a modeset=0 package.
+    value = KMS_MODESET.read_text(encoding="ascii").strip()
+    if value not in ("Y", "N"):
+        raise ValueError("unexpected NVIDIA DRM modeset value; no graphics started")
+    return value == "Y"
+
+
+def check_kms():
+    # A deliberately read-only branch: no GPU open/ioctl, subprocess, service,
+    # snapshot, config write, module reload, or inference from connector count.
+    if os.geteuid() != 0 or platform.machine() != "aarch64" or socket.gethostname() != "sparkle-01":
+        raise ValueError("this check requires sudo on the reviewed sparkle-01 pilot")
+    enabled = kms_enabled()
+    print("NVIDIA_DRM_MODESET=" + ("Y" if enabled else "N"))
+    print("KMS_STATUS=" + ("ENABLED" if enabled else "DISABLED"))
+    print("READ_ONLY: no graphics, driver setting, service, or boot change was performed.")
+    if not enabled:
+        print("HOLD: KMS must be enabled through a separately reviewed host change before capture.")
+
+
+def validate_ipc_path(runtime_dir):
+    # Match the pinned constructor's 40-char commit, time_t, and 31-bit random
+    # suffix. Reserve 20 timestamp digits rather than depending on today's date.
+    signature = "f" * 40 + "_" + "9" * 20 + "_" + "9" * 10
+    for name in (".socket.sock", ".socket2.sock"):
+        if len(os.fsencode(runtime_dir / "hypr" / signature / name)) > 107:
+            raise ValueError("private runtime path is too long for Hyprland IPC")
 
 
 def unit_properties(result_dir):
@@ -196,7 +230,7 @@ def session_environment(directory, version, tools):
             "PATH": "/usr/bin:/bin",
             "LANG": "C.UTF-8",
             "HOME": str(directory),
-            "XDG_RUNTIME_DIR": str(directory / "runtime"),
+            "XDG_RUNTIME_DIR": str(directory / "r"),
             "XDG_CONFIG_HOME": str(directory / "config"),
             "XDG_CACHE_HOME": str(directory / "cache"),
             "XDG_DATA_HOME": str(directory / "data"),
@@ -265,8 +299,9 @@ def capture_session(tools, preset_name, version):
     if not re.search(r"^CapEff:\s+0+$", status, re.MULTILINE):
         raise RuntimeError("compositor user still has effective capabilities")
     directory = RUNTIME / "user"
+    validate_ipc_path(directory / "r")
     env = session_environment(directory, version, tools)
-    for name in ("runtime", "config", "cache", "data", "state"):
+    for name in ("r", "config", "cache", "data", "state"):
         (directory / name).mkdir(mode=0o700)
     preset = PRESETS[preset_name]
     config = directory / "hyprland.conf"
@@ -331,7 +366,9 @@ def capture_session(tools, preset_name, version):
                     time.sleep(0.1)
             stop(client)
             client = None
-        check_renderer((directory / "runtime/hypr" / signature / "hyprland.log").read_text())
+        check_renderer(
+            (Path(env["XDG_RUNTIME_DIR"]) / "hypr" / signature / "hyprland.log").read_text()
+        )
         # Only generated pixels were read; do not persist screenshots.
         (directory / "frames.json").write_text(json.dumps(frames))
     except subprocess.CalledProcessError as error:
@@ -478,6 +515,11 @@ def preflight():
         raise ValueError("this hardware test requires sudo on the reviewed sparkle-01 pilot")
     if str(ROOT_PROFILE.resolve(strict=True)) != PILOT:
         raise ValueError("live root profile is not the reviewed headless generation five")
+    if not kms_enabled():
+        raise ValueError(
+            "NVIDIA DRM KMS is disabled (modeset=N); no graphics started. "
+            "Enabling it needs a separately reviewed host change, not a permission workaround."
+        )
     before = host_snapshot()
     if "NeedDaemonReload=yes" in before["units_profile"][0]:
         raise ValueError("a protected unit has a pending daemon reload")
@@ -676,7 +718,13 @@ def main():
     parser.add_argument("--preset", choices=PRESETS, default="4k120")
     parser.add_argument("--driver")
     parser.add_argument("--user")
+    parser.add_argument("--check-kms", action="store_true")
     args = parser.parse_args()
+    if args.check_kms:
+        if args.action != "host":
+            parser.error("--check-kms is a host-only read-only check")
+        check_kms()
+        return
     os.umask(0o077)
     for number in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(number, interrupted)

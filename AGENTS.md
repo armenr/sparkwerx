@@ -54,6 +54,10 @@ It starts real Hyprland briefly inside a private transient service, not through
 the root desktop controller. Its 150-second deadline and host postflight must
 remain intact. The prepared diagnostic has not yet passed on hardware; don't
 claim otherwise from its offline policy tests or successful build.
+Use its read-only `check-kms` argument before retrying capture. The pilot has
+NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
+reload GPU modules as an incidental fix. KMS changes require a separate host
+configuration and boot plan. The test rejects loaded `modeset=N` before launch.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full

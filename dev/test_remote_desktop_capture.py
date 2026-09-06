@@ -2,6 +2,7 @@
 
 import errno
 import importlib.util
+import io
 import json
 import os
 import socket
@@ -18,6 +19,81 @@ spec.loader.exec_module(capture)
 
 
 class CaptureTests(unittest.TestCase):
+    def test_private_ipc_paths_fit_with_the_full_upstream_instance_signature(self):
+        capture.validate_ipc_path(capture.RUNTIME / "user/r")
+        for runtime in (
+            Path("/run/sparkwerx-session/user/runtime"),
+            Path("/run/" + "x" * 80),
+            Path("/run/" + "\u00e9" * 10),
+        ):
+            with self.subTest(runtime=runtime), self.assertRaisesRegex(ValueError, "too long"):
+                capture.validate_ipc_path(runtime)
+
+    def test_kms_uses_only_the_loaded_kernel_boolean(self):
+        for value, expected in (("Y\n", True), ("N\n", False)):
+            with mock.patch.object(capture, "KMS_MODESET") as parameter:
+                parameter.read_text.return_value = value
+                self.assertIs(capture.kms_enabled(), expected)
+                parameter.read_text.assert_called_once_with(encoding="ascii")
+        for value in ("", "1", "enabled", "unknown"):
+            with mock.patch.object(capture, "KMS_MODESET") as parameter:
+                parameter.read_text.return_value = value
+                with self.assertRaisesRegex(ValueError, "unexpected"):
+                    capture.kms_enabled()
+
+    def test_unreadable_kms_state_is_not_treated_as_enabled(self):
+        with mock.patch.object(capture, "KMS_MODESET") as parameter:
+            parameter.read_text.side_effect = PermissionError("private kernel parameter")
+            with self.assertRaises(PermissionError):
+                capture.kms_enabled()
+
+    def test_disabled_kms_stops_preflight_before_snapshots_or_any_subprocess(self):
+        with (
+            mock.patch.object(capture.os, "geteuid", return_value=0),
+            mock.patch.object(capture.platform, "machine", return_value="aarch64"),
+            mock.patch.object(capture.socket, "gethostname", return_value="sparkle-01"),
+            mock.patch.object(capture, "ROOT_PROFILE") as profile,
+            mock.patch.object(capture, "kms_enabled", return_value=False),
+            mock.patch.object(capture, "host_snapshot") as snapshot,
+            mock.patch.object(capture.subprocess, "run") as run,
+            self.assertRaisesRegex(ValueError, "KMS is disabled"),
+        ):
+            profile.resolve.return_value = capture.PILOT
+            capture.preflight()
+        snapshot.assert_not_called()
+        run.assert_not_called()
+
+    def test_kms_check_only_reports_the_setting_and_never_starts_the_test(self):
+        for enabled in (False, True):
+            with (
+                mock.patch.object(
+                    capture.sys,
+                    "argv",
+                    [
+                        "session-test.py",
+                        "host",
+                        "--tools",
+                        "/not/read.json",
+                        "--check-kms",
+                    ],
+                ),
+                mock.patch.object(capture.os, "geteuid", return_value=0),
+                mock.patch.object(capture.platform, "machine", return_value="aarch64"),
+                mock.patch.object(capture.socket, "gethostname", return_value="sparkle-01"),
+                mock.patch.object(capture, "kms_enabled", return_value=enabled),
+                mock.patch.object(capture, "host") as host,
+                mock.patch.object(capture.subprocess, "run") as run,
+                mock.patch.object(capture.subprocess, "Popen") as popen,
+                mock.patch.object(Path, "write_text") as write,
+                mock.patch.object(Path, "mkdir") as mkdir,
+                mock.patch.object(capture.os, "umask") as umask,
+                mock.patch.object(capture.sys, "stdout", new_callable=io.StringIO) as output,
+            ):
+                capture.main()
+            self.assertIn("KMS_STATUS=" + ("ENABLED" if enabled else "DISABLED"), output.getvalue())
+            for call in (host, run, popen, write, mkdir, umask):
+                call.assert_not_called()
+
     def test_renderer_must_be_nvidia_gb10_not_a_cpu_or_another_gpu(self):
         capture.check_renderer(
             "[DEBUG] Vendor: NVIDIA Corporation\n[DEBUG] Renderer: NVIDIA GB10/PCIe/SSE2\n"
@@ -245,6 +321,7 @@ class CaptureTests(unittest.TestCase):
             for name in ("DISPLAY", "WAYLAND_DISPLAY", "LD_PRELOAD", "DBUS_SESSION_BUS_ADDRESS"):
                 self.assertNotIn(name, env)
             self.assertEqual(env["SEATD_SOCK"], "/run/seatd.sock")
+            self.assertEqual(env["XDG_RUNTIME_DIR"], str(root / "r"))
             self.assertEqual(env["AQ_DRM_DEVICES"], "/dev/dri/card1")
             self.assertEqual(env["GBM_BACKENDS_PATH"], str(root / "driver"))
             self.assertEqual(env["HYPRLAND_NO_SD_VARS"], "1")

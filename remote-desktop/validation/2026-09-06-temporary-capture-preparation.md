@@ -88,3 +88,42 @@ compositor's native diagnostics. It now also recognizes the
 seatd errors, and C++ exception/abort messages, with the same redaction and
 read-only behavior. This is a diagnostic correction, not a GPU startup fix;
 the hardware test bundle and its isolation settings are unchanged.
+
+## Startup blockers identified
+
+The expanded inspection of the same attempt exposed two independent issues:
+
+- The private `XDG_RUNTIME_DIR` made Hyprland's full event-socket path exceed
+  the 107-byte Linux pathname limit. The runtime now uses `/run/sw/user/r`
+  inside the existing private namespace. A pre-launch length check and
+  regression tests cover the full pinned signature, both socket names,
+  and byte length rather than character count. No persistent host path moved.
+- Aquamarine rejected NVIDIA `card1` as non-KMS and subsequently aborted with
+  no allocator. [Its pinned device check](https://github.com/hyprwm/aquamarine/blob/1a10fe26a9f7d989c359e6a9ea61aa2e44d06c36/src/backend/Session.cpp#L160)
+  uses `drmIsKMS`; [the matching NVIDIA driver](https://github.com/NVIDIA/open-gpu-kernel-modules/blob/580.173.02/kernel-open/nvidia-drm/nvidia-drm-drv.c#L1798)
+  omits KMS/atomic features when the modeset parameter is false.
+
+Read-only package inspection found `nvidia-drm-options-modeset0` version
+`25.07-1` owns `/etc/modprobe.d/zz-nvidia-drm-override.conf`, which contains
+`options nvidia-drm modeset=0`. Its package description identifies it as a
+system-compatibility override. The driver package's separate configuration
+sets `modeset=1`, but there is no DRM-modeset override in the running kernel
+command line and the NVIDIA card has no registered connector entries. This
+strongly points to disabled KMS; the root-readable **loaded parameter still
+needs direct confirmation**. A config file or missing connectors alone is not
+that confirmation.
+
+`check-kms` now reads that parameter without opening a GPU device or launching
+anything. Normal capture also refuses loaded `modeset=N` before snapshots or
+service creation. No driver config, module, package, initramfs, permission,
+headless state, or boot setting was changed. The input-device errors are
+expected denials from the private device namespace, not authorization to expose
+input. The long-socket fix does not resolve disabled KMS, and neither local
+tests nor this diagnosis establish successful hardware capture.
+
+The revised bundle and policy build passed. The policy runs 23 capture tests
+and 12 inspector tests, plus the pinned Hyprland configuration parser.
+`./scripts/dev check` also passed: lint, documentation checks, 77 Python tests
+(one optional test skipped), the snapshot-parser regression, and Nix evaluation.
+No privileged capture retry or loaded-parameter check was run by the agent;
+sudo still requires the operator's password.

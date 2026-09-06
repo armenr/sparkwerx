@@ -132,6 +132,25 @@ no real virtual output has been created by these checks.
 
 ## Temporary capture test on the pilot
 
+Check the loaded NVIDIA DRM modesetting setting before attempting capture:
+
+```bash
+./scripts/test-remote-desktop-session.sh check-kms
+```
+
+This asks sudo only to read the current kernel parameter. It opens no GPU
+device, starts no graphics or service, and changes no configuration.
+`KMS_STATUS=DISABLED` stops this capture path; the test also checks it before
+creating a snapshot or starting its transient service. `ENABLED` establishes
+only this prerequisite, not successful capture.
+
+The pilot has NVIDIA's `nvidia-drm-options-modeset0` package, which supplies
+`/etc/modprobe.d/zz-nvidia-drm-override.conf` with `modeset=0`. The package file
+is not proof of the current loaded value, so the check reads sysfs instead.
+Do not delete that factory-owned file, purge its package, or reload GPU modules
+to get past the test. Enabling KMS needs a separately reviewed, reversible
+host configuration and boot plan while preserving the existing NVIDIA driver.
+
 This is a hardware diagnostic, not a remote-desktop installation. It needs
 explicit permission to start temporary graphics and a sudo password, but no
 local graphical login or confirmation phrase:
@@ -153,6 +172,8 @@ access are checked before the compositor starts. Host session/system D-Bus
 sockets and user homes are hidden. A private root seatd broker handles DRM
 access without a VT switch. Hyprland and its clients run as the normal user
 with a temporary render-group membership and no effective capabilities.
+The private runtime path is deliberately short enough for Hyprland's full
+instance signature and Linux's Unix-socket pathname limit.
 
 The test verifies the named virtual output, reads back red and green frames
 through Grim, and checks Hyprland's log for the NVIDIA GB10 renderer. It stops
