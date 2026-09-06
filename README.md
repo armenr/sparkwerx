@@ -78,11 +78,13 @@ keeping NVIDIA DGX OS as the vendor-supported hardware-enablement layer.
   transactions and verifies retained Nix-managed Tailscale plus the System
   Manager headless role without restarting or switching them. Exact
   `sparkle-01` now returns `PLAN_STATUS=READY` and `APPLY_STATUS=COMPLETE` as a
-  true no-op. A separate resumable `scripts/dgx-setup converge` candidate now
+  true no-op. The resumable `scripts/dgx-setup converge` workflow now
   composes the pristine-host Nix, optional Tailscale, factory/reboot, headless,
   and generic Home stages without replaying the pilot history or performing a
-  reboot. Its combined root-assisted disposable gate remains required before
-  another DGX may use it.
+  reboot. Its complete clean-commit disposable and retained-host no-op gate
+  passed on 2026-09-06, making it the validated initial-setup path for another
+  declared ARM64 DGX; see the
+  [exact integration record](docs/2026-09-06-fresh-host-convergence-integration.md).
 - System Manager 1.1.0 is an exact, matching-branch root-manager candidate. Its
   109-path / 230.0 MiB ARM64 canary contains the exact-version
   `skip-empty-tmpfiles` safety patch and anti-downgrade policy. The exact
@@ -121,7 +123,7 @@ Start with the [decision register](docs/decision-register.md), then review the
 [docs/architecture.md](docs/architecture.md) for the ownership boundary,
 [docs/roadmap.md](docs/roadmap.md) for sequencing, and the
 [fresh-host convergence contract](docs/fresh-host-convergence.md) for the
-resumable clone-to-headless candidate. Read the
+validated resumable clone-to-headless workflow. Read the
 [Tailscale operations reference](.agents/skills/dgx-spark-ops/references/tailscale.md)
 before auditing, packaging, migrating, restarting, or updating Tailscale. Read
 [the Nix runtime diagnosis](root/nix/README.md) before running `upgrade-nix`,
@@ -181,7 +183,7 @@ disarming. Its exact disposable-host lifecycle passed; read the
 on another declared clean ARM64 Spark. This is a Nix-only bootstrap, not
 authorization for unified apply or any optional role.
 
-The candidate clone-to-headless operator is:
+The validated clone-to-headless operator is:
 
 ```bash
 ./scripts/dgx-setup converge <hostname>
@@ -192,8 +194,10 @@ disconnect and after the separately initiated first reboot. It never reboots.
 It advances only when the exact previous phase verifies, and both root phases
 start with persistent rollback. A normal new host is composed directly from
 `fleet/hosts.json` through generic Home and System Manager modules. This lane
-is not deployment-approved until its combined gate is recorded as passed; see
-the [fresh-host convergence contract](docs/fresh-host-convergence.md).
+passed its complete clean-commit integration gate on 2026-09-06; review the
+[fresh-host convergence contract](docs/fresh-host-convergence.md) and
+[exact evidence](docs/2026-09-06-fresh-host-convergence-integration.md) before
+using it on a newly declared host. Functional changes require a fresh gate.
 
 The guarded staged apply operator is:
 

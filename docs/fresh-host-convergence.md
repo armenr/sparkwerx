@@ -2,14 +2,18 @@
 
 ## Status
 
-The clone-and-converge implementation is complete as a candidate. Its non-root
-evaluations, builds, shell checks, and temporary-Home rollback tests pass. The
-clean-commit retained-host regression and combined root-assisted disposable
-lifecycle are still the final gate before this workflow is approved for
-another DGX.
+**Validated for newly declared ARM64 DGX Spark hosts.** The complete
+clone-and-converge implementation passed its clean-commit, root-assisted
+disposable lifecycle and retained-host no-op regression on 2026-09-06 at
+`cc1069cbce87974a545095b3361b78837d618437`. See the
+[exact integration record](2026-09-06-fresh-host-convergence-integration.md).
 
-Until that gate is recorded as passed, treat this document as an exact test
-plan rather than deployment authority.
+That validation authorizes this repository's guarded `converge` entry point
+for initial setup of a supported host after its factory updates, explicit
+declaration, and plan/SBOM review. It does not authorize a workload, graphical
+application, Hyprland/KDE integration, cleanup of fallback material, or a raw
+Nix/Home/System Manager activation. Any functional change to this lane must
+pass and record the same complete gate again.
 
 ## Intended operator experience
 
@@ -108,7 +112,7 @@ headless base, optional Tailscale role, and user overlay. It does not yet:
 Those remain separate reviewed lifecycles. Home package updates continue
 through `scripts/dgx-home update-headless`.
 
-## Final disposable gate
+## Validation gate
 
 From a clean committed tree, run as the declared user:
 
@@ -121,3 +125,9 @@ for disposable Ubuntu container tests of Nix installation and the complete
 optional-Tailscale/factory/reboot/headless/rollback lifecycle. Its final checks
 exercise the live pilot only through read-only or exact no-op entry points.
 It never reboots or transitions the live host.
+
+The gate passed from clean commit
+`cc1069cbce87974a545095b3361b78837d618437` on 2026-09-06. The exact
+derivations, hashes, subtests, live no-op results, and authority boundary are
+recorded in
+[the fresh-host convergence integration evidence](2026-09-06-fresh-host-convergence-integration.md).

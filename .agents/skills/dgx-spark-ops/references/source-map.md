@@ -105,6 +105,9 @@ updated date. Follow its source link to the playbook assets instead of copying a
 | Disposable desktop-mode lifecycle | [root/desktop/mode-lifecycle-test.nix](../../../../root/desktop/mode-lifecycle-test.nix); [root-only wrapper](../../../../scripts/test-desktop-mode-lifecycle.sh) |
 | First guarded desktop host attempt and Dashboard boundary | [root/desktop/validation/2026-09-05-host-attempt-1.md](../../../../root/desktop/validation/2026-09-05-host-attempt-1.md); [combined regression](../../../../scripts/test-desktop-stack-integration.sh) |
 | Current confirmed generation-five/headless host authority | [root/desktop/validation/2026-09-05-host-attempt-2.md](../../../../root/desktop/validation/2026-09-05-host-attempt-2.md) |
+| Validated fresh-host convergence contract and exact PASS | [docs/fresh-host-convergence.md](../../../../docs/fresh-host-convergence.md); [2026-09-06 integration evidence](../../../../docs/2026-09-06-fresh-host-convergence-integration.md) |
+| Fresh-host fleet declaration and operators | [fleet/hosts.json](../../../../fleet/hosts.json); [scripts/dgx-setup](../../../../scripts/dgx-setup); [scripts/dgx-fleet-bootstrap](../../../../scripts/dgx-fleet-bootstrap) |
+| Generic fresh-host composition and disposable root lifecycle | [modules/home/fleet-host.nix](../../../../modules/home/fleet-host.nix); [modules/system/fleet-host.nix](../../../../modules/system/fleet-host.nix); [root/fleet/bootstrap-lifecycle-test.nix](../../../../root/fleet/bootstrap-lifecycle-test.nix) |
 | Frozen root dependency-lane identity proof | [root/system-manager/validation/2026-09-03-root-dependency-lane.md](../../../../root/system-manager/validation/2026-09-03-root-dependency-lane.md) |
 | Short no-reboot recovery operator | [scripts/dgx-recovery](../../../../scripts/dgx-recovery) |
 | Guarded generation-three restoration helper | [scripts/root-recovery-restore-generation-three.sh](../../../../scripts/root-recovery-restore-generation-three.sh) |

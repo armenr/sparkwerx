@@ -56,7 +56,7 @@ build/install packages, mutate profiles, change services, enroll Tailscale,
 switch desktops, or reboot. The historical `scripts/dgx-setup apply` path
 remains the exact retained-state convergence check for `sparkle-01`.
 
-The candidate `scripts/dgx-setup converge` path composes the independently
+The validated `scripts/dgx-setup converge` path composes the independently
 guarded layers for a newly declared host. It installs or adopts Nix, creates a
 first System Manager generation that keeps factory GNOME and optionally owns
 Tailscale, requires that generation to survive one separately initiated real
@@ -66,9 +66,10 @@ rollback guard. The command is resumable after disconnects and never performs
 a reboot. A normal new host needs only its data declaration; a bespoke
 `hosts/<hostname>/home.nix` is optional rather than required. On exact
 `sparkle-01`, `converge` recognizes the historical five-generation lane and
-remains a complete no-op. The root-assisted disposable integration gate must
-pass before this candidate is used on another DGX; see
-[fresh-host convergence](fresh-host-convergence.md).
+remains a complete no-op. The root-assisted disposable integration gate passed
+from clean commit `cc1069cbce87974a545095b3361b78837d618437` on 2026-09-06;
+see [fresh-host convergence](fresh-host-convergence.md) and its
+[exact validation record](2026-09-06-fresh-host-convergence-integration.md).
 
 Secrets, browser/account state, Tailscale node
 identity, models, and other mutable data remain external inputs rather than
@@ -85,7 +86,8 @@ clean retry, and second-adoption lifecycle passed in disposable Ubuntu on
 2026-09-03. Once adopted, Nix version/update/rollback ownership belongs to this
 repository. The guarded configuration orchestrator now composes Nix, optional
 Tailscale, factory-GNOME retention, one real-reboot checkpoint, headless mode,
-and Home. Its final full disposable gate remains pending. Later
+and Home. Its complete clean-commit disposable and retained-host no-op gate
+passed on 2026-09-06. Later
 root-generation updates and workload deployment are deliberately separate
 workflows.
 

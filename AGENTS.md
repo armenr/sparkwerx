@@ -28,14 +28,18 @@ containers, Tailscale/Tailscale SSH, Hyprland rollout, or fleet operations.
   `root/desktop/validation/2026-09-05-confirmed-headless-integration.md`.
   Historical `APPLY_STATUS=PARTIAL` evidence predates the completed desktop
   transition.
-- The candidate fresh-host front door is `./scripts/dgx-setup converge
+- The validated fresh-host front door is `./scripts/dgx-setup converge
   [HOSTNAME]`; read `docs/fresh-host-convergence.md`. It uses a generic Home
   module plus exactly two new-host System Manager generations: factory GNOME
   with optional Nix-owned Tailscale, then headless after one separately
   initiated real reboot. It is resumable and never reboots. Do not replay
   `sparkle-01`'s historical pilot operators on a new host, activate raw root
-  outputs, or deploy this candidate to another DGX until the clean-commit
-  root-assisted integration gate is recorded as passed.
+  outputs, or bypass the declared workflow. Its clean-commit root-assisted
+  integration gate passed at
+  `cc1069cbce87974a545095b3361b78837d618437`; read
+  `docs/2026-09-06-fresh-host-convergence-integration.md`. Use it only after
+  factory updates, explicit host declaration, and plan/SBOM review. Any
+  functional change requires the complete gate again.
 - The Dashboard-aware headless/factory-GNOME candidates passed the
   12-subtest transaction, 10-subtest/three-reboot mode lifecycle, 7-subtest
   persistent rollback lifecycle, and post-Tailscale live no-op integration

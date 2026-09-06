@@ -97,12 +97,15 @@ during an ordinary audit.
 If the user explicitly requests initial convergence of a newly declared host,
 read
 [`docs/fresh-host-convergence.md`](../../../docs/fresh-host-convergence.md)
-and use `./scripts/dgx-setup converge [HOSTNAME]`. The candidate is resumable,
+and use `./scripts/dgx-setup converge [HOSTNAME]`. The workflow is resumable,
 never reboots, and owns exactly the guarded Nix, optional Tailscale,
 factory-generation, real-reboot checkpoint, headless-generation, and generic
 Home sequence. Do not replay `sparkle-01`'s historical pilot scripts or invoke
-raw System Manager/Home activation. Do not use this lane on another DGX until
-its root-assisted combined disposable gate is recorded as passed. When it
+raw System Manager/Home activation. Its root-assisted combined disposable gate
+passed from clean commit `cc1069cbce87974a545095b3361b78837d618437`; read
+[`docs/2026-09-06-fresh-host-convergence-integration.md`](../../../docs/2026-09-06-fresh-host-convergence-integration.md).
+Use it on a newly declared supported ARM64 DGX only after factory updates and
+plan/SBOM review; rerun the complete gate after any functional change. When it
 reports `AWAITING_REBOOT`, only a separately initiated reboot may advance it.
 
 For retained historical `sparkle-01` configuration application, use

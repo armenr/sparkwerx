@@ -1707,6 +1707,41 @@
           evidence = "docs/2026-09-05-desktop-controller-candidates.md";
         };
 
+        freshHostConvergence = {
+          status = "validated";
+          verifiedAt = "2026-09-06";
+          repositoryCommit = "cc1069cbce87974a545095b3361b78837d618437";
+          integrationProgram = {
+            repositoryPath = "scripts/test-fresh-host-convergence-integration.sh";
+            sha256 = "24a89dd08ac9e51c79a184b7ce3183db7f7f4ae7403d84889ba1a67ad3eb2c59";
+          };
+          nixBootstrapLifecycle = {
+            observedDrvPath = "/nix/store/z9x6kgqrs5905gj7wqdycr7sbi8x9pmd-container-test-dgx-nix-bootstrap-lifecycle.drv";
+            observedOutputPath = "/nix/store/s5pzsb82hixjcc9kcjw50nm37g9r8lpi-container-test-dgx-nix-bootstrap-lifecycle";
+            currentDrvPath = nixBootstrapLifecycleContainerTest.drvPath;
+            currentOutputPath = nixBootstrapLifecycleContainerTest.outPath;
+            outputSriHash = "sha256-DcCCVdIob23Q/gYSu/hv+mF76NFvKH62NXSsKjQ63Iw=";
+            narSize = 7104;
+          };
+          rootLifecycle = {
+            observedDrvPath = "/nix/store/yfa7ghk13b0hdg0xg57v4m6an87ad75n-container-test-dgx-fleet-bootstrap-lifecycle.drv";
+            observedOutputPath = "/nix/store/r0bmci24jwpb57w9svhmhnad0fbpbp3q-container-test-dgx-fleet-bootstrap-lifecycle";
+            currentDrvPath = fleetRootBootstrapLifecycleContainerTest.drvPath;
+            currentOutputPath = fleetRootBootstrapLifecycleContainerTest.outPath;
+            outputSriHash = "sha256-A1lI9Ak8PXnaV5NMo3cTsCKUxqlr08Vzluykw+YFmz4=";
+            narSize = 11160;
+            subtestCount = 8;
+            disposableReboots = 3;
+          };
+          optionalTailscaleCovered = true;
+          factoryAndHeadlessCovered = true;
+          exactHomeRollbackCovered = true;
+          retainedHostNoOpCovered = true;
+          liveHostMutation = false;
+          performsReboot = false;
+          evidence = "docs/2026-09-06-fresh-host-convergence-integration.md";
+        };
+
         pilotRetention = {
           path = rootCanaryPilotGcRoot;
           # The repository evaluation does not create this root. The retained
@@ -2392,9 +2427,35 @@
         assert
           rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.tailscaleUnitLifecycle
           == tailscaleUnitLifecycleContainerTest.drvPath;
+        # This is the exact historical 2026-09-05 retained-host record. The
+        # current bootstrap derivation is tracked by freshHostConvergence.
         assert
           rootManagerManifest.desktopController.retainedIntegration.disposableDerivations.nixBootstrapLifecycle
-          == nixBootstrapLifecycleContainerTest.drvPath;
+          == "/nix/store/p7s3xffskdk9mycrmmxr673xx1k3gwg9-container-test-dgx-nix-bootstrap-lifecycle.drv";
+        assert rootManagerManifest.freshHostConvergence.status == "validated";
+        assert
+          rootManagerManifest.freshHostConvergence.integrationProgram.sha256
+          == builtins.hashFile "sha256" ./scripts/test-fresh-host-convergence-integration.sh;
+        assert
+          rootManagerManifest.freshHostConvergence.nixBootstrapLifecycle.currentDrvPath
+          == rootManagerManifest.freshHostConvergence.nixBootstrapLifecycle.observedDrvPath;
+        assert
+          rootManagerManifest.freshHostConvergence.nixBootstrapLifecycle.currentOutputPath
+          == rootManagerManifest.freshHostConvergence.nixBootstrapLifecycle.observedOutputPath;
+        assert
+          rootManagerManifest.freshHostConvergence.rootLifecycle.currentDrvPath
+          == rootManagerManifest.freshHostConvergence.rootLifecycle.observedDrvPath;
+        assert
+          rootManagerManifest.freshHostConvergence.rootLifecycle.currentOutputPath
+          == rootManagerManifest.freshHostConvergence.rootLifecycle.observedOutputPath;
+        assert rootManagerManifest.freshHostConvergence.rootLifecycle.subtestCount == 8;
+        assert rootManagerManifest.freshHostConvergence.rootLifecycle.disposableReboots == 3;
+        assert rootManagerManifest.freshHostConvergence.optionalTailscaleCovered;
+        assert rootManagerManifest.freshHostConvergence.factoryAndHeadlessCovered;
+        assert rootManagerManifest.freshHostConvergence.exactHomeRollbackCovered;
+        assert rootManagerManifest.freshHostConvergence.retainedHostNoOpCovered;
+        assert !rootManagerManifest.freshHostConvergence.liveHostMutation;
+        assert !rootManagerManifest.freshHostConvergence.performsReboot;
         assert rootCanaryConfig.nixpkgs.hostPlatform == system;
         assert rootCanaryServiceNames == expectedRootCanaryServiceNames;
         assert rootCanaryEtcNames == expectedRootCanaryEtcNames;

@@ -119,11 +119,13 @@ the measured software manifest; evaluation did not authorize realization.
       exact retained generation-five `PLAN_STATUS=READY` and
       `APPLY_STATUS=COMPLETE` no-op integration
 - [x] Compose the proven one-time optional Tailscale ownership and desktop
-      transition into a guarded, resumable pristine-host candidate without
+      transition into a guarded, resumable pristine-host workflow without
       weakening either rollback boundary
-- [ ] Pass and record the combined root-assisted disposable fresh-host gate
-      before using that candidate on another DGX
-- [ ] Decide how the other Sparks receive first-boot configuration
+- [x] Pass and record the combined root-assisted disposable fresh-host gate
+      before using that workflow on another DGX
+- [x] Use factory update, clone, explicit declaration, plan/SBOM review, and
+      repeated guarded `converge` as the other Sparks' initial configuration
+      path; do not add an unattended first-boot mechanism
 
 ## Phase 3: Tailscale migration
 
@@ -228,9 +230,9 @@ approval, graphical validation, activation approval, and rollback.
 - [x] Define one declarative per-host selection surface for the exact base,
       optional Tailscale/access role, desktop mode, named user overlays,
       developer tools, and workload roles
-- [ ] Promote the implemented new-host candidate—factory update, clone, declare
+- [x] Promote the implemented new-host workflow—factory update, clone, declare
       roles, review plan/SBOM, guarded converge, and health verification—after
-      its combined disposable gate passes
+      its combined disposable gate passed
 - [ ] Add the remaining host definitions and explicit user-overlay mappings
 - [x] Add bounded Nix bootstrap plus optional Tailscale ownership/enrollment
       handoff; keep authentication and node identity external

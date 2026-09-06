@@ -502,7 +502,7 @@ live no-op regression now reports `PLAN_STATUS=READY` and
 The older `APPLY_STATUS=PARTIAL` result remains valid historical evidence from
 before those live ownership transitions.
 
-Implemented as a candidate on 2026-09-05: `scripts/dgx-setup converge` now
+Implemented on 2026-09-05: `scripts/dgx-setup converge` now
 composes a new host's independently guarded layers without replaying the
 pilot's manual five-generation history. It is rerunnable after disconnects,
 never reboots, and advances through exact Nix bootstrap, a first factory-GNOME
@@ -511,8 +511,18 @@ separately initiated reboot, a second headless generation, and the generic
 Home composition. Both root phases arm exact persistent rollback before
 mutation. A newly enrolled Tailscale identity remains external mutable state;
 disabling the role omits its package and unit. The implementation remains
-ineligible for another DGX until the combined root-assisted disposable gate in
-`docs/fresh-host-convergence.md` passes and is recorded.
+bounded to the initial two-generation deployment; later root updates and
+workload activation remain separate.
+
+Validated on 2026-09-06: the complete gate passed from clean commit
+`cc1069cbce87974a545095b3361b78837d618437`. It covered temporary-Home exact
+rollback, clean Nix install/failure/uninstall/retry/adoption, selected and
+unselected Tailscale, factory and headless persistent rollback across three
+container reboots, confirmed retention, and the historical live host through
+read-only/exact no-op front doors. This makes the guarded `converge` lane
+eligible for a newly declared supported ARM64 DGX after factory updates and
+plan/SBOM review. See
+[the exact integration record](2026-09-06-fresh-host-convergence-integration.md).
 
 ### D-016: Codex is an Armen-only all-modes tool with unrestricted defaults
 
