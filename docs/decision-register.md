@@ -740,6 +740,14 @@ or modify device permissions. Package the adapter separately from the tested
 Sunshine capture build; preserve its original encoder and transport sources.
 Validate input delivery and cleanup before enabling the temporary listener.
 
+The first client trial uses a private animated test screen with aggregate
+input feedback, not a terminal or the user's real home directory. Keep its
+credentials/certificates ephemeral and the admin page behind an SSH forward.
+Its launcher runs the exact disposable lifecycle gate before starting, owns
+only its temporary firewall table, and stops graphics before removing that
+table. No retention phrase is needed: every run ends within 30 minutes.
+See the [trial guide](moonlight-trial.md).
+
 ## Explicit non-selections
 
 | Item | Decision |

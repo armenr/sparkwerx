@@ -100,8 +100,13 @@ using Wayland virtual-keyboard/virtual-pointer protocols, not kernel input
 devices. It reuses the locked Sunshine/Hyprland sources, Wayland scanner,
 libxkbcommon, and existing compiler dependencies. No new package pin or license
 exception is required. Its package and input test tools remain outside every
-profile. The 30-minute trial will need its own tested launcher and Tailscale
-network guard; building this adapter starts no session or listener.
+profile. Its [hardware input check passed](../remote-desktop/validation/2026-09-07-wayland-input-host.md).
+The [30-minute trial](moonlight-trial.md) adds a small Wayland SHM test canvas,
+Python controller, and nftables guard using the same locked dependencies.
+It creates no new package pin or unfree exception. Its privileged container
+gate must pass before the launcher starts a live session. Pairing/auth state
+lives only in the private runtime; logs remain in private inventory. Building
+these outputs starts no session or listener.
 
 The original capture-tool build fetched about 357 KiB / 1.9 MiB unpacked for
 its extra tool outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.

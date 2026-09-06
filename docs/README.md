@@ -57,6 +57,8 @@ dated records are the evidence behind it.
 | Why are some apps packaged by hand? | [Dependency refresh](2026-09-03-dependency-refresh.md) and the per-package records linked from the manifest |
 | Can Nix programs render and encode through the factory NVIDIA driver? | [Remote-desktop GPU tests](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md) |
 | Does real Hyprland virtual-display capture work on GB10? | [Capture hardware result](../remote-desktop/validation/2026-09-06-temporary-capture-host.md) |
+| Does private keyboard/mouse input reach Hyprland? | [Input hardware result](../remote-desktop/validation/2026-09-07-wayland-input-host.md) |
+| How do I test Moonlight from a Mac? | [Temporary trial guide](moonlight-trial.md) |
 
 ## Reading historical records
 

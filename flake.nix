@@ -114,6 +114,22 @@
         hyprland = hyprlandPackage;
         sunshineInput = sunshineWaylandInput;
       };
+      moonlightTrial = import ./remote-desktop/trial.nix {
+        pkgs = rootPkgs;
+        hyprland = hyprlandPackage;
+        sunshineInput = sunshineWaylandInput;
+        inputPolicy = remoteDesktopInput.policy;
+      };
+      moonlightTrialLifecycle = import ./remote-desktop/trial-lifecycle-test.nix {
+        inherit system-manager rootCanary;
+        pkgs = rootPkgs;
+        trial = moonlightTrial;
+      };
+      moonlightTrialGate = import ./remote-desktop/trial-gate.nix {
+        pkgs = rootPkgs;
+        trial = moonlightTrial;
+        lifecycle = moonlightTrialLifecycle;
+      };
       sunshinePolicy = import ./packages/sunshine/policy.nix {
         pkgs = rootPkgs;
         sunshine = sunshinePackage;
@@ -3646,6 +3662,10 @@
         sunshine-wayland-input-test = sunshineWaylandInput.test;
         remote-desktop-input-test = remoteDesktopInput.test;
         remote-desktop-input-policy = remoteDesktopInput.policy;
+        moonlight-trial = moonlightTrial.bundle;
+        moonlight-trial-policy = moonlightTrial.policy;
+        moonlight-trial-network-test = moonlightTrial.networkTest;
+        moonlight-trial-gate = moonlightTrialGate;
         sunshine-policy = sunshinePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
@@ -3674,6 +3694,8 @@
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
         remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
+        moonlight-trial-policy = moonlightTrial.policy;
+        moonlight-trial-lifecycle-container = moonlightTrialLifecycle;
         chromium-package = chromiumPackage;
         chromium-policy = chromiumPolicyCheck;
         codex-cli-package = codexPackage;

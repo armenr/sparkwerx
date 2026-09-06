@@ -40,15 +40,16 @@ check the implementation and [operations guide](docs/operations.md).
 The separate remote-desktop `check` command is read-only too. Read
 [remote desktop](docs/remote-desktop.md) before remote graphics work. The chosen
 target is Sunshine/Moonlight over Tailscale, not RDP as the primary experience.
-Its current artifacts are preparation only; no activation operator exists, and
-the selection must stay dormant while headless. Do not treat network-policy
+The persistent role is still preparation only and stays dormant while headless.
+The separately authorized [temporary Moonlight trial](docs/moonlight-trial.md)
+has its own operator and pre-launch container gate. Do not treat network-policy
 tests as GPU/capture or end-to-end streaming proof.
 `scripts/test-remote-desktop-graphics.sh` runs synthetic hardware checks as the
 normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
 Hyprland DRM/GBM and Grim readback have separate hardware evidence;
 [Sunshine's changing-frame capture/encode path also passed](remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
-Moonlight transport, input/audio, and sustained FPS remain integration work.
+Moonlight transport/input, audio, and sustained FPS remain integration work.
 `scripts/test-remote-desktop-session.sh` is the separately authorized temporary
 GPU/capture diagnostic for the current pilot. Read its
 [contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
@@ -89,14 +90,18 @@ keep the engine-source checks, decoded-color verification, and existing
 hardware capture or Moonlight evidence; the linked hardware record is separate.
 Armen authorized a separate 30-minute Tailscale-only Moonlight trial with
 temporary keyboard/mouse input and SSH-forwarded administration. His first
-client is a MacBook. Preparation may proceed; the launcher still needs its
-own network, input, shutdown, and host-state checks before use. Preserve the
+client is a MacBook. `scripts/dgx-moonlight-trial start` first runs its exact
+disposable network/shutdown test and host checks, then launches only on success.
+The new privileged lifecycle and client connection have not yet been recorded
+as passed. Read the trial guide before use. Preserve the
 passed offline diagnostics unchanged. This authorization does not extend to
 persistent services, a desktop-mode switch, reboot, audio, or host input ACLs.
 The separate `scripts/test-remote-desktop-input.sh` first checks the trial-only
 Sunshine Wayland adapter and synthetic input receipt in real Hyprland. Read its
 [contract](docs/remote-desktop.md#private-keyboard-and-mouse-check). It keeps the
 150-second supervisor, denied IP sockets/kernel input, and host postflight.
+Its [real Hyprland input run passed](remote-desktop/validation/2026-09-07-wayland-input-host.md)
+with clean host postflight. This does not prove Moonlight packet delivery.
 Only its dedicated package replaces the platform input backend; ordinary
 Sunshine and the passed capture/encoder outputs must remain unchanged.
 Failures print the existing redacted inspector

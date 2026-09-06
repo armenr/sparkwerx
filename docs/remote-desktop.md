@@ -409,9 +409,11 @@ profile, desktop-mode switch, or reboot is added.
 
 This is not a Moonlight connection. The trial adapter initially uses a US
 keyboard layout and excludes clipboard text injection, touch, pen, gamepads,
-and audio. Client transport and the 30-minute server lifecycle remain separate
-work after this hardware check. See the
-[preparation record](../remote-desktop/validation/2026-09-07-wayland-input-preparation.md).
+and audio. The [hardware input check passed](../remote-desktop/validation/2026-09-07-wayland-input-host.md).
+Client transport remains separate: use the
+[MacBook trial guide](moonlight-trial.md) for its launcher, pre-launch container
+gate, SSH tunnel, pairing, and shutdown. The temporary trial does not activate
+the persistent desktop role.
 
 ## Private access
 
