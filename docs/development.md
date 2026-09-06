@@ -90,18 +90,20 @@ manifest, and [`CHANGELOG.md`](../CHANGELOG.md).
   1.0 onward it bumps the major version.
 - Documentation, tests, and maintenance alone do not cut a new release.
 
-Merge the release PR when you want to ship. After CI passes on `main`, the
-automation creates the `vX.Y.Z` tag and GitHub release with its generated notes.
+On the release PR, click **Approve workflows**, wait for **CI gate**, then merge
+when you want to ship. After CI passes on `main`, the automation creates the
+`vX.Y.Z` tag and GitHub release with its generated notes.
 No separate changelog editing, version command, or manual tag is needed.
 The unreleased version is `0.0.0`; `initial-version` explicitly sets the first
 release to `0.1.0`. Later versions follow the commit rules above.
 Release tags cannot be moved or deleted; ship a new version for corrections.
 
 The workflow uses GitHub's repository token, not a personal access token.
-Because bot-created PRs do not trigger normal PR workflows, it explicitly
-dispatches CI for the release branch. That run verifies the PR's commit and
-title and executes the real checks. Publishing runs only after main's checks,
-never from a PR checkout.
+[GitHub requires approval for bot-created PR workflows](https://github.blog/changelog/2026-06-11-bot-created-pull-requests-can-run-workflows-if-approved/),
+including after the bot updates a release PR. A separately dispatched green run
+does not clear that approval requirement. A dedicated GitHub App is the option
+for removing this extra click; never upload your general-purpose CLI login token
+as a CI secret. Publishing runs only after main's checks, never from a PR checkout.
 
 If a release job fails, rerun the failed job in Actions. To retry release PR
 preparation, dispatch **CI** on `main`; it checks main before running the bot.

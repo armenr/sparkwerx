@@ -1,4 +1,4 @@
-"""Regression tests for the local checks and the release CI dispatch."""
+"""Regression tests for the local checks and hooks."""
 
 import json
 import os
@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import quality
-from check_release_pr import validate
 
 
 class QualityTests(unittest.TestCase):
@@ -22,26 +21,6 @@ class QualityTests(unittest.TestCase):
             self.assertIsNotNone(quality.TITLE.fullmatch(title))
         for title in ("wip", "feat: ", "fix: ok\nrun something", "fix(): no scope"):
             self.assertIsNone(quality.TITLE.fullmatch(title))
-
-    def test_release_dispatch_identity(self):
-        pr = {
-            "head": "abc",
-            "repo": "armenr/sparkwerx",
-            "base": "main",
-            "branch": "release-please--branches--main--components--sparkwerx",
-            "state": "open",
-            "title": "chore(main): release 0.1.0",
-        }
-        args = (
-            "abc",
-            "armenr/sparkwerx",
-            "refs/heads/release-please--branches--main--components--sparkwerx",
-        )
-        self.assertTrue(validate(pr, *args))
-        for key in pr:
-            self.assertFalse(validate(pr | {key: "unexpected"}, *args), key)
-        self.assertFalse(validate(pr, "old-sha", args[1], args[2]))
-        self.assertFalse(validate(pr, args[0], args[1], "refs/heads/main"))
 
     def test_reject_bad_syntax(self):
         with tempfile.TemporaryDirectory(prefix="sparkwerx-quality-") as directory:
