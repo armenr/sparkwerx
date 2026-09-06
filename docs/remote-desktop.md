@@ -48,6 +48,22 @@ In `headless` mode this selection is dormant. “No monitor attached” is diffe
 streaming still needs a running compositor and a capturable display, real or
 virtual. A headless apply must not start a graphical session for this role.
 
+## Clients
+
+The client targets are **MacBooks running macOS, Linux PCs, and Windows PCs**.
+[Moonlight PC](https://github.com/moonlight-stream/moonlight-qt#downloads)
+supports all three, including hardware-accelerated video decoding.
+
+Each client runs Moonlight and Tailscale; Sunshine runs on the Spark. The server
+role stays the same across client operating systems. Client installation is
+separate from Spark provisioning: Moonlight does not enter the Spark's base
+profile.
+
+Choose the [quality preset](#quality-targets) for the actual client's display,
+refresh rate, and hardware decoder, not just its OS. Verify those capabilities
+on each device before targeting 120 FPS or choosing HEVC/AV1. Keep HDR off for
+the initial stream tests.
+
 ## Private access
 
 Manually add the Spark's Tailscale address or MagicDNS name in Moonlight. No
