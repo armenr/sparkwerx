@@ -219,8 +219,15 @@ documents its construction and isolation checks.
 
 ## Temporary Sunshine startup test
 
-Run the next diagnostic as the normal user; it requests sudo for the same
-temporary GPU session:
+The [first hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
+found the virtual display but failed encoder initialization. The locked stock
+Sunshine build disables CUDA, which removes its Wayland CUDA/GL encoder device.
+The front door now rejects that build before sudo or a GPU session. Don't retry
+it until the CUDA-enabled package and its new build dependencies are reviewed.
+The separate capture-only test remains available.
+
+Once a compatible build is supplied, run the diagnostic as the normal user;
+it requests sudo for the same temporary GPU session:
 
 ```bash
 ./scripts/test-remote-desktop-sunshine.sh
@@ -263,9 +270,14 @@ On failure, inspect the snapshot name printed by the wrapper:
 ```
 
 The shared inspector prints redacted Sunshine/backend/encoder diagnostics,
-not the raw private log. This new diagnostic has [offline test/build checks](../remote-desktop/validation/2026-09-06-sunshine-startup-preparation.md);
-its real-hardware startup result is still pending. It does not change the
-already recorded capture-only result or authorize another reboot.
+not the raw private log. It keeps the first and last 20 relevant Sunshine lines
+when there are more than 40, with an omitted-line count, so fallback errors don't
+hide the initial failure. It also reports when only the last MiB of the private
+log was read. Inspection stays available even when the package check rejects a
+GPU retry. The [offline preparation checks](../remote-desktop/validation/2026-09-06-sunshine-startup-preparation.md)
+and [failed hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
+are separate records; neither changes the earlier capture-only PASS or
+authorizes another reboot.
 
 ## Private access
 

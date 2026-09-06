@@ -57,7 +57,8 @@ def summarize(log):
         if sunshine_line and (
             sunshine_line[1] in ("Warning", "Error", "Fatal")
             or re.match(
-                r"Sunshine version:|Screencasting with |\[wlgrab\]|Trying encoder |Found .+ encoder:",
+                r"Sunshine version:|Screencasting with |\[wlgrab\]|Trying encoder "
+                r"|Encoder \[[^\]]+\] failed|Found .+ encoder:",
                 sunshine_line[2],
             )
         ):
@@ -75,7 +76,10 @@ def summarize(log):
         "traceback": frames[-12:],
         "errors": errors[-12:],
         "compositor_diagnostics": native[-40:],
-        "sunshine_diagnostics": sunshine[-40:],
+        # Fallback attempts can bury the first NVENC failure. Keep both ends
+        # of the filtered, redacted excerpt without increasing its size limit.
+        "sunshine_diagnostics": sunshine if len(sunshine) <= 40 else sunshine[:20] + sunshine[-20:],
+        "sunshine_diagnostics_omitted": max(0, len(sunshine) - 40),
         "raw_log_printed": False,
     }
 
@@ -101,8 +105,11 @@ def read_summary(stamp):
         ):
             raise ValueError("expected a root-owned mode-0600 regular capture log")
         # Read only the tail if a graphics crash produced a large log.
-        stream.seek(max(0, info.st_size - 1024 * 1024))
-        return summarize(stream.read(1024 * 1024).decode("utf-8", errors="replace"))
+        offset = max(0, info.st_size - 1024 * 1024)
+        stream.seek(offset)
+        summary = summarize(stream.read(1024 * 1024).decode("utf-8", errors="replace"))
+        summary["log_prefix_bytes_omitted"] = offset
+        return summary
 
 
 def main():

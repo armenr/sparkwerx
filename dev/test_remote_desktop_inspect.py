@@ -141,6 +141,26 @@ FAIL|temporary_capture|private compositor/capture test failed; see the private l
         summary = inspect.summarize("\n".join([line] * 100))
         self.assertEqual(len(summary["sunshine_diagnostics"]), 40)
         self.assertTrue(all(len(item) <= 500 for item in summary["sunshine_diagnostics"]))
+        self.assertEqual(summary["sunshine_diagnostics_omitted"], 60)
+
+    def test_first_nvenc_failure_survives_later_fallback_noise(self):
+        prefix = "[2026-09-06 19:00:00.001]: "
+        lines = [
+            "Info: Trying encoder [nvenc]",
+            "Error: example CUDA initialization failure at /home/person/private",
+            "Warning: token=private",
+            "Info: Encoder [nvenc] failed",
+        ]
+        lines += [f"Error: example VAAPI/software fallback {number}" for number in range(70)]
+        lines += ["Fatal: Couldn't bind RTSP server: Address family not supported by protocol"]
+        summary = inspect.summarize("\n".join(prefix + line for line in lines))
+        excerpt = summary["sunshine_diagnostics"]
+        self.assertEqual(len(excerpt), 40)
+        self.assertEqual(excerpt[:4], [inspect.redact(line) for line in lines[:4]])
+        self.assertEqual(excerpt[-1], lines[-1])
+        self.assertEqual(summary["sunshine_diagnostics_omitted"], len(lines) - 40)
+        self.assertNotIn("/home/person", json.dumps(summary))
+        self.assertNotIn("token=private", json.dumps(summary))
 
     def test_withholds_potential_credential_details_entirely(self):
         for key in ("token", "AUTH", "cookie", "password", "credential", "Bearer", "secret"):
@@ -211,6 +231,7 @@ FAIL|temporary_capture|private compositor/capture test failed; see the private l
             ):
                 result = inspect.read_summary(STAMP)
             self.assertEqual(result["errors"], ["ValueError: expected one private compositor"])
+            self.assertEqual(result["log_prefix_bytes_omitted"], 0)
             self.assertEqual(before, (log.read_bytes(), log.stat().st_mode))
             self.assertEqual(sorted(path.name for path in snapshot.iterdir()), ["session.log"])
 

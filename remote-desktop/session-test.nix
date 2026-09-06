@@ -79,7 +79,7 @@ in
         ];
       }
       ''
-        mkdir -p tree/dev tree/remote-desktop runtime cache config "$out"
+        mkdir -p tree/dev tree/scripts tree/remote-desktop runtime cache config "$out"
         chmod 700 runtime
         cp ${source}/*.py tree/remote-desktop/
         cp ${./inspect-session.py} tree/remote-desktop/inspect-session.py
@@ -87,6 +87,7 @@ in
           cp ${./sunshine-startup.py} tree/remote-desktop/sunshine-startup.py
         ''}
         cp ${../dev/test_remote_desktop_sunshine.py} tree/dev/test_remote_desktop_sunshine.py
+        cp ${../scripts/test-remote-desktop-sunshine.sh} tree/scripts/test-remote-desktop-sunshine.sh
         cp ${../dev/test_remote_desktop_capture.py} tree/dev/test_remote_desktop_capture.py
         cp ${../dev/test_remote_desktop_inspect.py} tree/dev/test_remote_desktop_inspect.py
         ${

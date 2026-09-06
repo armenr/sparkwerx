@@ -4,7 +4,9 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -191,6 +193,103 @@ class SunshineStartupTests(unittest.TestCase):
     def test_failed_isolation_never_starts_sunshine_or_writes_configuration(self):
         with self.assertRaisesRegex(RuntimeError, "network socket"):
             self.run_probe("", isolation_error=RuntimeError("network socket not denied"))
+
+
+@unittest.skipIf(os.geteuid() == 0, "the operator deliberately rejects root invocation")
+class SunshineWrapperTests(unittest.TestCase):
+    def run_wrapper(self, *, metadata="false", eval_status=0, args=()):
+        # Exercise the real front door with only local command doubles. No
+        # Nix build, privilege request, GPU, listener, or host state is touched.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            scripts = directory / "scripts"
+            commands = directory / "commands"
+            scripts.mkdir()
+            commands.mkdir()
+            wrapper = scripts / "test-remote-desktop-sunshine.sh"
+            shutil.copyfile(ROOT / "scripts/test-remote-desktop-sunshine.sh", wrapper)
+            command_source = (
+                f"#!{sys.executable}\n"
+                + """
+import json
+import os
+import sys
+from pathlib import Path
+name = Path(sys.argv[0]).name
+with open(os.environ['CALLS_FILE'], 'a') as stream:
+    stream.write(json.dumps([name, *sys.argv[1:]]) + '\\n')
+if name == 'nix':
+    if '--apply' in sys.argv:
+        print(os.environ['BUILD_METADATA'])
+        sys.exit(int(os.environ['EVAL_STATUS']))
+    if 'eval' in sys.argv:
+        print('/nix/store/fake-private-bundle')
+elif name == 'sudo':
+    sys.exit(73)
+elif name == 'test-remote-desktop-session.sh':
+    sys.exit(74)
+"""
+            )
+            for path in (
+                commands / "nix",
+                commands / "sudo",
+                scripts / "test-remote-desktop-session.sh",
+            ):
+                path.write_text(command_source)
+                path.chmod(0o700)
+            calls = directory / "calls.jsonl"
+            result = subprocess.run(
+                [shutil.which("bash"), str(wrapper), *args],
+                env={
+                    **os.environ,
+                    "PATH": str(commands) + os.pathsep + os.environ["PATH"],
+                    "CALLS_FILE": str(calls),
+                    "BUILD_METADATA": metadata,
+                    "EVAL_STATUS": str(eval_status),
+                },
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            events = [json.loads(line) for line in calls.read_text().splitlines()]
+            return result, events
+
+    def test_incompatible_or_unknown_build_never_reaches_build_or_sudo(self):
+        for metadata in ("false", "", "null", "unexpected"):
+            with self.subTest(metadata=metadata):
+                result, events = self.run_wrapper(metadata=metadata)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("FAIL|sunshine_build|", result.stderr)
+                self.assertEqual(len(events), 1)
+                self.assertEqual(events[0][0], "nix")
+                self.assertIn("eval", events[0])
+                self.assertNotIn("build", events[0])
+
+    def test_failed_evaluation_does_not_accept_partial_true_output(self):
+        result, events = self.run_wrapper(metadata="true", eval_status=42)
+        self.assertEqual(result.returncode, 42)
+        self.assertEqual(len(events), 1)
+
+    def test_required_cuda_flags_allow_the_existing_isolated_launcher(self):
+        result, events = self.run_wrapper(metadata="true")
+        self.assertEqual(result.returncode, 73)  # Stub sudo only, never real sudo.
+        self.assertEqual([event[0] for event in events], ["nix", "nix", "nix", "sudo"])
+        self.assertIn("build", events[1])
+        self.assertIn(".#remote-desktop-sunshine-startup-policy", events[1])
+        self.assertEqual(events[3][1], "--")
+        self.assertEqual(
+            events[3][2],
+            "/nix/store/fake-private-bundle/bin/dgx-remote-desktop-sunshine-startup-test",
+        )
+
+    def test_read_only_inspect_still_delegates_without_checking_cuda(self):
+        result, events = self.run_wrapper(args=("inspect", "20260906T192101Z-a64914fe0711"))
+        self.assertEqual(result.returncode, 74)
+        self.assertEqual(
+            events,
+            [["test-remote-desktop-session.sh", "inspect", "20260906T192101Z-a64914fe0711"]],
+        )
 
 
 if __name__ == "__main__":

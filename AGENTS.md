@@ -61,6 +61,11 @@ that also starts Sunshine under the same isolation. Read its
 Sunshine's startup probe encodes dummy images: its final encoder messages are
 not proof of changing-frame capture, a working server, or Moonlight streaming.
 Keep TCP/UDP and input denied; don't turn this probe into a deployment path.
+The [first Sunshine attempt failed](remote-desktop/validation/2026-09-06-sunshine-startup-failure.md):
+the locked stock package disables CUDA and cannot provide its Wayland CUDA/GL
+encoder device. The front door now rejects it before sudo. Its CUDA-enabled
+rebuild needs explicit compiler/runtime dependency approval; don't broaden the
+unfree predicate or replace factory CUDA. Read-only `inspect` remains available.
 Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
 reload GPU modules as an incidental fix. KMS changes require a separate host

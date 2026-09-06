@@ -30,6 +30,17 @@ The realized ARM64 Sunshine 2026.516.143833 candidate has a 793.6 MiB complete
 Nix closure (much of it shared with other candidates); its own output is
 22.8 MiB. Realization only populated the Nix store, not the active profile.
 
+That stock candidate was subsequently found to have CUDA support compiled out;
+its [Sunshine startup attempt failed](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md).
+Rebuilding the same release for Wayland/NVENC needs additional Nix CUDA
+components. The locked recipe's direct additions are `cuda_nvcc` 12.9.86
+(compiler) and `cuda_cudart` 12.9.79 (runtime/headers); its runtime headers also
+pull the free `cuda_cccl` 12.9.27 headers. These are a proposed Sunshine-specific
+build, not accepted additions or replacements for factory CUDA or the driver.
+Evaluation currently stops at the existing unfree-package policy. No exception
+was broadened, CUDA package realized, or replacement closure size measured.
+Review and approval of those dependencies precede the rebuild.
+
 Encoder diagnostics use the locked apps lane's `ffmpeg-headless` 9.0.1 binary
 output as a temporary test tool, not a profile package. Its libraries are
 already in the candidate closure; the binary output adds about 315 KiB of
