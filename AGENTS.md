@@ -67,7 +67,12 @@ encoder device. The front door rejects it before sudo. The approved local
 [CUDA adapter](packages/sunshine/default.nix) must preserve the factory-driver
 bridge and pass its package checks before hardware retry. Its
 [build checks passed](remote-desktop/validation/2026-09-06-sunshine-cuda-build.md);
-the corrected binary still needs the GPU startup test. Read-only `inspect`
+the next attempt [identified missing UVM device exposure](remote-desktop/validation/2026-09-06-sunshine-uvm-device.md).
+The Sunshine-only test now requires and exposes the existing `/dev/nvidia-uvm`
+node; capture-only does not, and both hide `/dev/nvidia-uvm-tools`. Preserve
+the existing-node validation and host metadata checks. Do not load modules,
+create nodes, or change host permissions as a workaround. The full corrected
+GPU startup test still needs a rerun. Read-only `inspect`
 remains available; no persistent graphics or factory CUDA change is authorized.
 Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
 NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or

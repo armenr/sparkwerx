@@ -28,7 +28,18 @@ DEVICES = (
     "/dev/nvidiactl",
     "/dev/nvidia-modeset",
 )
-FORBIDDEN_DEVICES = ("/dev/dri/card0", "/dev/input", "/dev/uinput", "/dev/tty0")
+# CUDA initialization also opens UVM. Expose only this existing factory node
+# for the Sunshine variant; capture-only keeps its five graphics nodes and
+# both tests hide the UVM tools device. Never load a module or create/chmod a host node.
+CUDA_DEVICE = Path("/dev/nvidia-uvm")
+DRIVER_DEVICES = Path("/proc/devices")
+FORBIDDEN_DEVICES = (
+    "/dev/dri/card0",
+    "/dev/input",
+    "/dev/uinput",
+    "/dev/tty0",
+    "/dev/nvidia-uvm-tools",
+)
 GUARDS = ("desktop-switch", "tailscale-migration", "fleet-bootstrap", "root-reboot-recovery")
 PRESETS = {
     "1440p120": {"width": 2560, "height": 1440, "fps": 120},
@@ -100,7 +111,32 @@ def validate_ipc_path(runtime_dir):
             raise ValueError("private runtime path is too long for Hyprland IPC")
 
 
-def unit_properties(result_dir):
+def device_nodes(*, sunshine=False):
+    return DEVICES + ((str(CUDA_DEVICE),) if sunshine else ())
+
+
+def validate_cuda_device():
+    try:
+        info = CUDA_DEVICE.lstat()
+    except FileNotFoundError as error:
+        raise ValueError(
+            "required CUDA device /dev/nvidia-uvm is absent; this test never loads modules "
+            "or creates device nodes"
+        ) from error
+    majors = re.findall(
+        r"^\s*(\d+)\s+nvidia-uvm$", DRIVER_DEVICES.read_text(encoding="ascii"), re.MULTILINE
+    )
+    if (
+        not stat.S_ISCHR(info.st_mode)
+        or info.st_uid != 0
+        or len(majors) != 1
+        or os.major(info.st_rdev) != int(majors[0])
+        or os.minor(info.st_rdev) != 0
+    ):
+        raise ValueError("CUDA device does not match the loaded factory nvidia-uvm driver")
+
+
+def unit_properties(result_dir, *, sunshine=False):
     # /run (including seatd's compile-time /run/seatd.sock) is private. Bind
     # only device metadata and a root-only result directory into that namespace.
     return {
@@ -117,7 +153,9 @@ def unit_properties(result_dir):
         "RestrictAddressFamilies": "AF_UNIX AF_NETLINK",
         "PrivateDevices": "yes",
         "DevicePolicy": "closed",
-        "BindPaths": " ".join((*DEVICES, f"{result_dir}:/run/sparkwerx-result")),
+        "BindPaths": " ".join(
+            (*device_nodes(sunshine=sunshine), f"{result_dir}:/run/sparkwerx-result")
+        ),
         "BindReadOnlyPaths": "-/run/udev/data:/run/udev/data",
         "TemporaryFileSystem": "/run:rw,nosuid,nodev,size=128M",
         "ProtectSystem": "strict",
@@ -142,7 +180,7 @@ def unit_properties(result_dir):
     }
 
 
-def verify_isolation():
+def verify_isolation(*, sunshine=False):
     for family in (socket.AF_INET, socket.AF_INET6):
         for kind in (socket.SOCK_STREAM, socket.SOCK_DGRAM):
             try:
@@ -153,9 +191,17 @@ def verify_isolation():
             else:
                 connection.close()
                 raise RuntimeError("network socket creation was not denied")
-    for path in (*FORBIDDEN_DEVICES, "/run/systemd/private", "/run/dbus/system_bus_socket"):
+    hidden_cuda = () if sunshine else (str(CUDA_DEVICE),)
+    for path in (
+        *FORBIDDEN_DEVICES,
+        *hidden_cuda,
+        "/run/systemd/private",
+        "/run/dbus/system_bus_socket",
+    ):
         if os.path.lexists(path):
             raise RuntimeError(f"unexpected host device or IPC exposure: {path}")
+    if sunshine:
+        validate_cuda_device()
     left, right = socket.socketpair()
     left.close()
     right.close()
@@ -294,7 +340,7 @@ def stop(child):
 def capture_session(tools, preset_name, version):
     if os.geteuid() == 0:
         raise RuntimeError("Hyprland must never run as root")
-    verify_isolation()
+    verify_isolation(sunshine="sunshine" in tools)
     status = Path("/proc/self/status").read_text()
     if not re.search(r"^CapEff:\s+0+$", status, re.MULTILINE):
         raise RuntimeError("compositor user still has effective capabilities")
@@ -373,7 +419,14 @@ def capture_session(tools, preset_name, version):
             # Only the separately selected startup-test bundle supplies this
             # package. The original capture command never starts Sunshine.
             startup = module("capture_sunshine_startup", "sunshine-startup.py")
-            report = startup.probe(tools, preset, display.OUTPUT, env, stop, verify_isolation)
+            report = startup.probe(
+                tools,
+                preset,
+                display.OUTPUT,
+                env,
+                stop,
+                lambda: verify_isolation(sunshine=True),
+            )
             display.assert_dedicated_instance(instances(), signature, child.pid)
             if not display.validate_monitors(
                 control(signature, "monitors", "all"), preset, ready=True
@@ -398,7 +451,7 @@ def worker(tools, user, preset, version):
         Path("/proc/self/cgroup").read_text().strip(),
     ):
         raise RuntimeError("worker must run inside its unique transient service")
-    verify_isolation()
+    verify_isolation(sunshine="sunshine" in tools)
     account = pwd.getpwnam(user)
     if account.pw_uid != 1000 or user != "n0b0dy":
         raise ValueError("this pilot test requires the reviewed n0b0dy account")
@@ -491,7 +544,7 @@ def worker(tools, user, preset, version):
 
 def device_snapshot():
     result = {}
-    for name in (*DEVICES, *FORBIDDEN_DEVICES):
+    for name in (*DEVICES, str(CUDA_DEVICE), *FORBIDDEN_DEVICES):
         path = Path(name)
         if not path.exists():
             result[name] = None
@@ -540,7 +593,7 @@ def host_snapshot():
     return result
 
 
-def preflight():
+def preflight(*, sunshine=False):
     if os.geteuid() != 0 or platform.machine() != "aarch64" or socket.gethostname() != "sparkle-01":
         raise ValueError("this hardware test requires sudo on the reviewed sparkle-01 pilot")
     if str(ROOT_PROFILE.resolve(strict=True)) != PILOT:
@@ -550,6 +603,8 @@ def preflight():
             "NVIDIA DRM KMS is disabled (modeset=N); no graphics started. "
             "Enabling it needs a separately reviewed host change, not a permission workaround."
         )
+    if sunshine:
+        validate_cuda_device()
     before = host_snapshot()
     if "NeedDaemonReload=yes" in before["units_profile"][0]:
         raise ValueError("a protected unit has a pending daemon reload")
@@ -595,7 +650,7 @@ def preflight():
                 raise ValueError("an existing compositor or capture server is running")
         except (FileNotFoundError, ProcessLookupError):
             pass
-    for name in DEVICES:
+    for name in device_nodes(sunshine=sunshine):
         if not stat.S_ISCHR(Path(name).stat().st_mode):
             raise ValueError("a required GPU device is missing")
     for node in ("card1", "renderD128"):
@@ -610,7 +665,8 @@ def preflight():
 
 
 def host(tools, repo, preset):
-    before = preflight()
+    sunshine = "sunshine" in tools
+    before = preflight(sunshine=sunshine)
     if repo != Path("/home/n0b0dy/Development/DGX-setup") or repo.is_symlink():
         raise ValueError("use the reviewed pilot checkout for private diagnostic evidence")
     # An abstract Unix lock is released automatically, including on process
@@ -637,7 +693,7 @@ def host(tools, repo, preset):
         )
         if not re.fullmatch(r"\d+\.\d+\.\d+", version):
             raise ValueError("expected one factory NVIDIA driver")
-        properties = unit_properties(results)
+        properties = unit_properties(results, sunshine=sunshine)
         (snapshot / "unit.json").write_text(json.dumps(properties, indent=2))
         (snapshot / "context.json").write_text(
             json.dumps(
@@ -661,7 +717,9 @@ def host(tools, repo, preset):
             f"--unit={unit}",
         ]
         command += [f"--property={key}={value}" for key, value in properties.items()]
-        command += [f"--property=DeviceAllow={device} rw" for device in DEVICES]
+        command += [
+            f"--property=DeviceAllow={device} rw" for device in device_nodes(sunshine=sunshine)
+        ]
         command += [
             sys.executable,
             __file__,
@@ -684,7 +742,7 @@ def host(tools, repo, preset):
         try:
             # Recheck immediately before privilege is made available to the
             # transient unit, after preparing evidence but before GPU mutation.
-            if preflight() != before:
+            if preflight(sunshine=sunshine) != before:
                 raise RuntimeError("host changed during diagnostic preparation")
             # --pipe passes these already-open private file descriptors to the
             # service. It never needs access to the hidden /home path, and its

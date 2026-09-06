@@ -227,8 +227,12 @@ The approved [Nix adapter](../packages/sunshine/README.md) enables that code and
 preserves the temporary session's factory-driver library path. Its isolated
 package set permits the required CUDA compiler, runtime, and CCCL headers;
 factory CUDA and the driver remain unchanged.
-The [CUDA build and package checks passed](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md);
-GPU startup with that corrected build still needs verification.
+The [CUDA build and package checks passed](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md).
+Its [next hardware attempt identified a harness omission](../remote-desktop/validation/2026-09-06-sunshine-uvm-device.md):
+CUDA initialization needs the existing `/dev/nvidia-uvm` node. The Sunshine
+variant now exposes that one additional GPU device; capture-only does not.
+Both still hide `/dev/nvidia-uvm-tools`. The full corrected startup test needs
+a rerun; no driver or Sunshine source patch is indicated by this failure.
 
 Run the diagnostic as the normal user. It builds and checks the CUDA-enabled
 package first, then requests sudo for the same temporary GPU session:
@@ -250,6 +254,12 @@ empty. Homes and host D-Bus sockets stay hidden. Application state and logs are
 private, with no profile install, listener exposure, persistent service, device
 permission, desktop switch, or reboot. The wrapper repeats the same protected
 host postflight before reporting success.
+
+UVM must already be provided by the factory driver. The test checks the node's
+type, owner, and current driver device number before launch and inside the
+private session; it never creates nodes, changes host permissions, or loads
+modules to satisfy that prerequisite. Host postflight also checks both UVM
+nodes' metadata.
 
 This is deliberately a **startup** test. In the pinned
 [encoder probe](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/video.cpp),

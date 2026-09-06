@@ -6,10 +6,12 @@ import io
 import json
 import os
 import socket
+import stat
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +65,65 @@ class CaptureTests(unittest.TestCase):
         snapshot.assert_not_called()
         run.assert_not_called()
 
+    def test_sunshine_checks_uvm_before_snapshot_or_any_subprocess(self):
+        with (
+            mock.patch.object(capture.os, "geteuid", return_value=0),
+            mock.patch.object(capture.platform, "machine", return_value="aarch64"),
+            mock.patch.object(capture.socket, "gethostname", return_value="sparkle-01"),
+            mock.patch.object(capture, "ROOT_PROFILE") as profile,
+            mock.patch.object(capture, "kms_enabled", return_value=True),
+            mock.patch.object(
+                capture, "validate_cuda_device", side_effect=ValueError("CUDA device absent")
+            ) as validate,
+            mock.patch.object(capture, "host_snapshot") as snapshot,
+            mock.patch.object(capture.subprocess, "run") as run,
+            self.assertRaisesRegex(ValueError, "CUDA device absent"),
+        ):
+            profile.resolve.return_value = capture.PILOT
+            capture.preflight(sunshine=True)
+        validate.assert_called_once_with()
+        snapshot.assert_not_called()
+        run.assert_not_called()
+
+    def test_uvm_requires_existing_root_owned_character_node_and_current_driver_number(self):
+        good = {"st_mode": stat.S_IFCHR | 0o666, "st_uid": 0, "st_rdev": os.makedev(498, 0)}
+        with (
+            mock.patch.object(capture, "CUDA_DEVICE") as device,
+            mock.patch.object(capture, "DRIVER_DEVICES") as drivers,
+        ):
+            drivers.read_text.return_value = "Character devices:\n498 nvidia-uvm\n"
+            device.lstat.return_value = SimpleNamespace(**good)
+            capture.validate_cuda_device()
+            device.lstat.assert_called_once_with()
+            for changed in (
+                {"st_mode": stat.S_IFREG | 0o666},
+                {"st_mode": stat.S_IFLNK | 0o777},
+                {"st_uid": 1000},
+                {"st_rdev": os.makedev(499, 0)},
+                {"st_rdev": os.makedev(498, 1)},
+            ):
+                with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, "driver"):
+                    device.lstat.return_value = SimpleNamespace(**(good | changed))
+                    capture.validate_cuda_device()
+            device.lstat.return_value = SimpleNamespace(**good)
+            for listing in ("", "498 unrelated\n", "498 nvidia-uvm\n499 nvidia-uvm\n"):
+                with self.subTest(listing=listing), self.assertRaisesRegex(ValueError, "driver"):
+                    drivers.read_text.return_value = listing
+                    capture.validate_cuda_device()
+
+    def test_missing_uvm_fails_without_trying_to_create_nodes_or_load_modules(self):
+        with (
+            mock.patch.object(capture, "CUDA_DEVICE") as device,
+            mock.patch.object(capture.subprocess, "run") as run,
+            mock.patch.object(capture.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(ValueError, "never loads modules or creates device nodes"),
+        ):
+            device.lstat.side_effect = FileNotFoundError()
+            capture.validate_cuda_device()
+        self.assertEqual(device.mock_calls, [mock.call.lstat()])
+        run.assert_not_called()
+        popen.assert_not_called()
+
     def test_kms_check_only_reports_the_setting_and_never_starts_the_test(self):
         for enabled in (False, True):
             with (
@@ -110,25 +171,28 @@ class CaptureTests(unittest.TestCase):
         Path("/usr/bin/systemd-analyze").exists(), "factory systemd parser unavailable"
     )
     def test_factory_systemd_accepts_the_unit_directives_without_starting_it(self):
-        with tempfile.TemporaryDirectory() as directory:
-            unit = Path(directory) / "sparkwerx-capture-syntax.service"
-            props = capture.unit_properties(directory)
-            directives = [f"{key}={value}" for key, value in props.items()]
-            directives += [f"DeviceAllow={device} rw" for device in capture.DEVICES]
-            unit.write_text(
-                "[Unit]\nDescription=Inert capture syntax check\n[Service]\nExecStart=/bin/true\n"
-                + "\n".join(directives)
-                + "\n"
-            )
-            result = subprocess.run(
-                ["/usr/bin/systemd-analyze", "verify", "--man=no", str(unit)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("Unknown", result.stderr)
-            self.assertNotIn("Failed to parse", result.stderr)
+        for sunshine in (False, True):
+            with self.subTest(sunshine=sunshine), tempfile.TemporaryDirectory() as directory:
+                unit = Path(directory) / "sparkwerx-capture-syntax.service"
+                props = capture.unit_properties(directory, sunshine=sunshine)
+                directives = [f"{key}={value}" for key, value in props.items()]
+                directives += [
+                    f"DeviceAllow={device} rw" for device in capture.device_nodes(sunshine=sunshine)
+                ]
+                unit.write_text(
+                    "[Unit]\nDescription=Inert capture syntax check\n[Service]\nExecStart=/bin/true\n"
+                    + "\n".join(directives)
+                    + "\n"
+                )
+                result = subprocess.run(
+                    ["/usr/bin/systemd-analyze", "verify", "--man=no", str(unit)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("Unknown", result.stderr)
+                self.assertNotIn("Failed to parse", result.stderr)
 
     def test_unit_has_independent_deadline_and_whole_process_tree_cleanup(self):
         props = capture.unit_properties("/private/result")
@@ -148,6 +212,41 @@ class CaptureTests(unittest.TestCase):
         )
         for device in capture.FORBIDDEN_DEVICES:
             self.assertNotIn(device, props["BindPaths"].split())
+
+    def test_only_sunshine_gets_uvm_and_other_unit_restrictions_are_identical(self):
+        base = capture.unit_properties("/private/result")
+        sunshine = capture.unit_properties("/private/result", sunshine=True)
+        self.assertEqual(
+            capture.device_nodes(),
+            (
+                "/dev/dri/card1",
+                "/dev/dri/renderD128",
+                "/dev/nvidia0",
+                "/dev/nvidiactl",
+                "/dev/nvidia-modeset",
+            ),
+        )
+        self.assertEqual(
+            capture.device_nodes(sunshine=True), capture.device_nodes() + ("/dev/nvidia-uvm",)
+        )
+        self.assertEqual(
+            sunshine.pop("BindPaths").split(),
+            [*capture.device_nodes(sunshine=True), "/private/result:/run/sparkwerx-result"],
+        )
+        self.assertNotIn("/dev/nvidia-uvm", base.pop("BindPaths").split())
+        self.assertEqual(base, sunshine)
+        self.assertIn("/dev/nvidia-uvm-tools", capture.FORBIDDEN_DEVICES)
+
+    def test_device_snapshot_includes_uvm_and_its_unexposed_tools_node(self):
+        info = SimpleNamespace(st_uid=0, st_gid=0, st_mode=stat.S_IFCHR | 0o666, st_rdev=1)
+        with (
+            mock.patch.object(Path, "exists", return_value=True),
+            mock.patch.object(Path, "stat", return_value=info),
+            mock.patch.object(capture.os, "listxattr", return_value=[]),
+        ):
+            snapshot = capture.device_snapshot()
+        self.assertEqual(snapshot["/dev/nvidia-uvm"], [0, 0, info.st_mode, 1, {}])
+        self.assertEqual(snapshot["/dev/nvidia-uvm-tools"], snapshot["/dev/nvidia-uvm"])
 
     def test_unit_hides_host_ipc_and_denies_all_ip_socket_families(self):
         props = capture.unit_properties("/private/result")
@@ -179,6 +278,18 @@ class CaptureTests(unittest.TestCase):
             ],
         )
 
+    def test_sunshine_revalidates_uvm_inside_the_private_namespace(self):
+        with (
+            mock.patch.object(capture.socket, "socket", side_effect=OSError(errno.EPERM, "denied")),
+            mock.patch.object(capture.os.path, "lexists", return_value=False),
+            mock.patch.object(
+                capture.socket, "socketpair", return_value=(mock.Mock(), mock.Mock())
+            ),
+            mock.patch.object(capture, "validate_cuda_device") as validate,
+        ):
+            capture.verify_isolation(sunshine=True)
+        validate.assert_called_once_with()
+
     def test_allowed_inet_socket_fails_before_starting_any_compositor(self):
         with (
             mock.patch.object(capture.socket, "socket", return_value=mock.Mock()),
@@ -198,6 +309,7 @@ class CaptureTests(unittest.TestCase):
     def test_exposed_input_or_host_ipc_fails_before_startup(self):
         for path in (
             *capture.FORBIDDEN_DEVICES,
+            str(capture.CUDA_DEVICE),
             "/run/systemd/private",
             "/run/dbus/system_bus_socket",
         ):

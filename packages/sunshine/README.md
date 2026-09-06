@@ -35,6 +35,12 @@ startup with an absent, empty, and existing driver-library path. It opens no
 GPU or listener. The [temporary GPU diagnostic](../../docs/remote-desktop.md#temporary-sunshine-startup-test)
 is a separate test; compilation is not proof of working capture or streaming.
 
+The private session must also expose the factory `/dev/nvidia-uvm` device.
+Hiding it [reproduces `CUDA_ERROR_UNKNOWN` at initialization](../../remote-desktop/validation/2026-09-06-sunshine-uvm-device.md),
+even with a correctly compiled package. Fix that session prerequisite, not the
+driver or Sunshine source. The diagnostic checks for the existing node and
+does not create it or change its permissions.
+
 ## Updating it
 
 1. Review the stable Sunshine release and the `nixpkgs-apps` input together.
