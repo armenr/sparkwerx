@@ -6,11 +6,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      release_pr:
-        description: Release PR number (set by release automation)
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -26,21 +21,10 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Validate dispatched release PR
-        if: github.event_name == 'workflow_dispatch' && inputs.release_pr != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_PR: ${{ inputs.release_pr }}
-        run: |
-          [[ "$RELEASE_PR" =~ ^[1-9][0-9]*$ ]]
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$RELEASE_PR" \
-            --jq '{title, head: .head.sha, branch: .head.ref, repo: .head.repo.full_name, base: .base.ref, state}' |
-            python3 dev/check_release_pr.py
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
         with:
           install_url: https://releases.nixos.org/nix/nix-2.35.2/install
@@ -65,7 +49,6 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      actions: write
     steps:
       # Do not release from a superseded CI run. The next main run handles it.
       - name: Check main has not advanced
@@ -85,16 +68,6 @@ jobs:
           target-branch: main
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-      # GITHUB_TOKEN-created PRs don't trigger pull_request workflows. Explicit
-      # dispatch runs their real CI gate without a PAT or a fake passing status.
-      - name: Run CI on the release PR
-        if: steps.release.outputs.prs_created == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_PRS: ${{ steps.release.outputs.prs }}
-        run: |
-          while IFS=$'\t' read -r branch number; do
-            [[ "$branch" == 'release-please--branches--main--components--sparkwerx' ]]
-            [[ "$number" =~ ^[1-9][0-9]*$ ]]
-            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch" -f "release_pr=$number"
-          done < <(jq -r '.[] | [.headBranchName, .number] | @tsv' <<< "$RELEASE_PRS")
+      # GitHub holds GITHUB_TOKEN-created PR workflows for maintainer approval.
+      # Approve that workflow on the release PR; a separate dispatch does not
+      # satisfy its required PR check. Do not fabricate a passing check instead.
