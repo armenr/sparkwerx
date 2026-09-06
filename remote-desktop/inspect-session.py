@@ -9,6 +9,19 @@ from pathlib import Path
 
 BASE = Path("/home/n0b0dy/Development/DGX-setup/inventory/sparkle-01/raw/remote-desktop-session")
 STAMP = re.compile(r"\d{8}T\d{6}Z-[a-f0-9]{12}")
+ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+NATIVE_DIAGNOSTIC = re.compile(
+    r"^(?:"
+    # The pinned Hyprutils logger uses 'ERR @ ... ]:', not Python exceptions
+    # or the older '[ERR]' form. seatd prefixes its bracketed level with time.
+    r"(?:ERR(?:OR)?|CRIT(?:ICAL)?|WARN(?:ING)?|FATAL)\b"
+    r"|(?:\d{2}:\d{2}:\d{2}(?:\.\d+)?\s+)?\[(?:ERR(?:OR)?|CRIT|WARN(?:ING)?|FATAL)\]"
+    r"|\[!!WARNING!!\]"
+    r"|terminate called\b|what\(\):|Bailing out,"
+    r"|.*\bAssertion .+ failed\."
+    r"|.*(?:error while loading shared libraries:|symbol lookup error:)"
+    r")"
+)
 
 
 def redact(message):
@@ -16,7 +29,7 @@ def redact(message):
     # whole line if it might describe authentication, not just its value.
     if re.search(r"(?i)password|token|secret|credential|cookie|bearer|auth", message):
         return "<sensitive error detail withheld>"
-    message = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", message)
+    message = ANSI.sub("", message)
     for pattern, replacement in (
         (r"https?://[^\s'\"]+", "<url>"),
         (r"[\w.+-]+@[\w.-]+", "<email>"),
@@ -34,17 +47,22 @@ def redact(message):
 def summarize(log):
     errors = []
     frames = []
-    for line in log.splitlines():
+    native = []
+    for original in log.splitlines():
+        line = ANSI.sub("", original)
         frame = re.match(r'\s+File "[^"]*/([^/" ]+\.py)", line (\d+), in (\w+)', line)
         if frame:
             frames.append({"file": frame[1], "line": int(frame[2]), "function": frame[3]})
         elif re.match(r"^(?:FAIL\|temporary_capture\||[\w.]*(?:Error|Exception):)", line):
             errors.append(redact(line))
+        elif NATIVE_DIAGNOSTIC.match(line.strip()):
+            native.append(redact(line.strip()))
     return {
         "seat_broker_started": "seatd started" in log,
         "compositor_vendor_seen": "Vendor: NVIDIA Corporation" in log,
         "traceback": frames[-12:],
         "errors": errors[-12:],
+        "compositor_diagnostics": native[-40:],
         "raw_log_printed": False,
     }
 

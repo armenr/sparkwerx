@@ -178,9 +178,9 @@ name printed in its log path:
 ./scripts/test-remote-desktop-session.sh inspect 20260906T135057Z-b9a45dfe19c3
 ```
 
-This uses sudo only to read the root-private log and prints a redacted error
-summary. It does not print the raw log, change file permissions, or rerun the
-GPU test.
+This uses sudo only to read the root-private log and prints redacted wrapper,
+compositor, and seat-broker diagnostics, including native crash messages.
+It does not print the raw log, change file permissions, or rerun the GPU test.
 
 Grim 1.5.0 uses the compositor's image-copy protocol when available, otherwise
 wlr-screencopy. Neither is Sunshine's wlr-export-dmabuf capture path. A pass

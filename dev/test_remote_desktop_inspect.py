@@ -57,6 +57,65 @@ FAIL|temporary_capture|private compositor/capture test failed; see the private l
             self.assertNotIn(private, result)
         self.assertIn("session-test.py", result)
 
+    def test_includes_pinned_hyprutils_and_seatd_error_formats(self):
+        # Hyprutils 5a7b8cf/src/cli/Logger.cpp prefixes levels without brackets.
+        # These are synthetic diagnostics, not purported hardware evidence.
+        lines = [
+            "ERR @ 13:50:58.001 from aquamarine ]: example backend error",
+            "CRIT ]: example fatal error",
+            "WARN from aquamarine ]: example backend warning",
+            "[ERR] example older log format",
+            "00:00:00.123 [ERROR] [seatd/client.c:1] example seat error",
+            "[!!WARNING!!] XDG_RUNTIME_DIR looks non-standard. Proceeding anyways...",
+        ]
+        summary = inspect.summarize("\n".join(lines))
+        self.assertEqual(
+            summary["compositor_diagnostics"], [inspect.redact(line) for line in lines]
+        )
+
+    def test_keeps_cpp_abort_reason_and_loader_or_assertion_diagnostics(self):
+        lines = [
+            "terminate called after throwing an instance of 'std::runtime_error'",
+            "  what():  example initialization failure",
+            "Bailing out, couldn't create example runtime directory",
+            "Hyprland: example.cpp:1: main: Assertion 'example' failed.",
+            "Hyprland: error while loading shared libraries: libexample.so: not found",
+            "Hyprland: symbol lookup error: undefined symbol: example",
+        ]
+        summary = inspect.summarize("\n".join(lines))
+        self.assertEqual(summary["compositor_diagnostics"], [line.strip() for line in lines])
+
+    def test_native_errors_are_redacted_without_printing_normal_startup_inventory(self):
+        log = "\n".join(
+            [
+                "DEBUG ]: runtime directory: /run/user/1000/private-instance",
+                "DEBUG ]: private host inventory omitted",
+                "\x1b[1;31mERR \x1b[0m]: failed at 100.70.20.30 /home/person/private",
+                "WARN ]: token=private",
+                "terminate called after throwing an instance of 'std::system_error'",
+                "  what():  example error at peer.tail123.ts.net",
+            ]
+        )
+        summary = inspect.summarize(log)
+        excerpt = json.dumps(summary)
+        for private in (
+            "private-instance",
+            "private host inventory",
+            "100.70.20.30",
+            "/home/person",
+            "token=private",
+            "peer.tail123.ts.net",
+            "\x1b",
+        ):
+            self.assertNotIn(private, excerpt)
+        self.assertEqual(len(summary["compositor_diagnostics"]), 4)
+        self.assertIn("<sensitive error detail withheld>", summary["compositor_diagnostics"])
+
+    def test_caps_native_excerpt_count_and_line_size(self):
+        summary = inspect.summarize("\n".join(["ERR ]: " + "example " * 100] * 100))
+        self.assertEqual(len(summary["compositor_diagnostics"]), 40)
+        self.assertTrue(all(len(line) <= 500 for line in summary["compositor_diagnostics"]))
+
     def test_withholds_potential_credential_details_entirely(self):
         for key in ("token", "AUTH", "cookie", "password", "credential", "Bearer", "secret"):
             self.assertEqual(

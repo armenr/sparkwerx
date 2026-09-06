@@ -79,3 +79,12 @@ The error itself remains in the root-private log and is not readable without
 sudo. A separate `inspect SNAPSHOT_NAME` branch now produces a redacted error
 summary without retrying the test, changing permissions, or modifying host
 state. No cause or successful capture is claimed before that inspection.
+
+The first redacted inspection showed that seatd started and Hyprland exited
+with `-6` (SIGABRT) during startup, before the log identified an NVIDIA renderer.
+The inspector initially selected only Python/wrapper errors, omitting the
+compositor's native diagnostics. It now also recognizes the
+[pinned Hyprutils logger's severity format](https://github.com/hyprwm/hyprutils/blob/5a7b8cf221914ce4714407950e4ffbdddcd8b66f/src/cli/Logger.cpp),
+seatd errors, and C++ exception/abort messages, with the same redaction and
+read-only behavior. This is a diagnostic correction, not a GPU startup fix;
+the hardware test bundle and its isolation settings are unchanged.
