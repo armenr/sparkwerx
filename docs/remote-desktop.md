@@ -48,6 +48,32 @@ In `headless` mode this selection is dormant. “No monitor attached” is diffe
 streaming still needs a running compositor and a capturable display, real or
 virtual. A headless apply must not start a graphical session for this role.
 
+## Without a monitor
+
+The target is a remote desktop that needs only power and networking at the
+Spark: no physical monitor, no HDMI dummy plug, and no local graphical login
+before connecting after a reboot. Prefer a software virtual display.
+
+The first candidate to test is Hyprland's virtual output with Sunshine's `wlr`
+capture and NVIDIA NVENC encoding. The pinned
+[Hyprland 0.56.2 output implementation](https://github.com/hyprwm/Hyprland/blob/v0.56.2/src/debug/HyprCtl.cpp#L1632)
+includes virtual-output creation, and the pinned
+[Sunshine capture documentation](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/docs/configuration.md#capture)
+explicitly describes capturing Hyprland virtual displays. These are the
+building blocks, not proof of a complete monitor-free session on GB10.
+
+Create and verify the virtual display before starting capture or applications;
+do not depend on a pre-existing local desktop. There are upstream
+[reports of black capture after disabling the last physical display](https://github.com/hyprwm/Hyprland/discussions/14616).
+They are not evidence that our pin fails, but they make monitor-free startup
+and continuous changing-frame capture essential tests.
+
+Keep two distinct operating states: a graphical mode may run the virtual
+desktop and Sunshine; compute-only `headless` stops both while keeping
+Tailscale and compute available. Switching modes remains an explicit operation,
+not a side effect of connecting a Moonlight client. Monitor-free Hyprland does
+not establish monitor-free GNOME or KDE support.
+
 ## Clients
 
 The client targets are **MacBooks running macOS, Linux PCs, and Windows PCs**.
@@ -116,14 +142,17 @@ changing global network settings.
 ## Before deployment
 
 - Finish the repeatable guarded desktop transition while preserving SSH.
-- Test capture for the display arrangement. Sunshine's `wlr` capture can use
-  Hyprland virtual displays; it is not a GNOME capture backend.
+- Test a cold start with no physical display or local graphical login, then
+  verify changing frames from the intended virtual output. Sunshine's `wlr`
+  capture is not a GNOME capture backend.
 - Prove the ARM64 Nix-to-factory-driver bridge and an actual NVENC encode.
 - Scope input, audio, and session startup/shutdown. Do not grant blanket input
   access or `CAP_SYS_ADMIN` as a shortcut.
 - Implement guard-before-listener ordering, rollback, tailnet-loss handling,
   headless shutdown, and unwanted LAN-discovery prevention.
 - Provision credentials privately, pair a client, and measure the stream.
+  Include reconnect, an explicitly authorized reboot, and return to compute-only
+  headless without losing Tailscale SSH.
 
 GNOME RDP is only a possible setup/recovery aid, not an additional default.
 
