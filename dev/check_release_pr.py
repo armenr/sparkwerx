@@ -12,8 +12,8 @@ def validate(pr: dict, sha: str, repo: str, ref: str) -> bool:
         pr.get("head") == sha
         and pr.get("repo") == repo
         and pr.get("base") == "main"
-        and pr.get("branch") == "release-please--branches--main"
-        and ref == "refs/heads/release-please--branches--main"
+        and pr.get("branch") == "release-please--branches--main--components--sparkwerx"
+        and ref == "refs/heads/release-please--branches--main--components--sparkwerx"
         and pr.get("state") == "open"
         and TITLE.fullmatch(pr.get("title", "")) is not None
     )
