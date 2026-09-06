@@ -5,3 +5,5 @@ result
 result-*
 inventory/**/raw/
 inventory/**/private/
+__pycache__/
+.ruff_cache/

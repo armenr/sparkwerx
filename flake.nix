@@ -14,6 +14,10 @@
     # replace the stable package set with this input wholesale.
     nixpkgs-apps.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
+    # Development/CI tools have their own lock so lint-tool refreshes cannot
+    # update the installed Home packages or the proven root generation.
+    nixpkgs-devtools.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,6 +45,7 @@
       nixpkgs,
       nixpkgs-root,
       nixpkgs-apps,
+      nixpkgs-devtools,
       home-manager,
       nix-release,
       system-manager,
@@ -73,6 +78,13 @@
         };
       };
 
+      devToolsPkgs = import nixpkgs-devtools {
+        inherit system;
+        config.allowUnfree = false;
+      };
+
+      repositoryDevTools = import ./dev/tools.nix { pkgs = devToolsPkgs; };
+
       devboxPackage = appsPkgs.callPackage ./packages/devbox { };
       codexPackage = pkgs.callPackage ./packages/codex-cli { };
       chromiumPackage = appsPkgs.chromium;
@@ -83,6 +95,13 @@
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
       hyprlandPackage = hyprland.packages.${system}.hyprland.overrideAttrs (oldAttrs: {
+        # Upstream reads VERSION from its filtered build source. During a
+        # read-only flake check that path may not exist in a fresh store yet.
+        # Read the identical file from the locked input instead; this preserves
+        # GIT_TAG and the package derivation, without prebuilding Hyprland.
+        env = oldAttrs.env // {
+          GIT_TAG = "v${lib.trim (builtins.readFile "${hyprland}/VERSION")}";
+        };
         postPatch = (oldAttrs.postPatch or "") + ''
           substituteInPlace CMakeLists.txt \
             --replace-fail "find_package(glaze 7...<8 QUIET)" \
@@ -776,7 +795,8 @@
             (mkPackageRecord "nixpkgs-stable" pkgs.jq)
             (mkPackageRecord "nixpkgs-stable" pkgs.nixfmt-tree)
             (mkPackageRecord "nixpkgs-apps" appsPkgs.ripgrep)
-          ];
+          ]
+          ++ map (mkPackageRecord "nixpkgs-devtools; repository only") repositoryDevTools;
         };
 
         services.tailscale = {
@@ -3638,8 +3658,16 @@
           pkgs.jq
           pkgs.nixfmt-tree
           appsPkgs.ripgrep
-        ];
+        ]
+        ++ repositoryDevTools;
       };
+
+      lib.dgxDevToolVersions.${system} = builtins.listToAttrs (
+        map (package: {
+          name = lib.getName package;
+          value = package.version;
+        }) repositoryDevTools
+      );
 
       formatter.${system} = pkgs.nixfmt-tree;
     };

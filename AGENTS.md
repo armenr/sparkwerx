@@ -102,3 +102,15 @@ Use plain language, distinguish recorded evidence from live observation, and
 label commands by their effects. Keep dated records intact except for clear
 wording corrections; do not rewrite old test results as new passes.
 Run `python3 scripts/check-docs.py` for documentation changes.
+
+## Development and releases
+
+Read [development](docs/development.md) for the shared Nix workspace, pre-commit,
+CI, and Release Please. Run `./scripts/dev check` before a PR. No Prettier.
+Use a Conventional Commit PR title; squash merging supplies the release history.
+Do not merge a release PR merely to test the automation: merging it publishes.
+
+Keep `nixpkgs-devtools` updates separate from installed package/root pins.
+Do not mass-format historical recovery scripts; their lint exceptions are
+exact-file hashes in `dev/legacy-checks.json`. Changed files must pass and shed
+their exceptions. CI never authorizes activation, and the DGX is not a CI runner.

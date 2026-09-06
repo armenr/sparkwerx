@@ -14,7 +14,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-
 ROOT = Path(__file__).resolve().parent.parent
 PROSE_SUFFIXES = {".md", ".rst", ".txt", ".adoc", ".yaml", ".yml", ".svg"}
 # The owner's writing preference applies to all published documentation,
@@ -28,11 +27,19 @@ FENCES = re.compile(
 LINKS = re.compile(r"!?\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)(?:\s+[^)]*)?\)")
 HTML_LINKS = re.compile(r"\b(?:href|src)=[\"']([^\"']+)[\"']", re.IGNORECASE)
 ACTIVE_GUIDES = {
-    "README.md", "AGENTS.md", "docs/README.md", "docs/status.md",
-    "docs/getting-started.md", "docs/configuration.md", "docs/architecture.md",
-    "docs/operations.md", "docs/agent-guide.md", "docs/desktop-modes.md",
+    "README.md",
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/status.md",
+    "docs/getting-started.md",
+    "docs/configuration.md",
+    "docs/architecture.md",
+    "docs/operations.md",
+    "docs/agent-guide.md",
+    "docs/desktop-modes.md",
     ".agents/skills/dgx-spark-ops/SKILL.md",
     ".agents/skills/dgx-spark-ops/references/prompt-library.md",
+    "docs/development.md",
 }
 
 
@@ -48,8 +55,7 @@ def anchors(text: str) -> set[str]:
         heading = re.sub(r"\[([^]]+)\]\([^)]+\)", r"\1", heading)
         heading = html.unescape(re.sub(r"<[^>]*>", "", heading)).lower()
         slug = "".join(
-            ch for ch in heading
-            if ch in "-_ " or unicodedata.category(ch)[0] in {"L", "N", "M"}
+            ch for ch in heading if ch in "-_ " or unicodedata.category(ch)[0] in {"L", "N", "M"}
         ).replace(" ", "-")
         count = counts.get(slug, 0)
         counts[slug] = count + 1
@@ -68,9 +74,13 @@ def links(text: str) -> list[tuple[int, str]]:
 
 
 def tracked_and_new_files() -> set[Path]:
-    names = subprocess.check_output(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=ROOT
-    ).decode().split("\0")
+    names = (
+        subprocess.check_output(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=ROOT
+        )
+        .decode()
+        .split("\0")
+    )
     return {ROOT / name for name in names if name and (ROOT / name).is_file()}
 
 
@@ -150,20 +160,29 @@ def self_test() -> None:
     assert anchors(sample) == {"hello-world", "same", "same-1"}
     assert links(sample) == []
     assert links('[x](../README.md#hello)\n<img src="assets/a.svg">') == [
-        (1, "../README.md#hello"), (2, "assets/a.svg")
+        (1, "../README.md#hello"),
+        (2, "assets/a.svg"),
     ]
-    assert links('[multi\nline](../README.md)') == [(1, "../README.md")]
+    assert links("[multi\nline](../README.md)") == [(1, "../README.md")]
     assert anchors('# [A link](page.md)\n<a id="custom"></a>\n') == {"a-link", "custom"}
     assert RETIRED_WORD.search("B" + "OUNDED")
     assert not RETIRED_WORD.search("explicit scope and a ten-minute timeout")
-    assert subprocess.run(["bash", "-n"], input="echo ok\n", text=True, capture_output=True).returncode == 0
-    assert subprocess.run(["bash", "-n"], input="if then\n", text=True, capture_output=True).returncode != 0
+    assert (
+        subprocess.run(["bash", "-n"], input="echo ok\n", text=True, capture_output=True).returncode
+        == 0
+    )
+    assert (
+        subprocess.run(["bash", "-n"], input="if then\n", text=True, capture_output=True).returncode
+        != 0
+    )
     print("PASS|docs_self_test|links, fences, anchors, wording, and shell-syntax checks passed")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true", help="also exercise the checker before scanning")
+    parser.add_argument(
+        "--self-test", action="store_true", help="also exercise the checker before scanning"
+    )
     arguments = parser.parse_args()
     if arguments.self_test:
         self_test()

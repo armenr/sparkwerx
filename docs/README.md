@@ -17,6 +17,7 @@ dated records are the evidence behind it.
 | Understand headless, GNOME, Hyprland, and KDE | [Desktop modes](desktop-modes.md) |
 | Understand Armen's personal tools and mutable settings | [User overlays](user-overlays.md) |
 | See the unfinished work | [Roadmap](roadmap.md) |
+| Develop, open a PR, or cut a release | [Development](development.md) |
 
 ## Working with an AI agent
 
