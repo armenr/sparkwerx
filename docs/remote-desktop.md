@@ -9,7 +9,8 @@ and interactive AI work. It is optional, not part of the base CLI package set.
 The repository provides a Nix package candidate, configuration/network templates,
 client presets, and a read-only prerequisite check. There is **no activation
 command yet**. Selecting it does not install Sunshine, start graphics, or open
-ports. Moonlight transport, input/audio, and the service lifecycle still need testing.
+ports. A separate temporary trial has working Moonlight video and keyboard/mouse
+input; persistent service integration, audio, and high-refresh performance remain.
 
 The [package and isolated network tests passed](../remote-desktop/validation/2026-09-06-preparation.md).
 They verify the firewall's packet behavior, not a working graphical stream.
@@ -18,8 +19,9 @@ Nix programs rendered offscreen through the factory NVIDIA driver and encoded
 changing synthetic video with H.264, HEVC, and AV1 NVENC.
 [Real Hyprland virtual-display readback also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md)
 during the KMS trial. [Sunshine's own changing-frame capture and encoding passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
-for all three codecs at the requested 4k120 preset. A Moonlight connection and
-sustained frame rate have not yet been tested.
+for all three codecs at the requested 4k120 preset. The
+[first measured MacBook connection](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+delivered 4K HEVC at 32.44 FPS. That is not the 120 FPS target.
 
 ## Selection
 

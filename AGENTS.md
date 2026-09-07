@@ -49,7 +49,9 @@ normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
 Hyprland DRM/GBM and Grim readback have separate hardware evidence;
 [Sunshine's changing-frame capture/encode path also passed](remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
-Moonlight transport/input, audio, and sustained FPS remain integration work.
+Moonlight transport and keyboard/mouse input subsequently passed in the
+[MacBook trial](remote-desktop/validation/2026-09-07-moonlight-client.md).
+Audio, high-refresh performance, and persistent deployment remain integration work.
 `scripts/test-remote-desktop-session.sh` is the separately authorized temporary
 GPU/capture diagnostic for the current pilot. Read its
 [contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
@@ -92,8 +94,13 @@ Armen authorized a separate 30-minute Tailscale-only Moonlight trial with
 temporary keyboard/mouse input and SSH-forwarded administration. His first
 client is a MacBook. `scripts/dgx-moonlight-trial start` first runs its exact
 disposable network/shutdown test and host checks, then launches only on success.
-The new privileged lifecycle and client connection have not yet been recorded
-as passed. Read the trial guide before use. Preserve the
+The corrected privileged lifecycle and first client connection passed; the
+first 4K HEVC overlay measured 32.44 FPS, not 120. The trial canvas now has
+submission/callback timings and its inspector extracts numeric Sunshine
+pipeline statistics. These counters are not GPU presentation or client FPS.
+The timing-instrumented revision is build-tested, not yet live-tested; its
+pre-launch gate must pass for that exact revision before another session.
+Read the trial guide before use. Preserve the
 passed offline diagnostics unchanged. This authorization does not extend to
 persistent services, a desktop-mode switch, reboot, audio, or host input ACLs.
 The separate `scripts/test-remote-desktop-input.sh` first checks the trial-only

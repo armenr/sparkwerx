@@ -10,6 +10,7 @@ let
   sourceFiles = [
     ./trial-control.py
     ./trial-session.py
+    ./trial-metrics.py
     ./session-test.py
     ./gpu-probe.py
     ./virtual-display.py
@@ -43,6 +44,7 @@ let
         $CC -std=c11 -Wall -Wextra -Werror -I. ${./trial-canvas.c} xdg-shell-protocol.c \
           $(pkg-config --cflags --libs wayland-client) -o "$out/bin/sparkwerx-trial-canvas"
         "$out/bin/sparkwerx-trial-canvas" --describe
+        "$out/bin/sparkwerx-trial-canvas" --timing-self-test
       '';
   source = pkgs.runCommand "sparkwerx-moonlight-trial-source" { } ''
     mkdir -p "$out"

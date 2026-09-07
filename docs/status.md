@@ -45,7 +45,7 @@ remains to be tested on hardware.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | [Sunshine changing-frame capture/encode/decode passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md) for H.264, HEVC, and AV1 at the requested 4k120 preset. Moonlight transport, input/audio, latency, and sustained FPS remain unverified; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
+| Remote desktop | [A MacBook trial delivered 4K HEVC video and keyboard/mouse input](../remote-desktop/validation/2026-09-07-moonlight-client.md). The first overlay measured 32.44 FPS, not 120. Performance tuning, audio, and persistent deployment remain; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
 | Hyprland | Temporary NVIDIA DRM/GBM/EGL session passed; persistent local/remote session, GDM integration, and separate portal rollout remain |
 | KDE | Package selection, host integration, and validation |
@@ -64,8 +64,9 @@ The first privileged gate stopped on a [firewall JSON parser error](../remote-de
 now corrected and regression-tested. The next attempt exposed
 [root-created Python caches in a source output](../remote-desktop/validation/2026-09-07-moonlight-source-cache.md).
 The launcher now prevents those writes, and all test fixtures build before sudo.
-The corrected lifecycle and client connection remain to be run; no live trial
-launched from either failed gate.
+The corrected lifecycle passed and the MacBook connected successfully; no live
+trial launched from either failed gate. The [client record](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+separates the successful connection from the still-unmet high-refresh target.
 
 See [configuration limits](configuration.md#current-limits) before assuming a
 JSON option is an executable installation choice.

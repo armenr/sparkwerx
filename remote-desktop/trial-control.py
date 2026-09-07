@@ -566,10 +566,12 @@ def inspect():
     snapshot = candidates[-1]
     private_directory(snapshot)
     inspector = module("trial_redacted_inspector", "inspect-session.py")
+    metrics = module("trial_numeric_metrics", "trial-metrics.py")
     summary = {
         "snapshot": snapshot.name,
         "cleanup_completed": (snapshot / "finished.json").exists(),
         "errors": [],
+        "log_prefix_bytes_omitted": {},
         "raw_log_printed": False,
     }
     for name in ("guardian.log", "session.log"):
@@ -585,8 +587,13 @@ def inspect():
                 or stat.S_IMODE(info.st_mode) != 0o600
             ):
                 raise ValueError("expected a private root-owned trial log")
-            stream.seek(max(0, info.st_size - 1024 * 1024))
-            log = without_pairing_details(stream.read(1024 * 1024).decode(errors="replace"))
+            # The worker appends up to 8 MiB of Sunshine output at shutdown.
+            # Keep the earlier canvas samples too, with a fixed read ceiling.
+            limit = 16 * 1024 * 1024
+            offset = max(0, info.st_size - limit)
+            stream.seek(offset)
+            log = without_pairing_details(stream.read(limit).decode(errors="replace"))
+            summary["log_prefix_bytes_omitted"][name] = offset
         summary["errors"].extend(
             inspector.redact(line)
             for line in log.splitlines()
@@ -594,6 +601,7 @@ def inspect():
         )
         if name == "session.log":
             summary["session"] = inspector.summarize(log)
+            summary["performance"] = metrics.summarize(log)
     summary["errors"] = summary["errors"][-12:]
     print(json.dumps(summary, indent=2))
 

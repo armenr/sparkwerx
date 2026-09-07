@@ -3,6 +3,67 @@
 #define main color_client_main
 #include "color-client.c"
 #undef main
+#include <time.h>
+
+/* Measure this client's submissions, not GPU presentation or received FPS.
+ * Retain SHM buffers, full-frame damage and callback scheduling for diagnosis. */
+struct canvas_timing {
+    uint64_t first_ns, window_ns, draw_ns, draw_max_ns;
+    unsigned commits, callbacks;
+    double submit_fps, callback_fps, draw_mean_ms, draw_max_ms;
+};
+static struct canvas_timing timing;
+static uint64_t monotonic_ns(void) {
+    struct timespec value;
+    if (clock_gettime(CLOCK_MONOTONIC, &value)) die("cannot read frame clock");
+    return (uint64_t)value.tv_sec * 1000000000ULL + (uint64_t)value.tv_nsec;
+}
+static int timing_commit(struct canvas_timing *t, uint64_t begin, uint64_t end) {
+    if (!t->first_ns) t->first_ns = t->window_ns = begin;
+    ++t->commits;
+    t->draw_ns += end - begin;
+    if (end - begin > t->draw_max_ns) t->draw_max_ns = end - begin;
+    if (end - t->window_ns < 5000000000ULL) return 0;
+    double seconds = (double)(end - t->window_ns) / 1e9;
+    t->submit_fps = t->commits / seconds;
+    t->callback_fps = t->callbacks / seconds;
+    t->draw_mean_ms = (double)t->draw_ns / t->commits / 1e6;
+    t->draw_max_ms = (double)t->draw_max_ns / 1e6;
+    return 1;
+}
+static void timing_reset_window(struct canvas_timing *t, uint64_t now) {
+    t->window_ns = now;
+    t->commits = t->callbacks = 0;
+    t->draw_ns = t->draw_max_ns = 0;
+}
+static void report_timing(uint64_t now) {
+    /* Numeric performance data only: no input values, screenshots or paths. */
+    fprintf(stderr, "SPARKWERX_CANVAS_METRICS {\"elapsed_s\":%.3f,\"window_s\":%.3f,"
+        "\"commits\":%u,\"callbacks\":%u,\"submit_fps\":%.3f,\"callback_fps\":%.3f,"
+        "\"paint_mean_ms\":%.3f,\"paint_max_ms\":%.3f}\n",
+        (double)(now - timing.first_ns) / 1e9, (double)(now - timing.window_ns) / 1e9,
+        timing.commits, timing.callbacks, timing.submit_fps, timing.callback_fps,
+        timing.draw_mean_ms, timing.draw_max_ms);
+    timing_reset_window(&timing, now);
+}
+static int timing_self_test(void) {
+    for (unsigned fps = 30; fps <= 120; fps *= 2) {
+        struct canvas_timing t = {.first_ns = 1000000000ULL, .window_ns = 1000000000ULL};
+        for (unsigned i = 1; i <= fps * 5; ++i) {
+            uint64_t end = 1000000000ULL + (uint64_t)i * 5000000000ULL / (fps * 5);
+            ++t.callbacks;
+            int due = timing_commit(&t, end - 150000ULL, end);
+            if (due != (i == fps * 5)) return 1;
+        }
+        if (t.submit_fps != fps || t.callback_fps != fps ||
+            t.draw_mean_ms < 0.149 || t.draw_mean_ms > 0.151 ||
+            t.draw_max_ms < 0.149 || t.draw_max_ms > 0.151) return 1;
+        timing_reset_window(&t, 6000000000ULL);
+        if (t.commits || t.callbacks || t.draw_ns || t.draw_max_ns) return 1;
+    }
+    puts("PASS|canvas_timing|synthetic 30/60/120 submission rates and paint times; no display opened");
+    return 0;
+}
 
 struct frame_buffer {
     struct wl_buffer *buffer;
@@ -57,6 +118,7 @@ static const struct wl_buffer_listener buffer_listener = {.release = release_buf
 static void next_frame(void *data, struct wl_callback *callback, uint32_t time) {
     (void)data; (void)time;
     wl_callback_destroy(callback);
+    ++timing.callbacks;
     pending = 0;
     paint();
 }
@@ -67,10 +129,14 @@ static void paint(void) {
     for (unsigned i = 0; i < 3; ++i)
         if (!frames[i].busy) { b = &frames[i]; break; }
     if (!b) return;
+    uint64_t begin = monotonic_ns();
     rect(b, 48, 180, width - 96, 60, background);
     char counts[96];
     snprintf(counts, sizeof(counts), "KEYS %u   CLICKS %u   SCROLL %u", key_count, click_count, scroll_count);
     label(b, 48, 180, counts);
+    rect(b, 48, 270, width - 96, 60, background);
+    snprintf(counts, sizeof(counts), "CANVAS SUBMITS PER SEC %u", (unsigned)(timing.submit_fps + 0.5));
+    label(b, 48, 270, counts);
     rect(b, b->bar, height - 140, 100, 80, background);
     b->bar = 48 + (int)((frame_count++ * 12U) % (unsigned)(width - 196));
     rect(b, b->bar, height - 140, 100, 80, 0xffffbb55);
@@ -86,6 +152,8 @@ static void paint(void) {
     wl_surface_attach(surface, b->buffer, 0, 0);
     wl_surface_damage_buffer(surface, 0, 0, width, height);
     wl_surface_commit(surface);
+    uint64_t end = monotonic_ns();
+    if (timing_commit(&timing, begin, end)) report_timing(end);
 }
 static void canvas_configure(void *d, struct xdg_surface *s, uint32_t serial) {
     (void)d;
@@ -178,6 +246,7 @@ static void canvas_global(void *d, struct wl_registry *r, uint32_t id, const cha
 static const struct wl_registry_listener canvas_registry = {canvas_global, global_remove};
 
 int main(int argc, char **argv) {
+    if (argc == 2 && !strcmp(argv[1], "--timing-self-test")) return timing_self_test();
     if (argc == 2 && !strcmp(argv[1], "--describe")) {
         puts("private-canvas: animation and input counters; no shell, typed-text log, or network");
         return 0;

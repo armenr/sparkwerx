@@ -93,7 +93,9 @@ binary decodes temporary synthetic video locally. This adds no dependency pin,
 license exception, profile package, input/network permission, or persistent
 service. The normal Sunshine output is unchanged. Its CPU fixtures validate
 the test verifier; the [separate hardware capture run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
-Moonlight transport remains untested.
+That offline diagnostic does not test Moonlight transport. The subsequent
+[MacBook trial](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+has separate video/input evidence.
 
 The approved temporary Moonlight trial adds a separate Sunshine input adapter
 using Wayland virtual-keyboard/virtual-pointer protocols, not kernel input
@@ -107,6 +109,10 @@ It creates no new package pin or unfree exception. Its privileged container
 gate must pass before the launcher starts a live session. Pairing/auth state
 lives only in the private runtime; logs remain in private inventory. Building
 these outputs starts no session or listener.
+
+The trial canvas's frame-timing counters and numeric log inspector reuse those
+same dependencies. They add no package pin, profile package, or service and
+preserve the existing trial isolation and deadline.
 
 The original capture-tool build fetched about 357 KiB / 1.9 MiB unpacked for
 its extra tool outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.

@@ -9,11 +9,13 @@ import json
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,6 +31,7 @@ def load(name, filename):
 control = load("tested_trial_control", "trial-control.py")
 session = load("tested_trial_session", "trial-session.py")
 network_test = load("tested_trial_network", "trial-network-test.py")
+metrics = load("tested_trial_metrics", "trial-metrics.py")
 CONTEXT = {"token": "0123456789ab", "limit": 1800, "snapshot": "/private/snapshot"}
 NFT = os.environ.get("SPARKWERX_TEST_NFT") or shutil.which("nft")
 
@@ -43,6 +46,7 @@ class TrialBytecodeTests(unittest.TestCase):
             for filename in (
                 "trial-control.py",
                 "trial-session.py",
+                "trial-metrics.py",
                 "session-test.py",
                 "gpu-probe.py",
                 "virtual-display.py",
@@ -118,6 +122,137 @@ class TrialBytecodeTests(unittest.TestCase):
         package = (ROOT / "remote-desktop/trial.nix").read_text()
         self.assertIn("exec python3 -B ${./trial-gate.py}", gate)
         self.assertIn("exec unshare --net -- python3 -B ${networkSource}/", package)
+
+
+class TrialMetricsTests(unittest.TestCase):
+    SAMPLE = {
+        "elapsed_s": 10.0,
+        "window_s": 5.0,
+        "commits": 600,
+        "callbacks": 600,
+        "submit_fps": 120.0,
+        "callback_fps": 120.0,
+        "paint_mean_ms": 0.15,
+        "paint_max_ms": 0.3,
+    }
+
+    def test_numeric_canvas_and_upstream_pipeline_statistics(self):
+        prefix = "[2026-09-07 05:05:53.123]: "
+        log = "\n".join(
+            [
+                "SPARKWERX_CANVAS_METRICS " + json.dumps(self.SAMPLE),
+                prefix + "Info: [wlgrab] Requested frame rate [60fps]",
+                prefix + "Info: [wlgrab] Requested frame rate [12000/100, approx. 120 fps]",
+                prefix + "Info: CLIENT CONNECTED",
+                prefix + "Debug: Frame processing latency (min/max/avg): 33.90ms/62.00ms/46.30ms",
+                prefix
+                + "Debug: Network: frame's overall network latency (min/max/avg): 0.10ms/1.50ms/0.25ms",
+                prefix + "Info: CLIENT DISCONNECTED",
+            ]
+        )
+        result = metrics.summarize(log)
+        self.assertEqual(result["canvas"]["samples"], [self.SAMPLE])
+        self.assertEqual(result["capture_requested_fps"]["samples"], [60.0, 120.0])
+        self.assertEqual(result["client_connections"], 1)
+        self.assertEqual(result["client_disconnections"], 1)
+        self.assertEqual(
+            result["host_processing_ms"]["samples"], [{"min": 33.9, "max": 62.0, "mean": 46.3}]
+        )
+        self.assertEqual(result["host_send_path_ms"]["samples"][0]["mean"], 0.25)
+        self.assertFalse(result["raw_log_printed"])
+
+    def test_unknown_old_logs_are_not_reported_as_zero_latency_or_a_pass(self):
+        result = metrics.summarize("old log without timing instrumentation")
+        self.assertEqual(result["canvas"], metrics.excerpt([]))
+        self.assertEqual(result["host_processing_ms"], metrics.excerpt([]))
+        self.assertNotIn("PASS", json.dumps(result))
+
+    def test_arbitrary_data_and_malformed_numeric_records_are_not_exposed(self):
+        invalid = [
+            self.SAMPLE | {"credential": "do-not-print"},
+            self.SAMPLE | {"submit_fps": "do-not-print"},
+            self.SAMPLE | {"commits": True},
+            self.SAMPLE | {"callbacks": 1.5},
+            self.SAMPLE | {"paint_mean_ms": float("nan")},
+            self.SAMPLE | {"paint_max_ms": float("inf")},
+            self.SAMPLE | {"commits": 10**1000},
+            self.SAMPLE | {"submit_fps": 30.0},
+            self.SAMPLE | {"window_s": 0},
+            self.SAMPLE | {"paint_max_ms": 0.01},
+            [],
+        ]
+        log = "\n".join("SPARKWERX_CANVAS_METRICS " + json.dumps(item) for item in invalid)
+        log += '\nSPARKWERX_CANVAS_METRICS {"broken"\n'
+        log += "[2026-09-07 05:05:53]: Info: CLIENT CONNECTED do-not-print\n"
+        log += "[2026-09-07 05:05:53]: Info: client address do-not-print\n"
+        result = metrics.summarize(log)
+        self.assertEqual(result["invalid_canvas_samples"], len(invalid) + 1)
+        self.assertEqual(result["canvas"]["sample_count"], 0)
+        self.assertEqual(result["client_connections"], 0)
+        self.assertNotIn("do-not-print", json.dumps(result))
+
+    def test_excerpt_keeps_early_baseline_and_late_samples_with_omission_count(self):
+        result = metrics.excerpt(list(range(100)))
+        self.assertEqual(result["samples"], list(range(6)) + list(range(94, 100)))
+        self.assertEqual(result["samples_omitted"], 88)
+        self.assertEqual(result["sample_count"], 100)
+
+    def test_invalid_upstream_timings_are_ignored(self):
+        prefix = "[2026-09-07 05:05:53]: Debug: "
+        for payload in (
+            "Frame processing latency (min/max/avg): 10ms/5ms/8ms",
+            "Frame processing latency (min/max/avg): 0ms/5ms/8ms",
+            "Frame processing latency (min/max/avg): 0ms/5ms/3ms secret",
+            "[wlgrab] Requested frame rate [120/0, approx. 120 fps]",
+            "[wlgrab] Requested frame rate [0fps]",
+            "[wlgrab] Requested frame rate [100000fps]",
+        ):
+            result = metrics.summarize(prefix + payload)
+            self.assertEqual(result["host_processing_ms"]["sample_count"], 0)
+            self.assertEqual(result["capture_requested_fps"]["sample_count"], 0)
+
+    def test_canvas_instrumentation_is_in_the_build_without_changing_damage_policy(self):
+        canvas = (ROOT / "remote-desktop/trial-canvas.c").read_text()
+        package = (ROOT / "remote-desktop/trial.nix").read_text()
+        self.assertIn("--timing-self-test", package)
+        self.assertIn("CLOCK_MONOTONIC", canvas)
+        self.assertIn("wl_surface_damage_buffer(surface, 0, 0, width, height)", canvas)
+        self.assertIn("CANVAS SUBMITS PER SEC", canvas)
+        self.assertIn("./trial-metrics.py", package)
+
+    def test_private_inspection_keeps_early_canvas_samples_before_sunshine_tail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            history = Path(directory)
+            snapshot = history / "20260907T050000Z-0123456789ab"
+            snapshot.mkdir()
+            log = snapshot / "session.log"
+            log.write_text(
+                "SPARKWERX_CANVAS_METRICS "
+                + json.dumps(self.SAMPLE)
+                + "\n"
+                + "unrelated filler\n" * 80_000
+                + "[2026-09-07 05:05:53]: Debug: Frame processing latency (min/max/avg): 33.90ms/62.00ms/46.30ms\n"
+            )
+            with (
+                mock.patch.object(control, "HISTORY", history),
+                mock.patch.object(control, "private_directory"),
+                mock.patch.object(
+                    control.os,
+                    "fstat",
+                    return_value=SimpleNamespace(
+                        st_mode=stat.S_IFREG | 0o600, st_uid=0, st_size=log.stat().st_size
+                    ),
+                ),
+                mock.patch.object(control, "command") as command,
+                mock.patch("sys.stdout", new_callable=io.StringIO) as output,
+            ):
+                control.inspect()
+                command.assert_not_called()
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["performance"]["canvas"]["samples"], [self.SAMPLE])
+            self.assertEqual(report["performance"]["host_processing_ms"]["sample_count"], 1)
+            self.assertEqual(report["log_prefix_bytes_omitted"]["session.log"], 0)
+            self.assertNotIn("unrelated filler", output.getvalue())
 
 
 class TrialPolicyTests(unittest.TestCase):
