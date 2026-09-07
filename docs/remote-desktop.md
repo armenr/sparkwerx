@@ -119,8 +119,9 @@ documents pairing and shortcuts. A [direct Tailscale connection](https://tailsca
 is preferable for high-bitrate testing; a relay can limit throughput or add
 latency. No router port forwarding is needed for this design.
 
-The 30-minute client trial is approved but its live launcher is still being
-prepared. Installing Moonlight on the Mac does not start anything on the Spark.
+The approved 30-minute client trial has a [launcher](moonlight-trial.md) with a
+required disposable lifecycle gate. Installing Moonlight on the Mac does not
+start anything on the Spark.
 
 ## Graphics checks without a desktop
 

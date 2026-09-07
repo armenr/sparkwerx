@@ -4,6 +4,9 @@ import copy
 import importlib.util
 import io
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,7 +24,9 @@ def load(name, filename):
 
 control = load("tested_trial_control", "trial-control.py")
 session = load("tested_trial_session", "trial-session.py")
+network_test = load("tested_trial_network", "trial-network-test.py")
 CONTEXT = {"token": "0123456789ab", "limit": 1800, "snapshot": "/private/snapshot"}
+NFT = os.environ.get("SPARKWERX_TEST_NFT") or shutil.which("nft")
 
 
 class TrialPolicyTests(unittest.TestCase):
@@ -93,6 +98,21 @@ class TrialPolicyTests(unittest.TestCase):
         observed[-1]["rule"]["expr"][-1] = {"accept": None}
         self.assertNotEqual(control.canonical(observed), shape)
 
+    def test_counter_normalization_preserves_unexpected_counter_changes(self):
+        shape = control.nft_shape(CONTEXT["token"])
+        for counter in (
+            "named-counter",
+            {},
+            None,
+            {"packets": 0, "bytes": 0, "name": "other"},
+            {"packets": -1, "bytes": 0},
+            {"packets": True, "bytes": 0},
+        ):
+            observed = copy.deepcopy(shape)
+            observed[2]["rule"]["expr"][2] = {"counter": counter}
+            with self.subTest(counter=counter):
+                self.assertNotEqual(control.canonical(observed), shape)
+
     def test_network_install_uses_one_exclusive_batch(self):
         network = control.Network()
         with (
@@ -106,6 +126,7 @@ class TrialPolicyTests(unittest.TestCase):
         batch = json.loads(command.call_args.kwargs["data"])["nftables"]
         self.assertEqual(list(batch[0]), ["create"])
         self.assertTrue(all(list(item) == ["add"] for item in batch[1:]))
+        self.assertEqual(batch, control.nft_batch(CONTEXT["token"])["nftables"])
         verify.assert_called_once_with(CONTEXT)
 
     def test_table_collision_and_changed_rules_are_not_removed(self):
@@ -211,6 +232,63 @@ class TrialCleanupTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 control.guardian()
             context.assert_not_called()
+
+
+@unittest.skipUnless(NFT and os.geteuid() != 0, "requires nft and an unprivileged parser process")
+class TrialParserTests(unittest.TestCase):
+    def check(self, batch):
+        # --check never installs rules. An unprivileged process can parse the
+        # entire batch but cannot initialize the kernel ruleset cache. Requiring
+        # that sole error distinguishes a valid parse from a malformed policy;
+        # packet behavior still needs the separate privileged container gate.
+        result = subprocess.run(
+            [NFT, "--check", "--json", "--file", "-"],
+            input=json.dumps(batch),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=os.environ | {"LC_ALL": "C"},
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+        return result.stderr.strip()
+
+    def test_exact_generated_batch_reaches_only_the_kernel_permission_boundary(self):
+        self.assertEqual(
+            self.check(control.nft_batch(CONTEXT["token"])),
+            "netlink: Error: cache initialization failed: Operation not permitted",
+        )
+
+    def test_original_empty_counter_is_rejected_by_the_real_parser(self):
+        batch = control.nft_batch(CONTEXT["token"])
+        batch["nftables"][2]["add"]["rule"]["expr"][2] = {"counter": {}}
+        self.assertIn("Invalid counter reference", self.check(batch))
+
+
+class TrialNetworkDiagnosticsTests(unittest.TestCase):
+    def test_live_namespace_never_runs_a_diagnostic_command(self):
+        with (
+            mock.patch.object(network_test.os, "geteuid", return_value=0),
+            mock.patch.object(network_test.os, "readlink", return_value="net:[1]"),
+            mock.patch.object(network_test.subprocess, "run") as run,
+        ):
+            with self.assertRaises(RuntimeError):
+                network_test.isolated_nft("nft", "--check")
+            run.assert_not_called()
+
+    def test_isolated_error_keeps_the_parser_diagnostic(self):
+        with (
+            mock.patch.object(network_test.os, "geteuid", return_value=0),
+            mock.patch.object(network_test.os, "readlink", side_effect=["net:[2]", "net:[1]"]),
+            mock.patch.dict(network_test.control.TOOLS, {"nft": "nft"}),
+            mock.patch.object(
+                network_test.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 1, "", "Invalid counter reference"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Invalid counter reference"):
+                network_test.isolated_nft("nft", "--check")
 
 
 if __name__ == "__main__":

@@ -59,8 +59,10 @@ remains to be tested on hardware.
 The [private Wayland input check passed on hardware](../remote-desktop/validation/2026-09-07-wayland-input-host.md),
 including synthetic keyboard/mouse receipt and clean host postflight. The
 [temporary MacBook/Moonlight trial](moonlight-trial.md) now has a launcher and
-CPU/package checks ([build record](../remote-desktop/validation/2026-09-07-moonlight-trial-preparation.md)); its privileged lifecycle gate and client connection remain
-to be run. No trial listener has been started by this implementation work.
+CPU/package checks ([build record](../remote-desktop/validation/2026-09-07-moonlight-trial-preparation.md)).
+The first privileged gate stopped on a [firewall JSON parser error](../remote-desktop/validation/2026-09-07-moonlight-firewall-parser.md),
+now corrected and regression-tested. The corrected lifecycle and client
+connection remain to be run; no live trial launched from the failed gate.
 
 See [configuration limits](configuration.md#current-limits) before assuming a
 JSON option is an executable installation choice.

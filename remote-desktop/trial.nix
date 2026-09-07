@@ -106,9 +106,11 @@ in
       ''
         mkdir -p tree/remote-desktop tree/dev "$out"
         cp ${source}/* tree/remote-desktop/
+        cp ${./trial-network-test.py} tree/remote-desktop/trial-network-test.py
+        cp ${./network-test.py} tree/remote-desktop/network-test.py
         cp ${./trial-canvas.c} tree/remote-desktop/trial-canvas.c
         cp ${../dev/test_moonlight_trial.py} tree/dev/test_moonlight_trial.py
-        python3 -m unittest discover -s tree/dev
+        SPARKWERX_TEST_NFT=${pkgs.nftables}/bin/nft python3 -m unittest discover -s tree/dev
         test -e ${inputPolicy}/passed
         ${canvas}/bin/sparkwerx-trial-canvas --describe
         test ! -e ${source}/trial-fixture.py

@@ -152,13 +152,21 @@ def nft_shape(token):
                                 "right": ports,
                             }
                         },
-                        {"counter": {}},
+                        # nftables 1.1.6 treats an empty object as an invalid
+                        # named-counter reference. Initialize anonymous counters
+                        # explicitly; kernel readback uses this same shape.
+                        {"counter": {"packets": 0, "bytes": 0}},
                         {"drop": None},
                     ],
                 }
             }
         )
     return objects
+
+
+def nft_batch(token):
+    shape = nft_shape(token)
+    return {"nftables": [{"create": shape[0]}, *({"add": item} for item in shape[1:])]}
 
 
 def canonical(value):
@@ -169,11 +177,15 @@ def canonical(value):
             if not isinstance(item, dict) or "metainfo" not in item
         ]
     if isinstance(value, dict):
-        return {
-            key: ({} if key == "counter" else canonical(item))
-            for key, item in value.items()
-            if key != "handle"
-        }
+        counter = value.get("counter")
+        if (
+            set(value) == {"counter"}
+            and isinstance(counter, dict)
+            and set(counter) == {"packets", "bytes"}
+            and all(type(number) is int and number >= 0 for number in counter.values())
+        ):
+            return {"counter": {"packets": 0, "bytes": 0}}
+        return {key: canonical(item) for key, item in value.items() if key != "handle"}
     return value
 
 
@@ -198,9 +210,7 @@ class Network:
             raise RuntimeError("the trial firewall table already exists")
         # One atomic batch, with exclusive creation. A racing table creation
         # aborts the batch rather than appending rules to somebody else's table.
-        shape = nft_shape(context["token"])
-        batch = [{"create": shape[0]}, *({"add": item} for item in shape[1:])]
-        command(TOOLS["nft"], "--json", "--file", "-", data=json.dumps({"nftables": batch}))
+        command(TOOLS["nft"], "--json", "--file", "-", data=json.dumps(nft_batch(context["token"])))
         self.verify(context)
 
     def remove(self, context):
