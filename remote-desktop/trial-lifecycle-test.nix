@@ -26,6 +26,11 @@ system-manager.lib.containerTest.makeContainerTest {
     state = "/run/sparkwerx-moonlight-trial"
     root = "/nix/var/nix/gcroots/sparkwerx-moonlight-trial"
 
+    def sources_unchanged() -> None:
+        # These helpers run as root in the container. Read-only output modes
+        # alone cannot prevent Python from writing __pycache__ beside them.
+        machine.succeed("/nix/var/nix/profiles/default/bin/nix-store --verify-path '${trial.fixtureSource}' '${trial.networkSource}'")
+
     def stopped() -> None:
         machine.wait_until_succeeds(f"test ! -e '{state}'", timeout=45)
         machine.succeed(f"{operator} status | grep -Fx TRIAL_STATUS=STOPPED")
@@ -34,6 +39,7 @@ system-manager.lib.containerTest.makeContainerTest {
         machine.fail(f"{nft} list table inet sparkwerx_sunshine")
         machine.succeed(f"{nft} list table inet unrelated_trial_fixture")
         machine.succeed("systemctl is-active --quiet trial-sentinel.service")
+        sources_unchanged()
 
     def ready() -> str:
         machine.succeed(f"{operator} start")
@@ -43,6 +49,7 @@ system-manager.lib.containerTest.makeContainerTest {
 
     with subtest("Actual JSON network guard rejects LAN and IPv6 admin access"):
         machine.succeed("${trial.networkTest}/bin/sparkwerx-moonlight-trial-network-test")
+        sources_unchanged()
 
     machine.succeed("ip link add tailscale0 type dummy")
     machine.succeed("ip address add 100.64.0.1/32 dev tailscale0")

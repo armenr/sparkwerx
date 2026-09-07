@@ -338,6 +338,7 @@ def context_read():
 def internal_command(action):
     return [
         sys.executable,
+        "-B",
         str(HERE / TOOLS.get("controller", "trial-control.py")),
         "--tools",
         TOOLS["manifest"],

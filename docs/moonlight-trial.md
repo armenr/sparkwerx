@@ -31,8 +31,9 @@ cd ~/Development/DGX-setup
 ./scripts/dgx-moonlight-trial start 4k60
 ```
 
-This requests sudo once, runs the disposable network/lifecycle checks, checks
-the real host stayed unchanged, then starts the temporary session. Nothing
+This builds the launcher and test fixtures before requesting sudo, runs the
+disposable network/lifecycle checks, checks the real host stayed unchanged,
+then starts the temporary session. Nothing
 listens on the real host unless the container test passes. Preparation time
 does not consume the 30-minute session limit.
 
@@ -124,6 +125,13 @@ deadline. It runs the actual JSON firewall transaction through 32 IPv4/IPv6
 probes, then exercises stop, crash, failure, access loss, changed-rule handling,
 and the systemd deadline with a deliberately suspended guardian.
 These are not GPU, client, or sustained-FPS tests.
+
+Every trial Python entrypoint uses `-B`, including detached children. Root can
+otherwise write `__pycache__` into a Nix output despite its read-only file modes.
+Build each source tree from the explicit file list in
+[`trial.nix`](../remote-desktop/trial.nix); do not recursively copy a previously
+executed output. The container test verifies the source hashes after root-run
+imports. See the [source-cache fix](../remote-desktop/validation/2026-09-07-moonlight-source-cache.md).
 
 Sunshine binds the runtime-verified Tailscale IPv4 address. The dedicated
 `inet sparkwerx_sunshine` input chain drops ordinary-LAN traffic for both IP

@@ -10,6 +10,10 @@ let
       bundle = trial.bundle;
       tools = trial.manifest;
       policy = trial.policy;
+      # Build all ordinary test prerequisites before sudo, without trying to
+      # run the privileged container lifecycle through the normal user daemon.
+      fixture = trial.fixture;
+      network_test = trial.networkTest;
       # Identity only, not a realization dependency. Keeping a derivation's
       # output context here would build the privileged test (and its build-time
       # closure) during an ordinary user package build. The front door evaluates
@@ -22,5 +26,6 @@ in
 pkgs.writeShellApplication {
   name = "sparkwerx-moonlight-trial-gate";
   runtimeInputs = [ pkgs.python3 ];
-  text = ''exec python3 ${./trial-gate.py} --manifest ${manifest} "$@"'';
+  # The gate imports source modules as root before starting the container test.
+  text = ''exec python3 -B ${./trial-gate.py} --manifest ${manifest} "$@"'';
 }

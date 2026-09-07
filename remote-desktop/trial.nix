@@ -5,6 +5,26 @@
   inputPolicy,
 }:
 let
+  # Assemble each tree from declared files, never a glob over another output
+  # that an earlier root-run Python process might have populated with caches.
+  sourceFiles = [
+    ./trial-control.py
+    ./trial-session.py
+    ./session-test.py
+    ./gpu-probe.py
+    ./virtual-display.py
+    ./sunshine-startup.py
+    ./inspect-session.py
+  ];
+  networkFiles = sourceFiles ++ [
+    ./trial-network-test.py
+    ./network-test.py
+  ];
+  copySources =
+    destination: files:
+    pkgs.lib.concatMapStringsSep "\n" (
+      file: "cp ${file} ${destination}/${builtins.baseNameOf file}"
+    ) files;
   canvas =
     pkgs.runCommandCC "sparkwerx-trial-canvas"
       {
@@ -26,13 +46,7 @@ let
       '';
   source = pkgs.runCommand "sparkwerx-moonlight-trial-source" { } ''
     mkdir -p "$out"
-    cp ${./trial-control.py} "$out/trial-control.py"
-    cp ${./trial-session.py} "$out/trial-session.py"
-    cp ${./session-test.py} "$out/session-test.py"
-    cp ${./gpu-probe.py} "$out/gpu-probe.py"
-    cp ${./virtual-display.py} "$out/virtual-display.py"
-    cp ${./sunshine-startup.py} "$out/sunshine-startup.py"
-    cp ${./inspect-session.py} "$out/inspect-session.py"
+    ${copySources ''"$out"'' sourceFiles}
   '';
   tools = {
     Hyprland = "${hyprland}/bin/Hyprland";
@@ -61,8 +75,7 @@ let
   bundle = mkBundle "sparkwerx-moonlight-trial" source manifest "trial-control.py";
   fixtureSource = pkgs.runCommand "sparkwerx-moonlight-trial-fixture-source" { } ''
     mkdir -p "$out"
-    cp ${source}/* "$out/"
-    cp ${./trial-fixture.py} "$out/trial-fixture.py"
+    ${copySources ''"$out"'' (sourceFiles ++ [ ./trial-fixture.py ])}
   '';
   fixtureManifest = pkgs.writeText "sparkwerx-moonlight-trial-fixture-tools.json" (
     builtins.toJSON {
@@ -72,9 +85,7 @@ let
   );
   networkSource = pkgs.runCommand "sparkwerx-moonlight-trial-network-source" { } ''
     mkdir -p "$out"
-    cp ${source}/* "$out/"
-    cp ${./trial-network-test.py} "$out/trial-network-test.py"
-    cp ${./network-test.py} "$out/network-test.py"
+    ${copySources ''"$out"'' networkFiles}
   '';
 in
 {
@@ -83,6 +94,8 @@ in
     source
     bundle
     manifest
+    fixtureSource
+    networkSource
     ;
   fixture =
     mkBundle "sparkwerx-moonlight-trial-fixture" fixtureSource fixtureManifest
@@ -96,7 +109,7 @@ in
       pkgs.util-linux
       pkgs.coreutils
     ];
-    text = "exec unshare --net -- python3 ${networkSource}/trial-network-test.py";
+    text = "exec unshare --net -- python3 -B ${networkSource}/trial-network-test.py";
   };
   policy =
     pkgs.runCommand "sparkwerx-moonlight-trial-policy"
@@ -105,12 +118,17 @@ in
       }
       ''
         mkdir -p tree/remote-desktop tree/dev "$out"
-        cp ${source}/* tree/remote-desktop/
-        cp ${./trial-network-test.py} tree/remote-desktop/trial-network-test.py
-        cp ${./network-test.py} tree/remote-desktop/network-test.py
-        cp ${./trial-canvas.c} tree/remote-desktop/trial-canvas.c
+        ${copySources "tree/remote-desktop" (
+          networkFiles
+          ++ [
+            ./trial-canvas.c
+            ./trial-wrapper.sh
+            ./trial-gate.nix
+            ./trial.nix
+          ]
+        )}
         cp ${../dev/test_moonlight_trial.py} tree/dev/test_moonlight_trial.py
-        SPARKWERX_TEST_NFT=${pkgs.nftables}/bin/nft python3 -m unittest discover -s tree/dev
+        SPARKWERX_TEST_NFT=${pkgs.nftables}/bin/nft python3 -B -m unittest discover -s tree/dev
         test -e ${inputPolicy}/passed
         ${canvas}/bin/sparkwerx-trial-canvas --describe
         test ! -e ${source}/trial-fixture.py

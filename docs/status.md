@@ -61,8 +61,11 @@ including synthetic keyboard/mouse receipt and clean host postflight. The
 [temporary MacBook/Moonlight trial](moonlight-trial.md) now has a launcher and
 CPU/package checks ([build record](../remote-desktop/validation/2026-09-07-moonlight-trial-preparation.md)).
 The first privileged gate stopped on a [firewall JSON parser error](../remote-desktop/validation/2026-09-07-moonlight-firewall-parser.md),
-now corrected and regression-tested. The corrected lifecycle and client
-connection remain to be run; no live trial launched from the failed gate.
+now corrected and regression-tested. The next attempt exposed
+[root-created Python caches in a source output](../remote-desktop/validation/2026-09-07-moonlight-source-cache.md).
+The launcher now prevents those writes, and all test fixtures build before sudo.
+The corrected lifecycle and client connection remain to be run; no live trial
+launched from either failed gate.
 
 See [configuration limits](configuration.md#current-limits) before assuming a
 JSON option is an executable installation choice.

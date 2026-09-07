@@ -103,6 +103,7 @@ def worker(tools, bundle):
         child = subprocess.Popen(
             [
                 sys.executable,
+                "-B",
                 str(HERE / "trial-control.py"),
                 "--tools",
                 tools["manifest"],

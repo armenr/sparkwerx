@@ -1,12 +1,16 @@
 """CPU tests for the temporary trial; no privileged commands or GPU access."""
 
+import ast
 import copy
+import hashlib
 import importlib.util
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +31,93 @@ session = load("tested_trial_session", "trial-session.py")
 network_test = load("tested_trial_network", "trial-network-test.py")
 CONTEXT = {"token": "0123456789ab", "limit": 1800, "snapshot": "/private/snapshot"}
 NFT = os.environ.get("SPARKWERX_TEST_NFT") or shutil.which("nft")
+
+
+class TrialBytecodeTests(unittest.TestCase):
+    def test_real_wrapper_imports_leave_a_writable_source_tree_unchanged(self):
+        # Writable copies expose missing -B even without sudo. Testing imports
+        # in a read-only store as a normal user would hide the original defect.
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            for filename in (
+                "trial-control.py",
+                "trial-session.py",
+                "session-test.py",
+                "gpu-probe.py",
+                "virtual-display.py",
+                "sunshine-startup.py",
+                "inspect-session.py",
+            ):
+                shutil.copyfile(ROOT / "remote-desktop" / filename, source / filename)
+
+            def inventory():
+                return {
+                    str(path.relative_to(source)): (
+                        hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+                    )
+                    for path in source.rglob("*")
+                }
+
+            wrapper = Path(directory) / "bundle/bin/dgx-moonlight-trial"
+            wrapper.parent.mkdir(parents=True)
+            manifest = Path(directory) / "tools.json"
+            manifest.write_text("{}")
+            bash, readlink = shutil.which("bash"), shutil.which("readlink")
+            self.assertIsNotNone(bash)
+            self.assertIsNotNone(readlink)
+            text = (ROOT / "remote-desktop/trial-wrapper.sh").read_text()
+            for key, value in {
+                "bash": bash,
+                "readlink": readlink,
+                "python": sys.executable,
+                "controller": str(source / "trial-control.py"),
+                "manifest": str(manifest),
+            }.items():
+                text = text.replace(f"@{key}@", shlex.quote(value))
+            wrapper.write_text(text)
+            env = os.environ.copy()
+            env.pop("PYTHONDONTWRITEBYTECODE", None)
+            env.pop("PYTHONPYCACHEPREFIX", None)
+            before = inventory()
+            result = subprocess.run(
+                [bash, str(wrapper), "--help"],
+                capture_output=True,
+                text=True,
+                cwd=directory,
+                env=env,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("guardian", result.stdout)
+            self.assertEqual(inventory(), before)
+
+    def test_detached_python_commands_disable_bytecode(self):
+        with mock.patch.dict(control.TOOLS, {"manifest": "/fixture/tools.json"}):
+            for action in ("guardian", "worker", "cleanup"):
+                argv = control.internal_command(action)
+                self.assertEqual(argv[:2], [sys.executable, "-B"])
+                self.assertEqual(argv[-1], action)
+
+    def test_graphics_child_does_not_depend_on_parent_interpreter_flags(self):
+        tree = ast.parse((ROOT / "remote-desktop/trial-session.py").read_text())
+        launches = [
+            node.args[0]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and ast.unparse(node.func) == "subprocess.Popen"
+            and node.args
+            and isinstance(node.args[0], ast.List)
+            and ast.unparse(node.args[0].elts[0]) == "sys.executable"
+        ]
+        self.assertEqual(len(launches), 1)
+        self.assertEqual(ast.literal_eval(launches[0].elts[1]), "-B")
+
+    def test_gate_and_network_entrypoints_disable_bytecode_before_imports(self):
+        gate = (ROOT / "remote-desktop/trial-gate.nix").read_text()
+        package = (ROOT / "remote-desktop/trial.nix").read_text()
+        self.assertIn("exec python3 -B ${./trial-gate.py}", gate)
+        self.assertIn("exec unshare --net -- python3 -B ${networkSource}/", package)
 
 
 class TrialPolicyTests(unittest.TestCase):
