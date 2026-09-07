@@ -139,9 +139,15 @@ Read the [persistent operator contract](docs/nvidia-kms.md#persistent-kms-option
 It manages two additive GRUB symlinks and generated GRUB output, preserving
 the factory driver/override/initramfs. The KMS-off entry tracks Ubuntu's current
 default kernel. Builds/fixture tests are not host activation or physical
-fallback-boot evidence. Activation and reboot remain unperformed and separate.
-Use `check` for the next privileged read-only preflight. Initial deployment
-stays headless; explicit GNOME/Xorg policy must precede any later GDM transition.
+fallback-boot evidence. The first activation passed host preflight but failed
+the menu check: factory `no-grubmenu.cfg` overrode the earlier numeric drop-in.
+The corrected `zz-` drop-in and exact recovered-attempt retry have separate
+[regression evidence](root/graphics/validation/2026-09-07-persistent-kms-menu-order.md).
+Use the same `enable --console-ready` operator for a reviewed retry; it verifies
+recovery and preserves the old snapshot/code before selecting the correction.
+Never delete or rebind those roots manually. Successful activation and physical
+fallback/ordinary boots are still unverified. Initial deployment stays headless;
+explicit GNOME/Xorg policy must precede any later GDM transition.
 Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
 recognized GRUB header is not proof of boot-time environment write capability.
 

@@ -17,8 +17,10 @@ let
     # Never substitute a Nix kernel/driver or reuse a saved kernel path.
     exec ${pkgs.python3}/bin/python3 -I -B ${code}/kms-persistent.py fallback
   '';
-  defaults = pkgs.writeText "90-sparkwerx-kms.cfg" ''
+  defaults = pkgs.writeText "zz-sparkwerx-kms.cfg" ''
     # Sparkwerx opt-in KMS; NVIDIA's module configuration stays untouched.
+    # grub-mkconfig sources *.cfg lexically. This must follow the factory
+    # no-grubmenu.cfg; a numeric 90- prefix sorts BEFORE it and is overridden.
     # GRUB_CMDLINE_LINUX_DEFAULT excludes Ubuntu's recovery-mode entries.
     GRUB_CMDLINE_LINUX_DEFAULT="''${GRUB_CMDLINE_LINUX_DEFAULT} nvidia_drm.modeset=1"
     GRUB_TIMEOUT_STYLE=menu
@@ -28,7 +30,7 @@ let
     ''mkdir -p "$out"''
     + pkgs.lib.optionalString enable ''
       mkdir -p "$out/etc/default/grub.d" "$out/etc/grub.d"
-      ln -s ${defaults} "$out/etc/default/grub.d/90-sparkwerx-kms.cfg"
+      ln -s ${defaults} "$out/etc/default/grub.d/zz-sparkwerx-kms.cfg"
       ln -s ${fallback} "$out/etc/grub.d/42_sparkwerx_kms"
     ''
   );

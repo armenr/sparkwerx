@@ -22,9 +22,22 @@ require = trial.require
 FALLBACK_ID = "sparkwerx-factory-kms-off"
 ARG_ON = "nvidia_drm.modeset=1"
 ARG_OFF = "nvidia_drm.modeset=0"
-LINKS = ("etc/grub.d/42_sparkwerx_kms", "etc/default/grub.d/90-sparkwerx-kms.cfg")
+LINKS = ("etc/grub.d/42_sparkwerx_kms", "etc/default/grub.d/zz-sparkwerx-kms.cfg")
 ROOT_LINK = "nix/var/nix/gcroots/dgx-setup-kms-persistent"
 SECTION = re.compile(r"^### BEGIN (/etc/grub.d/[^\n]+) ###\n(.*?)^### END \1 ###\n", re.M | re.S)
+
+# Recovery identity for the FIRST failed persistent-KMS attempt, not a moving
+# package dependency or a generic update allowlist. Its menu ordering failed
+# before GRUB publication, and automatic recovery removed its two links. A
+# corrected enable may archive only that exact recovered initial transaction;
+# never accept an active, interrupted, unknown, or stale predecessor here.
+PREVIOUS_BUNDLE = "/nix/store/kzjrqwgbbji4xbs7sibmh7fqsrc0xkj4-dgx-kms-persistent"
+PREVIOUS_CONFIGURATION = (
+    "/nix/store/27nywkkszswmpsj37191zb80nhszk30g-dgx-kms-persistent-configuration"
+)
+PREVIOUS_DEFAULT = "etc/default/grub.d/90-sparkwerx-kms.cfg"
+RETRY_ARCHIVE = "var/lib/dgx-setup/kms-persistent-before-menu-fix"
+PREVIOUS_ROOT = ROOT_LINK + "-before-menu-fix"
 
 
 def first_body(config):
@@ -98,6 +111,16 @@ def normalize_space(text):
     return "\n".join(" ".join(line.split()) for line in text.splitlines())
 
 
+def check_menu(header):
+    styles = re.findall(r"(?m)^[ \t]*set timeout_style=([^\s]+)[ \t]*$", header)
+    require(styles and set(styles) == {"menu"}, "fallback menu is not visible")
+    timeouts = re.findall(r"(?m)^[ \t]*set timeout=([^\s]+)[ \t]*$", header)
+    require(
+        timeouts and all(value.isdecimal() and 5 <= int(value) <= 30 for value in timeouts),
+        "fallback menu timeout missing or outside 5-30 seconds",
+    )
+
+
 def verify_change(factory, enabled):
     """Prove the only functional changes are KMS, menu timeout, and fallback."""
     before, after = sections(factory), sections(enabled)
@@ -147,11 +170,7 @@ def verify_change(factory, enabled):
                 header(before[name]) == header(after[name]),
                 "GRUB header change exceeds menu timeout",
             )
-            require("set timeout_style=menu" in after[name], "fallback menu is not visible")
-            require(
-                re.search(r"set timeout=([5-9]|[12][0-9]|30)\s", after[name]),
-                "fallback menu timeout missing",
-            )
+            check_menu(after[name])
             require('set default="0"' in after[name], "nonstandard default selection needs review")
         else:
             require(before[name] == after[name], "unrelated GRUB section changed")
@@ -176,6 +195,8 @@ def check_enabled(config):
         "default boot does not enable KMS exactly once",
     )
     require(config.count("--id " + FALLBACK_ID) == 1, "fallback entry is not unique")
+    require("/etc/grub.d/00_header" in parts, "persistent GRUB header missing")
+    check_menu(parts["/etc/grub.d/00_header"])
 
 
 def file_hash(path):
@@ -266,12 +287,15 @@ class Persistent:
             "Tailscale access is not healthy",
         )
 
-    def initial_check(self):
+    def initial_check(self, *, allow_previous=False):
         self.health()
         self.environment()
         if os.path.lexists(self.retention):
             require(
-                self.retention.is_symlink() and os.readlink(self.retention) == self.bundle,
+                self.retention.is_symlink()
+                and self.retention.lstat().st_uid == trial.OWNER
+                and os.readlink(self.retention)
+                in ({self.bundle, PREVIOUS_BUNDLE} if allow_previous else {self.bundle}),
                 "foreign KMS retention root",
             )
         require(not self.ownership(), "KMS configuration already exists")
@@ -405,6 +429,89 @@ class Persistent:
         self.journal(data)
         return {"status": "TRANSACTION_RECOVERED", "bootConfigurationRestored": True}
 
+    def prepare_retry(self, *, dry_run=False):
+        """Preserve the exact recovered menu-order attempt before a fresh enable.
+
+        The old snapshot and executable remain under explicit archive/root
+        paths. Each step can be retried after interruption; none touches /etc,
+        grub.cfg, or the old journal. This is not active-configuration migration.
+        """
+        archive = self.root / RETRY_ARCHIVE
+        old_root = self.root / PREVIOUS_ROOT
+        if os.path.lexists(self.state):
+            trial.directory(self.state)
+            data = json.loads(trial.read_owned(self.state / "journal.json"))
+            if data.get("bundle") == self.bundle:
+                return False
+            require(not os.path.lexists(archive), "KMS retry archive collision")
+            previous_state = self.state
+        elif os.path.lexists(archive):
+            previous_state = archive
+        else:
+            return False
+
+        old = Persistent(self.plan, PREVIOUS_CONFIGURATION, PREVIOUS_BUNDLE, self.root)
+        old.state = previous_state
+        old.retention = old_root if previous_state == archive else self.retention
+        data = old.load()  # Exact predecessor identity, private journal, and checksums.
+        require(
+            data["phase"] == "recovered"
+            and data.get("wasEnabled") is False
+            and set(data["hashes"]) == {"before", "baseline"}
+            and data["hashes"]["before"]
+            == data["hashes"]["baseline"]
+            == self.plan["reviewedBoot"]["configSha256"],
+            "retry requires the exact recovered initial attempt; use the retained operator",
+        )
+        require(
+            not any(os.path.lexists(self.root / name) for name in (*LINKS, PREVIOUS_DEFAULT)),
+            "retry refuses active or partial KMS configuration",
+        )
+        require(self.fingerprint() == data["inputs"], "retry refuses changed factory boot inputs")
+        require(
+            trial.read_owned(self.grub)
+            == trial.read_owned(previous_state / data["transaction"] / "before"),
+            "retry requires exact recovered factory GRUB",
+        )
+        self.initial_check(allow_previous=True)
+        trial.directory(old_root.parent)
+        if os.path.lexists(old_root):
+            require(
+                old_root.is_symlink()
+                and old_root.lstat().st_uid == trial.OWNER
+                and os.readlink(old_root) == PREVIOUS_BUNDLE,
+                "foreign previous KMS retention root",
+            )
+        if dry_run:
+            return True
+        if not os.path.lexists(old_root):
+            old_root.symlink_to(PREVIOUS_BUNDLE)
+            trial.fsync_directory(old_root.parent)
+        if previous_state == self.state:
+            require(not os.path.lexists(archive), "KMS retry archive appeared concurrently")
+            self.state.rename(archive)
+            trial.fsync_directory(archive.parent)
+        require(
+            self.retention.is_symlink()
+            and self.retention.lstat().st_uid == trial.OWNER
+            and os.readlink(self.retention) in {PREVIOUS_BUNDLE, self.bundle},
+            "KMS retention changed during retry preparation",
+        )
+        # The old code is already independently rooted and its complete state
+        # archived. Atomic replacement never leaves the current root missing.
+        if os.readlink(self.retention) != self.bundle:
+            with tempfile.TemporaryDirectory(
+                prefix=".kms-retry-", dir=self.retention.parent
+            ) as temp:
+                selected = Path(temp) / "selected"
+                selected.symlink_to(self.bundle)
+                os.replace(selected, self.retention)
+                trial.fsync_directory(self.retention.parent)
+        print(
+            "PASS|retry|previous recovered snapshot and code retained; corrected candidate selected"
+        )
+        return True
+
     def apply(self, enabled, console_ready=False):
         require(
             not enabled or console_ready,
@@ -414,6 +521,8 @@ class Persistent:
             all(Path(target).is_file() for target in self.targets().values()),
             "KMS is not selected in the Nix configuration",
         )
+        if enabled:
+            self.prepare_retry()
         if self.state.exists():
             previous = self.load()
             require(previous["phase"] != "prepared", "interrupted transaction; run recover first")
@@ -519,6 +628,10 @@ class Persistent:
         except (Exception, KeyboardInterrupt):
             try:
                 self.recover()
+                print(
+                    "PASS|recovery|exact pre-transaction boot configuration restored",
+                    file=sys.stderr,
+                )
             except Exception:
                 print(
                     "RECOVERY_REQUIRED: run dgx-kms-persistent recover; do not reboot or delete its snapshot.",
@@ -617,7 +730,8 @@ def main():
         signal.signal(signal.SIGTERM, interrupted)
         signal.signal(signal.SIGHUP, interrupted)
         if args.action == "check":
-            ops.initial_check()
+            if not ops.prepare_retry(dry_run=True):
+                ops.initial_check()
             result = {"status": "READY_FOR_SEPARATE_ACTIVATION", "hostChangesPerformed": False}
         elif args.action in ("enable", "disable", "recover"):
             with ExitStack() as stack:

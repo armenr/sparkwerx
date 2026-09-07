@@ -170,8 +170,15 @@ one exact Nix code root, and keep private mode-0700 recovery snapshots under
 `/var/lib/dgx-setup/kms-persistent`. Ubuntu's current kernel generator supplies
 the KMS-off fallback. No initramfs, module override, EFI loader, GRUB environment,
 System Manager generation, or running service is changed. The spent one-boot
-trial remains retained. Host activation, the physical fallback boot, and reboot
-have not been performed. See the [operator and rollback](nvidia-kms.md#persistent-kms-optional-boot-configuration).
+trial remains retained. The first activation failed the visible-menu check
+before GRUB publication: factory `no-grubmenu.cfg` overrode the numeric drop-in.
+The correction uses `zz-sparkwerx-kms.cfg` without editing factory files. Its
+retry accepts only the exact recovered initial attempt, archives that snapshot
+under `kms-persistent-before-menu-fix`, and retains its old executable under
+the matching `dgx-setup-kms-persistent-before-menu-fix` GC root. These are
+recovery records, not new packages, profiles, or services. Successful activation,
+the physical fallback boot, and reboot remain pending. See the
+[operator and rollback](nvidia-kms.md#persistent-kms-optional-boot-configuration).
 
 ## Status of this snapshot
 

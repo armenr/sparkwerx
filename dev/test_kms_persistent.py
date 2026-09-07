@@ -1,6 +1,7 @@
 """KMS generation and transaction tests; synthetic private boot trees only."""
 
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -132,6 +133,16 @@ class GeneratorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             kms.check_enabled(fixture())
 
+    def test_hidden_or_zero_timeout_cannot_be_reported_active(self):
+        for changed in (
+            fixture(True).replace("timeout_style=menu", "timeout_style=hidden"),
+            fixture(True).replace("timeout=5", "timeout=0"),
+            fixture(True).replace("timeout=5", "timeout=5\nset timeout_style=hidden"),
+            fixture(True).replace("timeout=5", "timeout=5\nset timeout=0"),
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                kms.check_enabled(changed)
+
     def test_fallback_refuses_unsupported_factory_entry_shape(self):
         for changed in (
             fixture(True).replace("  load_video", "  source /foreign.cfg"),
@@ -215,6 +226,47 @@ class GeneratorTests(unittest.TestCase):
         )
         self.assertTrue(os.access(path / kms.LINKS[0], os.X_OK))
 
+    def test_factory_dropin_order_keeps_fallback_menu_visible(self):
+        location = os.environ.get("DGX_KMS_TEST_CONFIGURATION")
+        if not location:
+            self.skipTest("Nix policy supplies the actual GRUB drop-in")
+        if os.environ["DGX_KMS_TEST_ENABLED"] != "1":
+            return
+        defaults = Path(location) / kms.LINKS[1]
+        with tempfile.TemporaryDirectory(prefix="sparkwerx-grub-order-test-") as temporary:
+            folder = Path(temporary)
+            # The factory grub-mkconfig sources *.cfg in shell glob order.
+            # Numeric prefixes precede BOTH of these installed factory files.
+            (folder / "menu.cfg").write_text("GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n")
+            (folder / "no-grubmenu.cfg").write_text("GRUB_TIMEOUT=0\nGRUB_TIMEOUT_STYLE=hidden\n")
+            (folder / "nvidia-spark-pci.cfg").write_text(
+                'GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT factory-pci=fixture"\n'
+            )
+            (folder / defaults.name).symlink_to(defaults)
+            result = subprocess.run(
+                [
+                    "sh",
+                    "-c",
+                    'GRUB_CMDLINE_LINUX_DEFAULT=quiet; for x in "$1"/*.cfg; do . "$x"; done; '
+                    'printf "%s\\n" "$GRUB_TIMEOUT_STYLE" "$GRUB_TIMEOUT" "$GRUB_CMDLINE_LINUX_DEFAULT"',
+                    "fixture",
+                    str(folder),
+                ],
+                env={"PATH": os.environ["PATH"], "LC_ALL": "C"},
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "menu",
+                os.environ["DGX_KMS_TEST_MENU_SECONDS"],
+                "quiet factory-pci=fixture " + kms.ARG_ON,
+            ],
+        )
+
 
 class PowerCut(BaseException):
     pass
@@ -229,7 +281,7 @@ class Fake(kms.Persistent):
         self.power_cut = None
         self.events = []
 
-    def initial_check(self):
+    def initial_check(self, *, allow_previous=False):
         self.health()
         kms.require(not self.ownership(), "foreign initial state")
 
@@ -265,7 +317,7 @@ class Fake(kms.Persistent):
             raise PowerCut
 
 
-class TransactionTests(unittest.TestCase):
+class TemporaryBootTestCase(unittest.TestCase):
     def setUp(self):
         previous_umask = os.umask(0o077)
         self.addCleanup(os.umask, previous_umask)
@@ -293,6 +345,8 @@ class TransactionTests(unittest.TestCase):
         (self.root / "sys/module/nvidia_drm/parameters/modeset").write_text("N\n")
         self.ops = Fake(self.root, self.configuration)
 
+
+class TransactionTests(TemporaryBootTestCase):
     def test_enable_disable_are_next_boot_only_and_retain_private_rollback(self):
         self.assertEqual(self.ops.apply(True, True)["status"], "PERSISTENT_PENDING_REBOOT")
         self.assertEqual(self.ops.ownership(), list(kms.LINKS))
@@ -334,6 +388,26 @@ class TransactionTests(unittest.TestCase):
                 self.assertEqual(self.ops.ownership(), [])
                 self.assertEqual(self.ops.load()["phase"], "recovered")
                 setattr(self.ops, flag, False)
+
+    def test_menu_order_failure_reports_automatic_recovery(self):
+        def generate():
+            return fixture(bool(self.ops.ownership())).replace(
+                "timeout_style=menu", "timeout_style=hidden"
+            )
+
+        output = io.StringIO()
+        with (
+            mock.patch.object(self.ops, "generate", side_effect=generate),
+            mock.patch("sys.stderr", output),
+        ):
+            with self.assertRaisesRegex(ValueError, "fallback menu is not visible"):
+                self.ops.apply(True, True)
+        self.assertEqual(self.ops.grub.read_text(), fixture())
+        self.assertEqual(self.ops.ownership(), [])
+        self.assertEqual(self.ops.load()["phase"], "recovered")
+        self.assertIn(
+            "PASS|recovery|exact pre-transaction boot configuration restored", output.getvalue()
+        )
 
     def test_interrupted_publication_recovers_before_or_after_grub_replace(self):
         for point in ("links", "grub"):
@@ -438,6 +512,161 @@ class TransactionTests(unittest.TestCase):
                 self.ops.apply(True, True)
         self.assertFalse(self.ops.state.exists())
         self.assertEqual(self.ops.ownership(), [])
+
+
+class RetryTests(TemporaryBootTestCase):
+    def seed_previous(self):
+        self.ops.state.mkdir(mode=0o700)
+        transaction = self.ops.state / "txn-menu-order"
+        transaction.mkdir(mode=0o700)
+        before = fixture().encode()
+        checksum = kms.trial.digest(before)
+        self.ops.plan = {**PLAN, "reviewedBoot": {**PLAN["reviewedBoot"], "configSha256": checksum}}
+        for name in ("before", "baseline"):
+            kms.trial.publish(transaction / name, before)
+        kms.trial.publish(
+            transaction / "generated", fixture(True).replace("menu\n", "hidden\n").encode()
+        )
+        data = {
+            "schema": 1,
+            "phase": "recovered",
+            "bundle": kms.PREVIOUS_BUNDLE,
+            "configuration": kms.PREVIOUS_CONFIGURATION,
+            "transaction": transaction.name,
+            "wasEnabled": False,
+            "inputs": self.ops.fingerprint(),
+            "hashes": {"before": checksum, "baseline": checksum},
+        }
+        self.ops.journal(data)
+        self.ops.retention.symlink_to(kms.PREVIOUS_BUNDLE)
+        return data
+
+    def assert_previous_preserved(self, journal):
+        archive = self.root / kms.RETRY_ARCHIVE
+        self.assertEqual((archive / "journal.json").read_bytes(), journal)
+        self.assertEqual((archive / "txn-menu-order/before").read_text(), fixture())
+        self.assertEqual(os.readlink(self.root / kms.PREVIOUS_ROOT), kms.PREVIOUS_BUNDLE)
+        self.assertEqual(os.readlink(self.ops.retention), self.ops.bundle)
+
+    def test_retry_archives_only_recovered_attempt_and_preserves_old_code(self):
+        self.seed_previous()
+        journal = (self.ops.state / "journal.json").read_bytes()
+        self.assertEqual(self.ops.apply(True, True)["status"], "PERSISTENT_PENDING_REBOOT")
+        self.assert_previous_preserved(journal)
+        self.ops.apply(False)
+        self.assertEqual(self.ops.grub.read_text(), fixture())
+        self.assert_previous_preserved(journal)
+
+    def test_retry_preflight_is_read_only(self):
+        self.seed_previous()
+        journal = (self.ops.state / "journal.json").read_bytes()
+        self.assertTrue(self.ops.prepare_retry(dry_run=True))
+        self.assertEqual((self.ops.state / "journal.json").read_bytes(), journal)
+        self.assertEqual(os.readlink(self.ops.retention), kms.PREVIOUS_BUNDLE)
+        self.assertFalse((self.root / kms.RETRY_ARCHIVE).exists())
+        self.assertFalse(os.path.lexists(self.root / kms.PREVIOUS_ROOT))
+        self.assertEqual(self.ops.grub.read_text(), fixture())
+        self.assertEqual(self.ops.ownership(), [])
+
+    def test_retry_refuses_unknown_active_or_interrupted_predecessor(self):
+        data = self.seed_previous()
+        for changes in (
+            {"bundle": "/foreign"},
+            {"configuration": "/foreign"},
+            {"phase": "enabled"},
+            {"phase": "prepared"},
+            {"wasEnabled": True},
+            {"inputs": {"kernel": "other"}},
+        ):
+            with self.subTest(changes=changes):
+                self.ops.journal({**data, **changes})
+                journal = (self.ops.state / "journal.json").read_bytes()
+                with self.assertRaises(ValueError):
+                    self.ops.apply(True, True)
+                self.assertEqual((self.ops.state / "journal.json").read_bytes(), journal)
+                self.assertEqual(os.readlink(self.ops.retention), kms.PREVIOUS_BUNDLE)
+                self.assertFalse((self.root / kms.RETRY_ARCHIVE).exists())
+                self.assertEqual(self.ops.ownership(), [])
+
+    def test_retry_preserves_foreign_previous_root(self):
+        self.seed_previous()
+        previous_root = self.root / kms.PREVIOUS_ROOT
+        previous_root.symlink_to("/foreign")
+        with self.assertRaises(ValueError):
+            self.ops.apply(True, True)
+        self.assertEqual(os.readlink(previous_root), "/foreign")
+        self.assertTrue(self.ops.state.exists())
+        self.assertFalse((self.root / kms.RETRY_ARCHIVE).exists())
+
+    def test_retry_refuses_stale_grub_and_leftover_old_dropin(self):
+        self.seed_previous()
+        self.ops.grub.write_text(fixture() + "# foreign\n")
+        with self.assertRaises(ValueError):
+            self.ops.apply(True, True)
+        self.assertTrue(self.ops.grub.read_text().endswith("# foreign\n"))
+        self.ops.grub.write_text(fixture())
+        previous_default = self.root / kms.PREVIOUS_DEFAULT
+        previous_default.write_text("foreign\n")
+        with self.assertRaises(ValueError):
+            self.ops.apply(True, True)
+        self.assertEqual(previous_default.read_text(), "foreign\n")
+        self.assertFalse((self.root / kms.RETRY_ARCHIVE).exists())
+
+    def assert_retry_survives_interruption(self, point):
+        self.seed_previous()
+        journal = (self.ops.state / "journal.json").read_bytes()
+        original_link, original_rename, original_replace = Path.symlink_to, Path.rename, os.replace
+
+        def symlink(path, target, **kwargs):
+            result = original_link(path, target, **kwargs)
+            if point == "retain" and path == self.root / kms.PREVIOUS_ROOT:
+                raise PowerCut
+            return result
+
+        def rename(path, target):
+            result = original_rename(path, target)
+            if point == "archive" and target == self.root / kms.RETRY_ARCHIVE:
+                raise PowerCut
+            return result
+
+        def replace(source, target):
+            result = original_replace(source, target)
+            if point == "select" and target == self.ops.retention:
+                raise PowerCut
+            return result
+
+        with (
+            mock.patch.object(Path, "symlink_to", symlink),
+            mock.patch.object(Path, "rename", rename),
+            mock.patch.object(os, "replace", replace),
+            self.assertRaises(PowerCut),
+        ):
+            self.ops.apply(True, True)
+        self.assertEqual(self.ops.grub.read_text(), fixture())
+        self.assertEqual(self.ops.ownership(), [])
+        self.assertEqual(self.ops.apply(True, True)["status"], "PERSISTENT_PENDING_REBOOT")
+        self.assert_previous_preserved(journal)
+
+    def test_retry_after_interrupted_old_code_retention(self):
+        self.assert_retry_survives_interruption("retain")
+
+    def test_retry_after_interrupted_snapshot_archive(self):
+        self.assert_retry_survives_interruption("archive")
+
+    def test_retry_after_interrupted_current_code_selection(self):
+        self.assert_retry_survives_interruption("select")
+
+    def test_failed_new_attempt_recovers_and_retries_without_losing_history(self):
+        self.seed_previous()
+        journal = (self.ops.state / "journal.json").read_bytes()
+        self.ops.bad_generator = True
+        with self.assertRaises(ValueError):
+            self.ops.apply(True, True)
+        self.assertEqual(self.ops.grub.read_text(), fixture())
+        self.assertEqual(self.ops.load()["phase"], "recovered")
+        self.assert_previous_preserved(journal)
+        self.ops.bad_generator = False
+        self.assertEqual(self.ops.apply(True, True)["status"], "PERSISTENT_PENDING_REBOOT")
 
 
 if __name__ == "__main__":
