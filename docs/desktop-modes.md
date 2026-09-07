@@ -5,6 +5,11 @@
 The design is one mode: `headless`, factory `gnome`, `hyprland`, or `kde`.
 The complete four-way switching experience is **not implemented yet**.
 
+Armen's selected target is Hyprland for both local and remote use, with factory
+GNOME/Xorg kept as the familiar alternate. The [optional KMS trial](nvidia-kms.md)
+and [temporary Hyprland capture](../remote-desktop/validation/2026-09-06-temporary-capture-host.md)
+passed on the pilot; neither installs a persistent desktop session.
+
 [Remote desktop](remote-desktop.md) is an optional Sunshine/Moonlight role over
 Tailscale. It stays dormant in compute-only headless mode. Streaming without a
 monitor still needs a graphical session; it is not a reason to start one during
@@ -16,7 +21,7 @@ a headless apply.
 | --- | --- | --- |
 | `headless` | CLI base and all-modes overlay; no graphical packages or Home Manager user units | Live-confirmed on the pilot; supported final state for fresh-host converge |
 | `gnome` | Graphical profile with Ghostty and MIME machinery; personal app activation still separate | Factory stack retained; controller and reversible transitions tested in containers |
-| `hyprland` | Pinned build-tested candidate; portal is independent | NVIDIA graphics bridge and GDM session rollout still open |
+| `hyprland` | Pinned candidate; portal is independent | Temporary NVIDIA graphics/readback passed; persistent session and GDM rollout still open |
 | `kde` | Mode value exists | No selected Plasma package set or proven host integration |
 
 [`modules/home/desktop.nix`](../modules/home/desktop.nix) controls user

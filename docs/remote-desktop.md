@@ -9,14 +9,19 @@ and interactive AI work. It is optional, not part of the base CLI package set.
 The repository provides a Nix package candidate, configuration/network templates,
 client presets, and a read-only prerequisite check. There is **no activation
 command yet**. Selecting it does not install Sunshine, start graphics, or open
-ports. Capture, input/audio, and the service lifecycle still need testing.
+ports. A separate temporary trial has working Moonlight video and keyboard/mouse
+input; persistent service integration, audio, and high-refresh performance remain.
 
 The [package and isolated network tests passed](../remote-desktop/validation/2026-09-06-preparation.md).
 They verify the firewall's packet behavior, not a working graphical stream.
 The [GPU tests also passed](../remote-desktop/validation/2026-09-06-gpu-and-session-preparation.md):
 Nix programs rendered offscreen through the factory NVIDIA driver and encoded
-changing synthetic video with H.264, HEVC, and AV1 NVENC. A Sunshine stream is
-the next integration step, not an outcome of those tests.
+changing synthetic video with H.264, HEVC, and AV1 NVENC.
+[Real Hyprland virtual-display readback also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md)
+during the KMS trial. [Sunshine's own changing-frame capture and encoding passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
+for all three codecs at the requested 4k120 preset. The
+[first measured MacBook connection](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+delivered 4K HEVC at 32.44 FPS. That is not the 120 FPS target.
 
 ## Selection
 
@@ -94,6 +99,32 @@ refresh rate, and hardware decoder, not just its OS. Verify those capabilities
 on each device before targeting 120 FPS or choosing HEVC/AV1. Keep HDR off for
 the initial stream tests.
 
+### Prepare a MacBook
+
+1. Download **macOS (Universal)** from the official
+   [Moonlight PC release page](https://github.com/moonlight-stream/moonlight-qt/releases/latest),
+   open the disk image, and place Moonlight in Applications. The Mac needs
+   Moonlight, not Sunshine.
+2. Keep Tailscale connected to the same tailnet as the Spark. Use the Spark's
+   Tailscale name/address when adding it in Moonlight; don't use its Wi-Fi/LAN
+   address. Pairing must wait until the trial server is ready.
+3. For the first connection, keep HDR off and choose automatic codec selection.
+   Start at 1440p120 on a 120 Hz display or 4k60 on a 60 Hz display. These are
+   starting settings, not measured performance. The Mac model/chip and any
+   external display determine what is worth testing next.
+4. During a stream, **Control–Option–Shift–S** opens Moonlight's performance
+   statistics. Record resolution/FPS, decoder, dropped frames, and latency;
+   don't send credentials or raw Tailscale output.
+
+The [Moonlight setup guide](https://github.com/moonlight-stream/moonlight-docs/wiki/Setup-Guide)
+documents pairing and shortcuts. A [direct Tailscale connection](https://tailscale.com/docs/reference/connection-types)
+is preferable for high-bitrate testing; a relay can limit throughput or add
+latency. No router port forwarding is needed for this design.
+
+The approved 30-minute client trial has a [launcher](moonlight-trial.md) with a
+required disposable lifecycle gate. Installing Moonlight on the Mac does not
+start anything on the Spark.
+
 ## Graphics checks without a desktop
 
 Run as your normal user; no sudo or monitor is needed:
@@ -129,6 +160,263 @@ The virtual-display helper is preparatory code, not a session launcher. Its
 tests reject another compositor's PID, existing outputs, invalid modes, and
 startup timeouts. The pinned compositor accepts the rendered configurations;
 no real virtual output has been created by these checks.
+
+## Temporary capture test on the pilot
+
+Check the loaded NVIDIA DRM modesetting setting before attempting capture:
+
+```bash
+./scripts/test-remote-desktop-session.sh check-kms
+```
+
+This asks sudo only to read the current kernel parameter. It opens no GPU
+device, starts no graphics or service, and changes no configuration.
+`KMS_STATUS=DISABLED` stops this capture path; the test also checks it before
+creating a snapshot or starting its transient service. `ENABLED` establishes
+only this prerequisite, not successful capture.
+
+The pilot has NVIDIA's `nvidia-drm-options-modeset0` package, which supplies
+`/etc/modprobe.d/zz-nvidia-drm-override.conf` with `modeset=0`. The package file
+is not proof of the current loaded value, so the check reads sysfs instead.
+Do not delete that factory-owned file, purge its package, or reload GPU modules
+to get past the test. Enabling KMS needs a separately reviewed, reversible
+host configuration and boot plan while preserving the existing NVIDIA driver.
+The [first optional KMS trial boot passed](../root/graphics/validation/2026-09-06-kms-test-boot.md),
+and offscreen rendering/encoding plus temporary Hyprland capture passed with
+KMS enabled. Factory GNOME/Xorg remains the alternate to local and
+remote Hyprland. Use `./scripts/dgx-kms status` for the running trial; `check`
+is the pre-arm inspection, not its postboot verifier. Neither command reboots.
+
+This is a hardware diagnostic, not a remote-desktop installation. It needs
+explicit permission to start temporary graphics and a sudo password, but no
+local graphical login or confirmation phrase:
+
+```bash
+./scripts/test-remote-desktop-session.sh
+```
+
+The default is a 3840×2160 virtual output configured at 120 Hz. Pass `1440p120`
+or `4k60` to test a smaller mode. The script currently accepts only the reviewed
+`sparkle-01` headless generation five and its NVIDIA DRM card/render-node pair;
+it is not a general fleet launcher.
+
+It builds an immutable test bundle, snapshots protected host state, then starts
+a uniquely named transient systemd service with a **150-second hard limit**.
+The service has private `/run`, `/dev`, temporary files, and networking. Only
+the NVIDIA graphics nodes are exposed; TCP/UDP socket creation and input-device
+access are checked before the compositor starts. Host session/system D-Bus
+sockets and user homes are hidden. A private root seatd broker handles DRM
+access without a VT switch. Hyprland and its clients run as the normal user
+with a temporary render-group membership and no effective capabilities.
+The Sunshine variant also needs the primary card's group, as explained below;
+neither test changes the account's persistent memberships.
+The private runtime path is deliberately short enough for Hyprland's full
+instance signature and Linux's Unix-socket pathname limit.
+
+The test verifies the named virtual output, reads back red and green frames
+through Grim, and checks Hyprland's log for the NVIDIA GB10 renderer. It stops
+the compositor and broker, then compares the root profile, protected processes,
+Tailscale identity/SSH health, configuration hashes, and GPU/input permissions
+with the snapshot. Disconnecting cannot leave the test running indefinitely:
+systemd kills the entire test process group at its deadline.
+
+No package profile, boot link, user group, ACL, firewall rule, or normal desktop
+mode changes. No Sunshine server, pairing, audio, or input injection starts.
+The test does briefly access the **real shared GPU**; it is not a virtual GPU
+test. Run it when no other graphical session or deployment guard is active.
+
+Logs and before/after records stay root-owned under
+`inventory/sparkle-01/raw/remote-desktop-session/`. Generated screenshots are
+discarded. On failure, keep that evidence; don't relax device permissions or
+activate a desktop just to make the test pass.
+
+To inspect a failed attempt without restarting anything, pass the snapshot
+name printed in its log path:
+
+```bash
+./scripts/test-remote-desktop-session.sh inspect 20260906T135057Z-b9a45dfe19c3
+```
+
+This uses sudo only to read the root-private log and prints redacted wrapper,
+compositor, and seat-broker diagnostics, including native crash messages.
+It does not print the raw log, change file permissions, or rerun the GPU test.
+
+Grim 1.5.0 uses the compositor's image-copy protocol when available, otherwise
+wlr-screencopy. Neither is Sunshine's wlr-export-dmabuf capture path. A pass
+therefore proves this temporary compositor/readback path, **not sustained
+120 FPS, Sunshine streaming, or Moonlight performance**. The
+[4k120-preset hardware run passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md);
+the earlier [preparation record](../remote-desktop/validation/2026-09-06-temporary-capture-preparation.md)
+documents its construction and isolation checks.
+
+## Temporary Sunshine startup test
+
+The [first hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
+found the virtual display but failed encoder initialization. The locked stock
+Sunshine build disables CUDA, which removes its Wayland CUDA/GL encoder device.
+The front door rejects CUDA-disabled builds before sudo or a GPU session.
+The approved [Nix adapter](../packages/sunshine/README.md) enables that code and
+preserves the temporary session's factory-driver library path. Its isolated
+package set permits the required CUDA compiler, runtime, and CCCL headers;
+factory CUDA and the driver remain unchanged.
+The [CUDA build and package checks passed](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md).
+Its [next hardware attempt identified a harness omission](../remote-desktop/validation/2026-09-06-sunshine-uvm-device.md):
+CUDA initialization needs the existing `/dev/nvidia-uvm` node. The Sunshine
+variant now exposes that one additional GPU device; capture-only does not.
+Both still hide `/dev/nvidia-uvm-tools`. The following run got past CUDA
+initialization, then [failed a direct DRM-card open](../remote-desktop/validation/2026-09-07-sunshine-drm-access.md).
+Sunshine opens `/dev/dri/card1` itself, while Hyprland uses seatd's brokered FD.
+The Sunshine-test child now receives the existing card's group as well as the
+render node's group, solely for that process tree's lifetime. Capture-only
+retains render membership alone. The corrected startup
+hardware run [passed all three NVENC startup checks](../remote-desktop/validation/2026-09-07-sunshine-startup-host.md)
+with unchanged host state. No driver or Sunshine source patch was needed for
+this startup failure.
+
+Run the diagnostic as the normal user. It builds and checks the CUDA-enabled
+package first, then requests sudo for the same temporary GPU session:
+
+```bash
+./scripts/test-remote-desktop-sunshine.sh
+```
+
+It repeats the virtual-display/red-green readback checks, then starts the
+CUDA-enabled Sunshine 2026.516.143833 package inside that private session.
+It requires Sunshine's Wayland display initialization at the expected dimensions
+and its final H.264, HEVC, and AV1 NVENC success messages, then stops Sunshine,
+Hyprland, and seatd. `1440p120` and `4k60` are also accepted.
+
+The whole service still has a 150-second hard limit, and Sunshine gets at most
+60 seconds of startup time. Input devices and TCP/UDP remain denied. Audio,
+tray, UPnP, and display reconfiguration are disabled; the application list is
+empty. Homes and host D-Bus sockets stay hidden. Application state and logs are
+private, with no profile install, listener exposure, persistent service, device
+permission, desktop switch, or reboot. The wrapper repeats the same protected
+host postflight before reporting success.
+
+UVM must already be provided by the factory driver. The test checks the node's
+type, owner, and current driver device number before launch and inside the
+private session; it never creates nodes, changes host permissions, or loads
+modules to satisfy that prerequisite. Host postflight also checks both UVM
+nodes' metadata.
+
+DRM group IDs come from the existing root-owned device nodes, not fixed group
+numbers or the caller's memberships. The unprivileged child verifies its exact
+supplementary groups and read/write permissions before starting the compositor.
+No account/group file, device mode, ACL, or application capability changes.
+
+This is deliberately a **startup** test. In the pinned
+[encoder probe](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/video.cpp),
+Sunshine initializes the selected display and tests encoding dummy images.
+It uses its own 1080p/60 encoder-test configuration, not the virtual output's
+4k120 mode as a performance test. The
+[Wayland backend](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/platform/linux/wlgrab.cpp)
+fetches actual display frames in its separate capture loop. A startup PASS
+therefore does not establish Sunshine changing-frame capture or throughput.
+
+The [startup sequence](https://github.com/LizardByte/Sunshine/blob/v2026.516.143833/src/main.cpp)
+probes encoders before starting the streaming/admin listeners. The diagnostic
+can recognize that stage even if the process then exits on denied sockets;
+exit code alone is never success. Those socket failures are expected in this
+test, not a reason to loosen its isolation. A working server and Moonlight
+stream need a separate transport test.
+
+After a failed test shuts down and passes host postflight, the wrapper prints
+the redacted diagnostic summary automatically. To inspect the same evidence
+again without rerunning graphics:
+
+```text
+./scripts/test-remote-desktop-sunshine.sh inspect SNAPSHOT_NAME
+```
+
+The shared inspector prints redacted Sunshine/backend/encoder diagnostics,
+not the raw private log. It keeps the first and last 20 relevant Sunshine lines
+when there are more than 40, with an omitted-line count, so fallback errors don't
+hide the initial failure. It also reports when only the last MiB of the private
+log was read. Inspection stays available even when the package check rejects a
+GPU retry. The [offline preparation checks](../remote-desktop/validation/2026-09-06-sunshine-startup-preparation.md)
+and [failed hardware attempt](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md)
+are separate records; neither changes the earlier capture-only PASS or
+authorizes another reboot.
+
+## Temporary Sunshine changing-frame test
+
+This diagnostic sends changing red/green images through Sunshine's actual
+Wayland capture, CUDA conversion, and NVENC path, then decodes the resulting
+H.264, HEVC, and AV1 video locally. It is separate from the passed startup test:
+
+```bash
+./scripts/test-remote-desktop-sunshine-frames.sh
+```
+
+This builds a [test-only executable](../packages/sunshine/capture-test.nix)
+from the same locked source and CUDA recipe. Only the application's `main()`
+is replaced; source checksums preserve the capture, conversion, and encoder
+implementations. The new entry point calls `video::capture()` and consumes its
+video packets without starting HTTP, RTSP, input, audio, or application launchers.
+It installs no server binary, systemd unit, or udev rule. The normal Sunshine
+package is unchanged.
+
+The helper requests four seconds per codec at the selected preset, with a
+60-second process deadline. The same transient service still has its 150-second
+hard limit, no IP sockets or input devices, temporary card/render groups, and
+protected-host postflight. The existing KMS test boot is a prerequisite; this
+command does not change KMS, boot settings, or desktop mode.
+
+Success requires the selected Wayland display, NVENC-only initialization,
+ordered video packets with multiple capture timestamps, matching decoded codec
+and full-resolution dimensions, an exact packet/frame count, and repeated
+decoded red/green changes. A static or dummy image cannot pass. Generated video
+is temporary and removed; counters and failure details stay in the private log.
+The same redacted `inspect SNAPSHOT_NAME` route handles failures.
+
+The [offline checks passed](../remote-desktop/validation/2026-09-07-sunshine-frame-preparation.md),
+including CPU-generated decoder fixtures for all three codecs. That is verifier
+evidence, not a GPU result. The [separate hardware run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md)
+all three codecs with repeated decoded red/green changes and clean host postflight.
+That does not establish Moonlight pairing, transport, input/audio, latency, or
+sustained FPS. There is no reason to repeat the passed test merely to proceed
+to client integration.
+
+## Private keyboard and mouse check
+
+Sunshine's usual Linux input backend creates kernel-wide virtual input devices.
+For the private trial, a [separate Nix package](../packages/sunshine/wayland-input.nix)
+instead sends keyboard/pointer events directly to the one named Hyprland
+output. It does not expose `/dev/uinput`, physical input devices, or an X11
+fallback. The normal Sunshine package and passed capture tests are unchanged.
+
+The adapter uses the pinned Hyprland
+[virtual keyboard](https://github.com/hyprwm/Hyprland/blob/v0.56.2/protocols/virtual-keyboard-unstable-v1.xml)
+and [virtual pointer](https://github.com/hyprwm/Hyprland/blob/v0.56.2/protocols/wlr-virtual-pointer-unstable-v1.xml)
+protocol definitions and Sunshine's existing keycode mapping. It requires one
+seat and only `SPARKWERX-REMOTE`; unexpected/missing globals fail without a
+kernel-input fallback. A real Unix-socket protocol fixture checks keys,
+modifiers, duplicate key suppression, coordinates, clicks, scrolling, and
+refusal cases without a GPU or root.
+
+Run the separate hardware check on the Spark:
+
+```bash
+./scripts/test-remote-desktop-input.sh
+```
+
+This builds and checks the adapter, then requests sudo for the existing private
+150-second Hyprland supervisor. It repeats color readback and NVENC startup,
+checks Sunshine's adapter initialization, and sends synthetic input to a
+dedicated fullscreen receiver. Success requires both lowercase and shifted
+uppercase input plus key releases, mouse movement, clicks, and both scroll
+axes. Only counts are recorded. All clients and the broker stop before host
+postflight. No IP socket, kernel input device, input ACL, persistent service,
+profile, desktop-mode switch, or reboot is added.
+
+This is not a Moonlight connection. The trial adapter initially uses a US
+keyboard layout and excludes clipboard text injection, touch, pen, gamepads,
+and audio. The [hardware input check passed](../remote-desktop/validation/2026-09-07-wayland-input-host.md).
+Client transport remains separate: use the
+[MacBook trial guide](moonlight-trial.md) for its launcher, pre-launch container
+gate, SSH tunnel, pairing, and shutdown. The temporary trial does not activate
+the persistent desktop role.
 
 ## Private access
 
@@ -185,9 +473,9 @@ changing global network settings.
 - Test a cold start with no physical display or local graphical login, then
   verify changing frames from the intended virtual output. Sunshine's `wlr`
   capture is not a GNOME capture backend.
-- Extend the proven offscreen/encoder bridge to Hyprland's DRM/GBM and
-  Sunshine's capture/encode path. The SSH user currently lacks access to the
-  NVIDIA DRM nodes; the pbuffer test does not exercise that permission path.
+- Carry the tested temporary NVIDIA DRM/GBM/EGL bridge into a reviewed session
+  lifecycle, preserving the verified Sunshine changing-frame capture/encode path.
+  The temporary broker is not a permanent device-permission policy.
 - Scope input, audio, and session startup/shutdown. Do not grant blanket input
   access or `CAP_SYS_ADMIN` as a shortcut.
 - Implement guard-before-listener ordering, rollback, tailnet-loss handling,
@@ -200,8 +488,10 @@ GNOME RDP is only a possible setup/recovery aid, not an additional default.
 
 ## Updates and references
 
-Sunshine uses the existing locked `nixpkgs-apps` package, not a handwritten
-version override. Compare with the latest **stable** release, not daily
+Sunshine uses the existing locked `nixpkgs-apps` source with a small
+[build-option and wrapper adapter](../packages/sunshine/README.md), not a
+handwritten version override. Follow that recipe's update checks, including
+its CUDA toolchain and runtime-closure checks. Compare with the latest **stable** release, not daily
 prereleases or a moving documentation version. Review capture, ports, settings,
 bundled FFmpeg, and input permissions before updating. Rebuild and retest before
 activation. Moonlight belongs on the client, not every Spark's base.

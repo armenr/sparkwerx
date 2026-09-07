@@ -40,13 +40,116 @@ check the implementation and [operations guide](docs/operations.md).
 The separate remote-desktop `check` command is read-only too. Read
 [remote desktop](docs/remote-desktop.md) before remote graphics work. The chosen
 target is Sunshine/Moonlight over Tailscale, not RDP as the primary experience.
-Its current artifacts are preparation only; no activation operator exists, and
-the selection must stay dormant while headless. Do not treat network-policy
+The persistent role is still preparation only and stays dormant while headless.
+The separately authorized [temporary Moonlight trial](docs/moonlight-trial.md)
+has its own operator and pre-launch container gate. Do not treat network-policy
 tests as GPU/capture or end-to-end streaming proof.
 `scripts/test-remote-desktop-graphics.sh` runs synthetic hardware checks as the
 normal user, without a compositor or listener. Its GPU evidence is separate
 from the virtual-display helper's fake-session and config-parser tests. Real
-Hyprland DRM/GBM access and Sunshine capture remain the next integration work.
+Hyprland DRM/GBM and Grim readback have separate hardware evidence;
+[Sunshine's changing-frame capture/encode path also passed](remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
+Moonlight transport and keyboard/mouse input subsequently passed in the
+[MacBook trial](remote-desktop/validation/2026-09-07-moonlight-client.md).
+Audio, high-refresh performance, and persistent deployment remain integration work.
+`scripts/test-remote-desktop-session.sh` is the separately authorized temporary
+GPU/capture diagnostic for the current pilot. Read its
+[contract](docs/remote-desktop.md#temporary-capture-test-on-the-pilot) first.
+It starts real Hyprland briefly inside a private transient service, not through
+the root desktop controller. Its 150-second deadline and host postflight must
+remain intact. The [4k120-preset hardware run passed](remote-desktop/validation/2026-09-06-temporary-capture-host.md);
+that means configured 120 Hz and verified colors, not measured 120 FPS streaming.
+`scripts/test-remote-desktop-sunshine.sh` selects a separate diagnostic bundle
+that also starts Sunshine under the same isolation. Read its
+[startup-test contract](docs/remote-desktop.md#temporary-sunshine-startup-test).
+Sunshine's startup probe encodes dummy images: its final encoder messages are
+not proof of changing-frame capture, a working server, or Moonlight streaming.
+Keep TCP/UDP and input denied; don't turn this probe into a deployment path.
+The [first Sunshine attempt failed](remote-desktop/validation/2026-09-06-sunshine-startup-failure.md):
+the locked stock package disables CUDA and cannot provide its Wayland CUDA/GL
+encoder device. The front door rejects it before sudo. The approved local
+[CUDA adapter](packages/sunshine/default.nix) must preserve the factory-driver
+bridge and pass its package checks before hardware retry. Its
+[build checks passed](remote-desktop/validation/2026-09-06-sunshine-cuda-build.md);
+the next attempt [identified missing UVM device exposure](remote-desktop/validation/2026-09-06-sunshine-uvm-device.md).
+The Sunshine-only test now requires and exposes the existing `/dev/nvidia-uvm`
+node; capture-only does not, and both hide `/dev/nvidia-uvm-tools`. Preserve
+the existing-node validation and host metadata checks. Do not load modules,
+create nodes, or change host permissions as a workaround. The full corrected
+test got past CUDA initialization, then [hit the DRM card's group permissions](remote-desktop/validation/2026-09-07-sunshine-drm-access.md).
+Sunshine opens the primary card directly; it does not use Hyprland's seatd FD.
+The Sunshine-test child now gets the existing card and render groups only for
+its lifetime; capture-only keeps render access alone. Preserve exact child
+group checks, zero effective child capabilities, and unchanged host groups/ACLs.
+The [corrected hardware run passed](remote-desktop/validation/2026-09-07-sunshine-startup-host.md):
+all three NVENC encoders initialized and host postflight passed. The separate
+changing-frame hardware run also passed all three codecs with clean host postflight.
+`scripts/test-remote-desktop-sunshine-frames.sh` selects a separate offline
+capture executable, never the production package. Read its
+[contract](docs/remote-desktop.md#temporary-sunshine-changing-frame-test);
+keep the engine-source checks, decoded-color verification, and existing
+150-second/no-IP/no-input isolation. Build and CPU-fixture results are not
+hardware capture or Moonlight evidence; the linked hardware record is separate.
+Armen authorized a separate 30-minute Tailscale-only Moonlight trial with
+temporary keyboard/mouse input and SSH-forwarded administration. His first
+client is a MacBook. `scripts/dgx-moonlight-trial start` first runs its exact
+disposable network/shutdown test and host checks, then launches only on success.
+The corrected privileged lifecycle and first client connection passed; the
+first 4K HEVC overlay measured 32.44 FPS, not 120. The trial canvas now has
+submission/callback timings and its inspector extracts numeric Sunshine
+pipeline statistics. These counters are not GPU presentation or client FPS.
+The next live run produced roughly 110–120 canvas submissions/sec, but its
+Sunshine log was lost during a manual stop. Trial stdout now goes directly to
+root-private evidence; native logging handles readiness in the private runtime.
+The logging correction still needs its exact pre-launch gate and a live check.
+Read the trial guide before use. Preserve the
+passed offline diagnostics unchanged. This authorization does not extend to
+persistent services, a desktop-mode switch, reboot, audio, or host input ACLs.
+The separate `scripts/test-remote-desktop-input.sh` first checks the trial-only
+Sunshine Wayland adapter and synthetic input receipt in real Hyprland. Read its
+[contract](docs/remote-desktop.md#private-keyboard-and-mouse-check). It keeps the
+150-second supervisor, denied IP sockets/kernel input, and host postflight.
+Its [real Hyprland input run passed](remote-desktop/validation/2026-09-07-wayland-input-host.md)
+with clean host postflight. This does not prove Moonlight packet delivery.
+Only its dedicated package replaces the platform input backend; ordinary
+Sunshine and the passed capture/encoder outputs must remain unchanged.
+Failures print the existing redacted inspector
+summary automatically after shutdown and successful host postflight. Read-only `inspect`
+remains available; no persistent graphics or factory CUDA change is authorized.
+Use `scripts/test-remote-desktop-session.sh check-kms` before retrying capture. The pilot has
+NVIDIA's `nvidia-drm-options-modeset0` package; don't remove its override or
+reload GPU modules as an incidental fix. KMS changes require a separate host
+configuration and boot plan. The test rejects loaded `modeset=N` before launch.
+That preparation is now selected: read [the KMS plan](docs/nvidia-kms.md).
+`scripts/dgx-kms plan`, `check`, and `status` inspect only. Its optional
+`arm --console-ready` stages a one-boot entry; `cancel` revokes that entry and
+selection. Both are host changes, never reboot commands. Read the KMS plan
+before using them; independent keyboard/display/power recovery is required.
+The trial consumes and reads back a GRUB marker before adding the KMS argument.
+Failed marker I/O uses the original arguments. The pilot's
+[first KMS boot](root/graphics/validation/2026-09-06-kms-test-boot.md) consumed
+the marker and loaded KMS; failure/repeated-selection cases remain offline tests.
+The trial entry/snapshot/code remain, with no confirmation timer. Do not re-arm,
+cancel, or reboot as incidental cleanup; inspect current status first.
+After a subsequent normal boot returned KMS to `N`, Armen separately approved
+implementing persistent KMS and rollback. The new
+`scripts/dgx-kms-persistent` operator and `hosts/sparkle-01/graphics.nix`
+selection are separate from the passed one-boot artifacts and root generations.
+Read the [persistent operator contract](docs/nvidia-kms.md#persistent-kms-optional-boot-configuration).
+It manages two additive GRUB symlinks and generated GRUB output, preserving
+the factory driver/override/initramfs. The KMS-off entry tracks Ubuntu's current
+default kernel. Builds/fixture tests are not host activation or physical
+fallback-boot evidence. The first activation passed host preflight but failed
+the menu check: factory `no-grubmenu.cfg` overrode the earlier numeric drop-in.
+The corrected `zz-` drop-in and exact recovered-attempt retry have separate
+[regression evidence](root/graphics/validation/2026-09-07-persistent-kms-menu-order.md).
+Use the same `enable --console-ready` operator for a reviewed retry; it verifies
+recovery and preserves the old snapshot/code before selecting the correction.
+Never delete or rebind those roots manually. Successful activation and physical
+fallback/ordinary boots are still unverified. Initial deployment stays headless;
+explicit GNOME/Xorg policy must precede any later GDM transition.
+Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
+recognized GRUB header is not proof of boot-time environment write capability.
 
 Fresh-host convergence is headless-only, requires the explicit supported user
 mapping, never reboots, and uses two root generations. It passed the full
@@ -69,7 +172,9 @@ changes require that gate again. Read
   Keep their sandbox/GPU/portal gates. Never bypass Chromium's sandbox or
   globally relax AppArmor. Preserve Zed's updater-disable wrapper and LM
   Studio's byte-identical Deno CLI; its Electron fallback remains unresolved.
-- No global `allowUnfree = true`; the exact current exception is `lmstudio`.
+- No global `allowUnfree = true`; general apps permit only `lmstudio`.
+  Sunshine's isolated package set permits only `cuda_nvcc`, `cuda_cudart`, and
+  required `cuda_cccl` headers; no driver or broader CUDA-stack exception.
   No VS Code, Google Chrome, NIM, AI Enterprise, 1Password desktop, or LM Link
   unless the user changes the recorded selection.
 - `lazydocker` does not grant Docker access. Devbox does not own Nix upgrades.
@@ -109,6 +214,11 @@ Never commit or print credentials, raw Tailscale status/preferences, node IDs,
 tailnet addresses, cookies, or private inventory. Keep root snapshots under
 `inventory/<host>/raw/`, user snapshots under `inventory/<host>/private/`,
 and models/application data outside Git and the Nix store.
+The KMS trial operator instead keeps its private boot snapshot under
+`/var/lib/dgx-setup/kms-trial`, with canceled trials in `kms-trial-history`;
+these are recovery material, not files to copy into the repository.
+The separate persistent KMS operator uses `/var/lib/dgx-setup/kms-persistent`
+and retains its exact executable at the `dgx-setup-kms-persistent` GC root.
 
 Use plain language, distinguish recorded evidence from live observation, and
 label commands by their effects. Keep dated records intact except for clear

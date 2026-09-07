@@ -18,17 +18,39 @@ and headless mode.
 ## Optional remote desktop
 
 Sunshine/Moonlight over Tailscale is selected for the pilot and defaults off for
-other consumers. Sunshine uses the locked `nixpkgs-apps` package (GPL-3.0-only),
-including its pinned upstream FFmpeg build dependency. It adds no global unfree
+other consumers. Sunshine uses the locked `nixpkgs-apps` source (GPL-3.0-only),
+including its pinned upstream FFmpeg build dependency, with a local CUDA build
+adapter. It adds no global unfree
 exception, Moonlight client, or replacement NVIDIA driver. The package and
 network/configuration templates are preparation artifacts, not an activated
 Home/root role. Selection in `headless` installs and starts nothing. See
 [remote desktop](remote-desktop.md) for the remaining capture, graphics/input,
 credential, and service-lifecycle work.
 
-The realized ARM64 Sunshine 2026.516.143833 candidate has a 793.6 MiB complete
+The original ARM64 Sunshine 2026.516.143833 stock candidate has a 793.6 MiB complete
 Nix closure (much of it shared with other candidates); its own output is
 22.8 MiB. Realization only populated the Nix store, not the active profile.
+
+That stock candidate was subsequently found to have CUDA support compiled out;
+its [Sunshine startup attempt failed](../remote-desktop/validation/2026-09-06-sunshine-startup-failure.md).
+Armen approved the same-release CUDA rebuild and its required dependencies.
+The [adapter](../packages/sunshine/default.nix) uses `cuda_nvcc` 12.9.86
+(compiler), `cuda_cudart` 12.9.79 (runtime/headers), and its required
+`cuda_cccl` 12.9.27 headers from the existing apps lock. Contrary to the earlier
+inventory, this CCCL redistributable's Nix metadata also uses the CUDA EULA.
+An isolated [Sunshine package configuration](../packages/sunshine/config.nix)
+permits exactly those three names, without changing the stable/general-apps
+policies. No factory package, active profile, or service is replaced.
+
+The initial dry run requires 1.1 GiB of cached build dependencies (3.8 GiB
+unpacked), plus the hash-pinned NVIDIA SBSA compiler/runtime/header archives
+and the locked CCCL source patch. These populate only the Nix store. The
+compiler is forbidden from Sunshine's runtime closure. The [completed build](../remote-desktop/validation/2026-09-06-sunshine-cuda-build.md)
+has a 24.2 MiB application output and a 795.0 MiB runtime closure: about 1.4 MiB
+more than stock, with the other 234 runtime paths unchanged. No standalone
+CUDA compiler/runtime package or Nix NVIDIA driver remains in that closure.
+Build dependencies consume additional store space, not permanent fleet-profile
+space.
 
 Encoder diagnostics use the locked apps lane's `ffmpeg-headless` 9.0.1 binary
 output as a temporary test tool, not a profile package. Its libraries are
@@ -40,6 +62,123 @@ GLVND development library and compiler; it renders two private test colors
 through the factory NVIDIA EGL driver without opening a display or compositor.
 They install no CUDA toolkit, driver, service, listener, or permissions. A
 successful FFmpeg encode is not proof of Sunshine capture or streaming.
+
+The temporary Hyprland capture test also uses the locked root lane's seatd
+0.9.3, Grim 1.5.0, Wayland 1.25.0, wayland-protocols 1.48, libdrm 2.4.133,
+and Mesa's **GBM loader only** (26.0.3). These are free, test-only dependencies;
+they add no permanent packages or replacement GPU driver. A small local Wayland
+client supplies solid-color frames. The factory NVIDIA allocator and EGL GBM
+platform remain the renderer. Its private seat broker needs temporary root
+access to the NVIDIA DRM device; the compositor and capture clients run as the
+normal user. No input devices, TCP/UDP sockets, profile activation, or boot
+services are enabled. Real capture results belong in a separate test record,
+not in the earlier offscreen-rendering evidence.
+
+The separate Sunshine startup diagnostic reuses that same transient service
+and driver bridge, with the CUDA-enabled Sunshine adapter described above.
+Its own harness adds only repository Python code/configuration.
+It starts Sunshine as the normal user with a private empty application list,
+input/audio/tray/UPnP disabled, and TCP/UDP still denied by the service. Any
+generated application state remains in private temporary storage. Its final
+encoder messages prove startup initialization only: upstream tests dummy images,
+not real captured frames. No profile, persistent service, firewall, device
+permission, or package pin changes. See the
+[startup-test contract](remote-desktop.md#temporary-sunshine-startup-test).
+
+The [changing-frame diagnostic](remote-desktop.md#temporary-sunshine-changing-frame-test)
+adds a separately named Sunshine test executable using the same source,
+dependencies, and CUDA recipe. Only its application entry point is replaced;
+checksums preserve the capture/encoder engines. The existing approved FFmpeg
+binary decodes temporary synthetic video locally. This adds no dependency pin,
+license exception, profile package, input/network permission, or persistent
+service. The normal Sunshine output is unchanged. Its CPU fixtures validate
+the test verifier; the [separate hardware capture run passed](../remote-desktop/validation/2026-09-07-sunshine-frames-host.md).
+That offline diagnostic does not test Moonlight transport. The subsequent
+[MacBook trial](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+has separate video/input evidence.
+
+The approved temporary Moonlight trial adds a separate Sunshine input adapter
+using Wayland virtual-keyboard/virtual-pointer protocols, not kernel input
+devices. It reuses the locked Sunshine/Hyprland sources, Wayland scanner,
+libxkbcommon, and existing compiler dependencies. No new package pin or license
+exception is required. Its package and input test tools remain outside every
+profile. Its [hardware input check passed](../remote-desktop/validation/2026-09-07-wayland-input-host.md).
+The [30-minute trial](moonlight-trial.md) adds a small Wayland SHM test canvas,
+Python controller, and nftables guard using the same locked dependencies.
+It creates no new package pin or unfree exception. Its privileged container
+gate must pass before the launcher starts a live session. Pairing/auth state
+lives only in the private runtime; logs remain in private inventory. Building
+these outputs starts no session or listener.
+
+The trial canvas's frame-timing counters and numeric log inspector reuse those
+same dependencies. They add no package pin, profile package, or service and
+preserve the existing trial isolation and deadline.
+
+The original capture-tool build fetched about 357 KiB / 1.9 MiB unpacked for
+its extra tool outputs. Inspecting Grim's pinned source added 17.2 KiB / 79.1 KiB unpacked.
+The complete closure is larger because it includes the previously realized
+compositor and its shared dependencies.
+
+The capture-log inspector reuses the same locked Python runtime. It is a
+read-only test tool, not a profile package; it adds no third-party dependency,
+service, permission change, or activation path.
+
+## Optional KMS trial tooling
+
+`kms-preflight` uses the already locked root lane's Python runtime and
+standard-library code. The privileged inspector uses
+the existing factory `grub-editenv list`, `grub-probe`, and `systemctl show`
+readers. It adds no driver, module, profile package, service, listener, ACL,
+initramfs, or GRUB configuration. Its Nix policy artifact does not itself install
+a boot entry.
+
+`kms-trial` adds an optional `arm/status/cancel` operator, using the same Python
+runtime and locked coreutils. It uses factory EFI/GRUB readers and the factory
+GRUB syntax checker. Only `arm --console-ready` publishes the private generated
+`/boot/grub/custom.cfg` and changes two GRUB environment keys: `next_entry` and
+`sparkwerx_kms_ticket`. It retains immutable code under a dedicated per-trial
+GC root and keeps root-private snapshots under `/var/lib/dgx-setup/kms-trial`.
+Cancellation revokes only these boot artifacts; snapshots and code roots remain.
+No existing profile, service, driver, module, device-permission, or default boot entry changes.
+No command reboots or makes KMS permanently enabled.
+
+Offline syntax tests use the locked root lane's GRUB 2.12 EFI package, matching
+the factory parser's upstream version, not replacing it. The pilot's no-link
+build plan adds 7.2 MiB of downloads / 32.8 MiB unpacked for GRUB and FUSE 2.9.9
+test dependencies. They are free, store-only test tools; no FUSE mount or service
+is started. Actual host arming also checks its generated entry with the factory
+Ubuntu-patched parser.
+
+The optional role is intended for Hyprland local/remote use with factory GNOME
+as fallback; it is not a compute-base dependency. See the
+[KMS plan and recovery requirements](nvidia-kms.md). Build outputs are ordinary
+store objects; retained trial code roots and private snapshots are deliberate
+recovery material, not incidental cleanup. The factory settings have not
+changed and need no rollback from running inspection or offline tests.
+
+## Optional persistent KMS adapter
+
+Armen approved implementation on 2026-09-07 after a later normal reboot
+returned the successful one-boot experiment to factory `modeset=N`.
+`hosts/sparkle-01/graphics.nix` selects the adapter explicitly; its Nix function
+defaults to disabled. `kms-persistent` and its enabled/disabled policy checks
+use existing root-lane Python/coreutils/GRUB dependencies, with no new driver,
+CUDA package, unfree exception, user-profile package, or service.
+
+Deployment would own two additive GRUB symlinks, regenerate `grub.cfg`, retain
+one exact Nix code root, and keep private mode-0700 recovery snapshots under
+`/var/lib/dgx-setup/kms-persistent`. Ubuntu's current kernel generator supplies
+the KMS-off fallback. No initramfs, module override, EFI loader, GRUB environment,
+System Manager generation, or running service is changed. The spent one-boot
+trial remains retained. The first activation failed the visible-menu check
+before GRUB publication: factory `no-grubmenu.cfg` overrode the numeric drop-in.
+The correction uses `zz-sparkwerx-kms.cfg` without editing factory files. Its
+retry accepts only the exact recovered initial attempt, archives that snapshot
+under `kms-persistent-before-menu-fix`, and retains its old executable under
+the matching `dgx-setup-kms-persistent-before-menu-fix` GC root. These are
+recovery records, not new packages, profiles, or services. Successful activation,
+the physical fallback boot, and reboot remain pending. See the
+[operator and rollback](nvidia-kms.md#persistent-kms-optional-boot-configuration).
 
 ## Status of this snapshot
 
@@ -472,9 +611,14 @@ also denies unfree by default and permits only the exact Nix package name
 `lmstudio`. The policy evaluation confirms that:
 
 - `ncdu`, `lazydocker`, `devbox`, `ghostty`, Chromium, and Zed are free;
-- `lmstudio` is the only accepted unfree evaluation exception;
+- `lmstudio` is the only general-apps unfree evaluation exception;
 - VS Code remains rejected in both package sets;
 - ChatGPT has no selected Nix packaging path, so no exception exists for it.
+
+Sunshine alone uses a separate package set permitting `cuda_nvcc`,
+`cuda_cudart`, and `cuda_cccl` for its approved CUDA build. The package policy
+rejects unrelated applications, cuDNN, replacement drivers, and `cuda_compat`.
+This does not grant CUDA exceptions to the base or general-apps package sets.
 
 The exception installs nothing by itself. Do not broaden it “for convenience.”
 If an approved closure fails because another package is unfree, stop and

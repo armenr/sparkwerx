@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_dir"
+if [[ "$EUID" -eq 0 ]]; then
+  printf '%s\n' 'Run as your normal user; this operator requests sudo when needed.' >&2
+  exit 1
+fi
+action="${1:-status}"
+preset="${2:-4k60}"
+if [[ "$#" -gt 2 || ! "$action" =~ ^(test|start|status|stop|inspect)$ || ! "$preset" =~ ^(4k60|1440p120|4k120)$ ]]; then
+  printf '%s\n' 'Usage: ./scripts/dgx-moonlight-trial {test|start [4k60|1440p120|4k120]|status|stop|inspect}' >&2
+  exit 1
+fi
+if [[ "$action" != start && "$#" -gt 1 ]]; then
+  printf '%s\n' 'A display preset is only accepted with start.' >&2
+  exit 1
+fi
+
+trial_root=/nix/var/nix/gcroots/sparkwerx-moonlight-trial
+if [[ "$action" == status || "$action" == stop || "$action" == inspect ]]; then
+  if [[ -L "$trial_root" ]]; then
+    # Use the retained program for this run, even after checkout/package edits.
+    trial_bundle="$(readlink -f -- "$trial_root")"
+    [[ "$trial_bundle" =~ ^/nix/store/[a-z0-9]{32}-sparkwerx-moonlight-trial$ ]] || {
+      printf '%s\n' 'FAIL|trial|unexpected retention target; inspect without deleting it' >&2
+      exit 1
+    }
+  else
+    nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file .#moonlight-trial
+    trial_bundle="$(nix --extra-experimental-features 'nix-command flakes' eval --raw --no-write-lock-file .#moonlight-trial.outPath)"
+  fi
+  exec sudo -- "$trial_bundle/bin/dgx-moonlight-trial" "$action"
+fi
+
+[[ -z "$(git status --porcelain=v1)" ]] || {
+  printf '%s\n' 'FAIL|trial|commit the reviewed changes before testing or starting the trial' >&2
+  exit 1
+}
+nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file .#moonlight-trial-gate
+trial_gate="$(nix --extra-experimental-features 'nix-command flakes' eval --raw --no-write-lock-file .#moonlight-trial-gate.outPath)"
+nix --extra-experimental-features 'nix-command flakes' eval --raw --no-write-lock-file \
+  .#checks.aarch64-linux.moonlight-trial-lifecycle-container.drvPath >/dev/null
+exec sudo -- "$trial_gate/bin/sparkwerx-moonlight-trial-gate" "$action" --preset "$preset"

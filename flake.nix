@@ -61,8 +61,8 @@
       nixBootstrapSpec = builtins.fromJSON (builtins.readFile ./bootstrap/nix/source.json);
       nixRuntimeStorePaths = import ./root/nix/store-paths.nix;
 
-      # This is an evaluation exception, not a package selection. LM Studio is
-      # the only currently selected package whose Nix metadata is unfree.
+      # This is an evaluation exception, not a package selection. The general
+      # apps set permits only LM Studio; Sunshine's CUDA tools are isolated below.
       approvedUnfreePackageNames = [ "lmstudio" ];
 
       pkgs = import nixpkgs {
@@ -93,9 +93,48 @@
       zedPackage = pkgs.callPackage ./packages/zed-editor { };
 
       # Optional remote-desktop preparation. This does not add a package to
-      # Home/root profiles or start any server. Use the stock locked stable
-      # Sunshine release; its faster prerelease channel is not selected.
-      sunshinePackage = appsPkgs.sunshine;
+      # Home/root profiles or start any server. Keep the stock locked stable
+      # release, with a CUDA-enabled build and a bridge-preserving wrapper.
+      # This isolated package set cannot broaden the fleet/apps unfree policy.
+      sunshinePkgs = import nixpkgs-apps {
+        inherit system;
+        config = import ./packages/sunshine/config.nix { inherit lib; };
+      };
+      sunshinePackage = sunshinePkgs.callPackage ./packages/sunshine { };
+      sunshineCaptureTest = sunshinePkgs.callPackage ./packages/sunshine/capture-test.nix {
+        sunshine = sunshinePackage;
+      };
+      sunshineWaylandInput = import ./packages/sunshine/wayland-input.nix {
+        pkgs = sunshinePkgs;
+        sunshine = sunshinePackage;
+        hyprland = hyprlandPackage;
+      };
+      remoteDesktopInput = import ./remote-desktop/input-test.nix {
+        pkgs = rootPkgs;
+        hyprland = hyprlandPackage;
+        sunshineInput = sunshineWaylandInput;
+      };
+      moonlightTrial = import ./remote-desktop/trial.nix {
+        pkgs = rootPkgs;
+        hyprland = hyprlandPackage;
+        sunshineInput = sunshineWaylandInput;
+        inputPolicy = remoteDesktopInput.policy;
+      };
+      moonlightTrialLifecycle = import ./remote-desktop/trial-lifecycle-test.nix {
+        inherit system-manager rootCanary;
+        pkgs = rootPkgs;
+        trial = moonlightTrial;
+      };
+      moonlightTrialGate = import ./remote-desktop/trial-gate.nix {
+        pkgs = rootPkgs;
+        trial = moonlightTrial;
+        lifecycle = moonlightTrialLifecycle;
+      };
+      sunshinePolicy = import ./packages/sunshine/policy.nix {
+        pkgs = rootPkgs;
+        sunshine = sunshinePackage;
+        inherit (sunshinePkgs) vulkan-loader;
+      };
       remoteDesktopPlans = lib.mapAttrs (
         _: hostSpec: import ./remote-desktop/policy.nix { inherit lib hostSpec; }
       ) fleetHosts;
@@ -104,8 +143,18 @@
         plans = remoteDesktopPlans;
         sunshine = sunshinePackage;
         ffmpeg = appsPkgs.ffmpeg-headless;
+        inherit sunshineCaptureTest;
         hyprland = hyprlandPackage;
       };
+
+      # Separate optional KMS preparation; the current root generations and
+      # factory GPU/boot configuration remain unchanged.
+      kmsArtifacts = import ./root/graphics/kms.nix { pkgs = rootPkgs; };
+      kmsPersistentArtifacts = import ./root/graphics/kms-persistent.nix {
+        pkgs = rootPkgs;
+        inherit ((import ./hosts/sparkle-01/graphics.nix).kms) enable menuSeconds;
+      };
+      kmsPersistentDisabled = import ./root/graphics/kms-persistent.nix { pkgs = rootPkgs; };
 
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
@@ -3613,17 +3662,51 @@
         xdg-desktop-portal-hyprland = hyprlandPortalPackage;
         zed-editor = zedPackage;
         sunshine = sunshinePackage;
+        sunshine-capture-test = sunshineCaptureTest;
+        sunshine-wayland-input = sunshineWaylandInput.package;
+        sunshine-wayland-input-test = sunshineWaylandInput.test;
+        remote-desktop-input-test = remoteDesktopInput.test;
+        remote-desktop-input-policy = remoteDesktopInput.policy;
+        moonlight-trial = moonlightTrial.bundle;
+        moonlight-trial-policy = moonlightTrial.policy;
+        moonlight-trial-network-test = moonlightTrial.networkTest;
+        moonlight-trial-gate = moonlightTrialGate;
+        sunshine-policy = sunshinePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-network-test = remoteDesktopArtifacts.networkTest;
         remote-desktop-gpu-test = remoteDesktopArtifacts.gpuTest;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
         remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
+        remote-desktop-session-test = remoteDesktopArtifacts.sessionTest;
+        remote-desktop-session-inspect = remoteDesktopArtifacts.sessionInspect;
+        remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
+        remote-desktop-sunshine-startup-test = remoteDesktopArtifacts.sunshineStartupTest;
+        remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
+        remote-desktop-sunshine-frames-test = remoteDesktopArtifacts.sunshineFramesTest;
+        remote-desktop-sunshine-frames-policy = remoteDesktopArtifacts.sunshineFramesPolicy;
+        kms-preflight = kmsArtifacts.preflight;
+        kms-trial = kmsArtifacts.trial;
+        kms-preparation-policy = kmsArtifacts.policy;
+        kms-persistent = kmsPersistentArtifacts.operator;
+        kms-persistent-configuration = kmsPersistentArtifacts.configuration;
+        kms-persistent-policy = kmsPersistentArtifacts.policy;
+        kms-persistent-disabled-policy = kmsPersistentDisabled.policy;
       };
 
       checks.${system} = {
+        sunshine-package = sunshinePackage;
+        sunshine-policy = sunshinePolicy;
+        remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
+        remote-desktop-sunshine-frames-policy = remoteDesktopArtifacts.sunshineFramesPolicy;
+        kms-preparation-policy = kmsArtifacts.policy;
+        kms-persistent-policy = kmsPersistentArtifacts.policy;
+        kms-persistent-disabled-policy = kmsPersistentDisabled.policy;
+        remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;
         remote-desktop-session-policy = remoteDesktopArtifacts.sessionPolicy;
+        moonlight-trial-policy = moonlightTrial.policy;
+        moonlight-trial-lifecycle-container = moonlightTrialLifecycle;
         chromium-package = chromiumPackage;
         chromium-policy = chromiumPolicyCheck;
         codex-cli-package = codexPackage;

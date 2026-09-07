@@ -15,6 +15,7 @@ For your machine's status, use the [status commands](operations.md#status-checks
 | Root configuration | System Manager generation five, selected/live/boot-linked |
 | Desktop | Confirmed headless; factory GDM and Dashboard GUI stopped, not uninstalled |
 | Access | Nix-owned Tailscale 1.102.3 with existing identity and Tailscale SSH preserved |
+| NVIDIA KMS | Back to factory off after the one-boot experiment; first persistent activation stopped on [menu-setting load order](../root/graphics/validation/2026-09-07-persistent-kms-menu-order.md). Correction tested; successful activation/reboot pending |
 | Recovery | No transition timer armed in the latest retained-state record; all five pilot generations and their roots retained |
 
 The recorded root classification is
@@ -34,8 +35,10 @@ passed at commit `cc1069cbce87974a545095b3361b78837d618437`. It covers:
 - factory/headless transitions and persistent rollback across three container reboots;
 - the real pilot's plan/apply/converge paths remaining exact no-ops.
 
-Still to test on hardware: provisioning a second Spark and rebooting the pilot
-in headless generation five. The Tailscale reboot test ran on generation four.
+The pilot also booted into headless generation five during the
+[one-boot KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md),
+with Tailscale and the expected services active. Provisioning a second Spark
+remains to be tested on hardware.
 
 ## What is not ready
 
@@ -43,9 +46,9 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | --- | --- |
 | General fleet customization | Broader users, package sets, and later root-generation updates |
 | Desktop toggling | A retained-headless → GNOME operator and a full repeatable round trip |
-| Remote desktop | Package/network checks, offscreen NVIDIA rendering, and short H.264/HEVC/AV1 NVENC tests passed. Hyprland accepts the virtual-display configs; real capture, input/audio, streaming, and sustained performance remain untested. See [remote desktop](remote-desktop.md) |
+| Remote desktop | [A MacBook trial delivered 4K HEVC video and keyboard/mouse input](../remote-desktop/validation/2026-09-07-moonlight-client.md). The first overlay measured 32.44 FPS, not 120. Performance tuning, audio, and persistent deployment remain; KMS is not permanently enabled. See [remote desktop](remote-desktop.md) |
 | Ghostty | Real graphical runtime validation and activation |
-| Hyprland | Non-NixOS NVIDIA graphics bridge, GDM session, and separate portal rollout |
+| Hyprland | Temporary NVIDIA DRM/GBM/EGL session passed; persistent local/remote session, GDM integration, and separate portal rollout remain |
 | KDE | Package selection, host integration, and validation |
 | Chromium | Exact root sandbox integration; no unsandboxed browsing workaround |
 | Zed | Factory-GNOME Vulkan/portal checks and profile activation |
@@ -53,6 +56,18 @@ in headless generation five. The Tailscale reboot test ran on generation four.
 | ChatGPT and 1Password extensions | Reproducible packaging/policy and migration from manual installs |
 | Isaac/Omniverse | Exact workload pins, source/build plan, storage, and runtime validation |
 | Other AI services | Choose the workload before adding models, ports, daemons, or containers |
+
+The [private Wayland input check passed on hardware](../remote-desktop/validation/2026-09-07-wayland-input-host.md),
+including synthetic keyboard/mouse receipt and clean host postflight. The
+[temporary MacBook/Moonlight trial](moonlight-trial.md) now has a launcher and
+CPU/package checks ([build record](../remote-desktop/validation/2026-09-07-moonlight-trial-preparation.md)).
+The first privileged gate stopped on a [firewall JSON parser error](../remote-desktop/validation/2026-09-07-moonlight-firewall-parser.md),
+now corrected and regression-tested. The next attempt exposed
+[root-created Python caches in a source output](../remote-desktop/validation/2026-09-07-moonlight-source-cache.md).
+The launcher now prevents those writes, and all test fixtures build before sudo.
+The corrected lifecycle passed and the MacBook connected successfully; no live
+trial launched from either failed gate. The [client record](../remote-desktop/validation/2026-09-07-moonlight-client.md)
+separates the successful connection from the still-unmet high-refresh target.
 
 See [configuration limits](configuration.md#current-limits) before assuming a
 JSON option is an executable installation choice.
