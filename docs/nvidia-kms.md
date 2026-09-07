@@ -17,8 +17,118 @@ The pilot's [first trial boot passed](../root/graphics/validation/2026-09-06-kms
 KMS loaded, the one-use marker was consumed, and the normal GRUB configuration
 stayed unchanged. Headless/access services and short rendering/encoding checks
 passed afterward. [Temporary Hyprland capture also passed](../remote-desktop/validation/2026-09-06-temporary-capture-host.md);
-Sunshine's own pipeline is next. KMS is not permanently
-enabled.
+Sunshine's changing-frame encoder tests and a MacBook/Moonlight connection
+subsequently passed too. A later normal reboot returned to factory KMS off,
+as the one-boot trial was designed to do. Persistent KMS is now selected for
+the pilot and implemented below, but has not been activated.
+
+## Persistent KMS: optional boot configuration
+
+The selection lives in [the pilot's graphics configuration](../hosts/sparkle-01/graphics.nix).
+The [Nix adapter](../root/graphics/kms-persistent.nix) defaults to disabled;
+only the pilot explicitly selects it. This is separate from the historical
+System Manager generations and does not change the headless desktop role.
+It is not yet part of generic `dgx-setup converge`.
+
+```bash
+./scripts/dgx-kms-persistent plan
+./scripts/dgx-kms-persistent check
+```
+
+`plan` builds/inspects the candidate without sudo. `check` additionally asks
+sudo for read-only host, boot, EFI-route, and access checks. Neither deploys
+configuration. The operator's unit tests include real GRUB syntax checks,
+failed generation/postflight, interruption recovery, and simulated kernel
+updates. They are not evidence that the new menu has booted on this machine.
+See the [tooling test record](../root/graphics/validation/2026-09-07-persistent-kms-tooling.md).
+
+After that review and **separate activation approval**, with independent
+keyboard/display/power recovery available:
+
+```bash
+./scripts/dgx-kms-persistent enable --console-ready
+```
+
+This deploys two Nix-store symlinks:
+
+- `/etc/default/grub.d/90-sparkwerx-kms.cfg`: append
+  `nvidia_drm.modeset=1` to ordinary Ubuntu boot entries and show a five-second
+  GRUB menu. Ubuntu recovery-mode entries do not inherit that argument.
+- `/etc/grub.d/42_sparkwerx_kms`: generate **Sparkwerx: factory settings
+  (NVIDIA KMS off)** from Ubuntu's current default kernel entry, with
+  `nvidia_drm.modeset=0` and its own unique menu ID.
+
+The fallback runs the installed Ubuntu `10_linux` generator whenever GRUB is
+regenerated. It keeps the current kernel, initramfs, and disk arguments; it
+doesn't carry a saved kernel path from installation day. Unknown generator
+layouts or conflicting NVIDIA arguments stop generation for review. Nix must
+remain available for this hook; its exact code is retained against garbage
+collection. This uses the distribution's
+[GRUB configuration mechanism](https://www.gnu.org/software/grub/manual/grub/html_node/Simple-configuration.html),
+not another bootloader or GPU package.
+
+Before changing either link, the operator saves private recovery material and
+retains its Nix executable. It checks that current GRUB can be reproduced,
+generates the changed configuration to memory, checks the allowed differences
+and syntax, and atomically replaces `/boot/grub/grub.cfg`. It holds the Debian
+package-manager locks during the transaction. Don't run other bootloader
+maintenance concurrently.
+
+No module is reloaded, no initramfs is rebuilt, and no service or desktop is
+started. NVIDIA's override file/package, driver, CUDA, EFI forwarder, GRUB
+environment, and every System Manager generation remain untouched. The spent
+one-boot trial and its recovery root are retained too. Use the new operator's
+`status` after persistent activation; the old trial's unchanged-GRUB check no
+longer describes that configuration.
+
+`PERSISTENT_PENDING_REBOOT` means the next ordinary boot enables KMS; it does
+not mean KMS is already loaded. Reboot is always separate. After reboot:
+
+```bash
+./scripts/dgx-kms-persistent status
+```
+
+`PERSISTENT_KMS_ACTIVE` verifies the configuration/fallback and loaded `Y`,
+not streaming performance. Check access and GPU health, then resume the
+[Moonlight trial](moonlight-trial.md).
+
+### Factory fallback and rollback
+
+If the KMS-enabled boot fails, use the local GRUB menu's **factory settings
+(NVIDIA KMS off)** entry. It disables KMS for that boot without changing the
+normal default. There is no automatic userspace recovery timer: one cannot
+repair a kernel hang before userspace starts. Independent local recovery is
+required; the new fallback still needs its first physical boot test.
+
+To return ordinary future boots to factory policy:
+
+```bash
+./scripts/dgx-kms-persistent disable
+```
+
+This removes only the two exact managed symlinks and regenerates GRUB using
+the **current** factory kernels/configuration. It does not restore an old
+kernel list over later OS updates. A currently loaded KMS driver remains
+loaded until a separate reboot. Initial rollout and normal disable require
+the reviewed headless pilot; GNOME/Xorg integration remains separate.
+
+A failed transaction automatically attempts its exact pre-transaction restore.
+After a power loss or forced termination during the write, use:
+
+```bash
+./scripts/dgx-kms-persistent recover
+```
+
+Recovery refuses stale factory inputs or foreign replacements instead of
+overwriting them. Do not reboot while it reports `RECOVERY_REQUIRED`. Private
+snapshots stay under `/var/lib/dgx-setup/kms-persistent` (0700); the retained
+operator root is `/nix/var/nix/gcroots/dgx-setup-kms-persistent`. Recovery and
+disable use that exact executable, even if the checkout later changes. Keep
+the snapshot and root; neither is incidental cleanup material.
+
+Selecting KMS does not select GNOME Wayland. Keep the initial rollout headless;
+before enabling factory GDM with KMS loaded, implement and test its explicit
+Xorg session policy. The boot fallback itself uses KMS off.
 
 ## Current commands
 
@@ -39,8 +149,8 @@ environment values, and Tailscale identity.
 `KMS_STATUS=BOOT_REVIEW_REQUIRED` means the inspection completed, not that
 boot recovery or KMS has been tested. `reviewFindings` lists discrepancies to
 resolve. An empty list is not permission to change or reboot the machine.
-The one-boot arming operator below performs its own
-fresh checks; permanent enablement is not implemented.
+The one-boot arming operator below performs its own fresh checks. Persistent
+configuration has a separate operator above; it is never implied by arming.
 
 The tests use synthetic boot configuration and temporary filesystem trees.
 They cover private-data filtering, EFI routing, entry preservation, failed
@@ -133,8 +243,7 @@ Only after capture works should we advance to local GDM integration and actual
 Sunshine/Moonlight streaming. Retest idle resource use and compute alongside
 streaming; enabling a capability is not proof of 4K/120 performance.
 
-Permanent enablement comes later, through reviewed Nix-managed configuration
-and its own rollback. Preserve NVIDIA's driver/package and the vendor override
+The separate persistent adapter above preserves NVIDIA's driver/package and the vendor override
 as fallback material. Account for initramfs copies: the factory override
 package's install/remove hooks call `update-initramfs -u`. Do not purge the
 package, edit its file, reload GPU modules, or regenerate boot images as an

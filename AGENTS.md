@@ -131,6 +131,17 @@ Failed marker I/O uses the original arguments. The pilot's
 the marker and loaded KMS; failure/repeated-selection cases remain offline tests.
 The trial entry/snapshot/code remain, with no confirmation timer. Do not re-arm,
 cancel, or reboot as incidental cleanup; inspect current status first.
+After a subsequent normal boot returned KMS to `N`, Armen separately approved
+implementing persistent KMS and rollback. The new
+`scripts/dgx-kms-persistent` operator and `hosts/sparkle-01/graphics.nix`
+selection are separate from the passed one-boot artifacts and root generations.
+Read the [persistent operator contract](docs/nvidia-kms.md#persistent-kms-optional-boot-configuration).
+It manages two additive GRUB symlinks and generated GRUB output, preserving
+the factory driver/override/initramfs. The KMS-off entry tracks Ubuntu's current
+default kernel. Builds/fixture tests are not host activation or physical
+fallback-boot evidence. Activation and reboot remain unperformed and separate.
+Use `check` for the next privileged read-only preflight. Initial deployment
+stays headless; explicit GNOME/Xorg policy must precede any later GDM transition.
 Preserve factory GNOME/Xorg as the alternate to local/remote Hyprland. A
 recognized GRUB header is not proof of boot-time environment write capability.
 
@@ -200,6 +211,8 @@ and models/application data outside Git and the Nix store.
 The KMS trial operator instead keeps its private boot snapshot under
 `/var/lib/dgx-setup/kms-trial`, with canceled trials in `kms-trial-history`;
 these are recovery material, not files to copy into the repository.
+The separate persistent KMS operator uses `/var/lib/dgx-setup/kms-persistent`
+and retains its exact executable at the `dgx-setup-kms-persistent` GC root.
 
 Use plain language, distinguish recorded evidence from live observation, and
 label commands by their effects. Keep dated records intact except for clear

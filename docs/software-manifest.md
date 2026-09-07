@@ -156,6 +156,23 @@ store objects; retained trial code roots and private snapshots are deliberate
 recovery material, not incidental cleanup. The factory settings have not
 changed and need no rollback from running inspection or offline tests.
 
+## Optional persistent KMS adapter
+
+Armen approved implementation on 2026-09-07 after a later normal reboot
+returned the successful one-boot experiment to factory `modeset=N`.
+`hosts/sparkle-01/graphics.nix` selects the adapter explicitly; its Nix function
+defaults to disabled. `kms-persistent` and its enabled/disabled policy checks
+use existing root-lane Python/coreutils/GRUB dependencies, with no new driver,
+CUDA package, unfree exception, user-profile package, or service.
+
+Deployment would own two additive GRUB symlinks, regenerate `grub.cfg`, retain
+one exact Nix code root, and keep private mode-0700 recovery snapshots under
+`/var/lib/dgx-setup/kms-persistent`. Ubuntu's current kernel generator supplies
+the KMS-off fallback. No initramfs, module override, EFI loader, GRUB environment,
+System Manager generation, or running service is changed. The spent one-boot
+trial remains retained. Host activation, the physical fallback boot, and reboot
+have not been performed. See the [operator and rollback](nvidia-kms.md#persistent-kms-optional-boot-configuration).
+
 ## Status of this snapshot
 
 Package/version evidence date: **2026-09-03 online audit**

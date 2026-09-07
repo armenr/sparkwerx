@@ -150,6 +150,11 @@
       # Separate optional KMS preparation; the current root generations and
       # factory GPU/boot configuration remain unchanged.
       kmsArtifacts = import ./root/graphics/kms.nix { pkgs = rootPkgs; };
+      kmsPersistentArtifacts = import ./root/graphics/kms-persistent.nix {
+        pkgs = rootPkgs;
+        inherit ((import ./hosts/sparkle-01/graphics.nix).kms) enable menuSeconds;
+      };
+      kmsPersistentDisabled = import ./root/graphics/kms-persistent.nix { pkgs = rootPkgs; };
 
       # Hyprland v0.56.2 ships glaze 8 but its CMake constraint rejects it.
       # This mirrors upstream fix 91f29f2 without moving the source off the tag.
@@ -3682,6 +3687,10 @@
         kms-preflight = kmsArtifacts.preflight;
         kms-trial = kmsArtifacts.trial;
         kms-preparation-policy = kmsArtifacts.policy;
+        kms-persistent = kmsPersistentArtifacts.operator;
+        kms-persistent-configuration = kmsPersistentArtifacts.configuration;
+        kms-persistent-policy = kmsPersistentArtifacts.policy;
+        kms-persistent-disabled-policy = kmsPersistentDisabled.policy;
       };
 
       checks.${system} = {
@@ -3690,6 +3699,8 @@
         remote-desktop-sunshine-startup-policy = remoteDesktopArtifacts.sunshineStartupPolicy;
         remote-desktop-sunshine-frames-policy = remoteDesktopArtifacts.sunshineFramesPolicy;
         kms-preparation-policy = kmsArtifacts.policy;
+        kms-persistent-policy = kmsPersistentArtifacts.policy;
+        kms-persistent-disabled-policy = kmsPersistentDisabled.policy;
         remote-desktop-capture-policy = remoteDesktopArtifacts.capturePolicy;
         remote-desktop-policy = remoteDesktopArtifacts.policy;
         remote-desktop-gpu-policy = remoteDesktopArtifacts.gpuPolicy;

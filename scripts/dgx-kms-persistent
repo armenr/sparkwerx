@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_dir"
+case "${1:-}" in
+  enable)
+    [[ $# == 2 && $2 == --console-ready ]] || {
+      echo 'Usage: ./scripts/dgx-kms-persistent enable --console-ready' >&2
+      exit 2
+    }
+    ;;
+  plan | check | status | disable | recover)
+    [[ $# == 1 ]] || exit 2
+    ;;
+  *)
+    echo 'Usage: ./scripts/dgx-kms-persistent {plan|check|status|enable --console-ready|disable|recover}' >&2
+    exit 2
+    ;;
+esac
+[[ $EUID != 0 ]] || {
+  echo 'Run as your normal user; the operator requests sudo where needed.' >&2
+  exit 1
+}
+
+# Recovery must not depend on the checkout, new pins, or a later build. Keep
+# the exact rooted executable/configuration that owns the deployed settings.
+retention=/nix/var/nix/gcroots/dgx-setup-kms-persistent
+if [[ $1 =~ ^(status|disable|recover)$ && -L $retention ]]; then
+  bundle="$(readlink "$retention")"
+  [[ $bundle =~ ^/nix/store/[a-z0-9]{32}-dgx-kms-persistent$ ]] || exit 1
+  [[ $(stat -c %u "$retention") == 0 ]] || exit 1
+else
+  nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
+    .#kms-persistent .#kms-persistent-policy
+  bundle="$(nix --extra-experimental-features 'nix-command flakes' eval --raw .#kms-persistent.outPath)"
+fi
+if [[ $1 == plan ]]; then
+  exec "$bundle/bin/dgx-kms-persistent" "$@"
+fi
+exec sudo "$bundle/bin/dgx-kms-persistent" "$@"

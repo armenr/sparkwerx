@@ -847,3 +847,26 @@ commit may expose `currentCandidate != observedCandidate`; that is a reviewable
 `UPDATE_AVAILABLE` state, not flake-evaluation failure. A successful real
 update must be followed by a deployment-evidence commit before another update.
 See the [update lifecycle](2026-09-03-home-headless-update-lifecycle.md).
+
+## D-022: Optional persistent KMS after the successful one-boot trial
+
+Status: implementation approved by Armen on 2026-09-07; host activation and
+reboot remain separate.
+
+The normal reboot after the one-boot test restored factory `modeset=N`.
+Keep persistent KMS optional, with the pilot explicitly selecting it in
+`hosts/sparkle-01/graphics.nix`; its Nix adapter defaults to disabled.
+
+Own two additive GRUB configuration symlinks and the resulting generated
+`grub.cfg`, not NVIDIA's override package/file, driver, initramfs, kernel,
+EFI loader, CUDA, or System Manager generations. Generate a visible KMS-off
+fallback from Ubuntu's current default kernel rather than a saved image path.
+Keep recovery code rooted and boot snapshots private. Normal disable must
+regenerate the current factory configuration; interrupted-transaction recovery
+may restore its snapshot only while the corresponding factory inputs match.
+
+There is no automatic reboot or typo-sensitive confirmation phrase. Initial
+activation requires independent local recovery and stays headless. KMS is not
+permission to enable factory GNOME Wayland; explicit Xorg integration comes
+before a later GDM transition. The spent one-boot trial is retained, not
+silently deleted. Read [the persistent KMS operator](nvidia-kms.md#persistent-kms-optional-boot-configuration).
