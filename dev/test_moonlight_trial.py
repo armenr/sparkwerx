@@ -9,10 +9,13 @@ import json
 import os
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,6 +37,7 @@ network_test = load("tested_trial_network", "trial-network-test.py")
 metrics = load("tested_trial_metrics", "trial-metrics.py")
 CONTEXT = {"token": "0123456789ab", "limit": 1800, "snapshot": "/private/snapshot"}
 NFT = os.environ.get("SPARKWERX_TEST_NFT") or shutil.which("nft")
+SUNSHINE = os.environ.get("SPARKWERX_TEST_SUNSHINE")
 
 
 class TrialBytecodeTests(unittest.TestCase):
@@ -253,6 +257,138 @@ class TrialMetricsTests(unittest.TestCase):
             self.assertEqual(report["performance"]["host_processing_ms"]["sample_count"], 1)
             self.assertEqual(report["log_prefix_bytes_omitted"]["session.log"], 0)
             self.assertNotIn("unrelated filler", output.getvalue())
+
+
+class TrialSunshineLogTests(unittest.TestCase):
+    @unittest.skipUnless(SUNSHINE, "requires the pinned Sunshine binary from the package check")
+    def test_pinned_native_logger_and_config_before_any_graphics_initialization(self):
+        # In the pinned main.cpp, unknown-command dispatch returns 7 after
+        # config/logging initialization but BEFORE display, GPU, input, or IP
+        # startup. Exercise the real native sinks, not just the process fixture.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = root / "sunshine.conf"
+            config.write_text(
+                "".join(
+                    f"{key} = {value}\n"
+                    for key, value in session.configuration(root, {"address": "100.64.0.1"}).items()
+                )
+            )
+            result = subprocess.run(
+                [SUNSHINE, str(config), "--sparkwerx-check-native-logging"],
+                cwd=root,
+                env={"PATH": "/usr/bin:/bin", "HOME": directory, "XDG_CONFIG_HOME": directory},
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            self.assertEqual(result.returncode, 7, result.stderr)
+            # Config warnings precede logger initialization and reach stdout
+            # only. Check them here rather than losing that validation when
+            # readiness uses the native file instead of redirected stdout.
+            self.assertNotIn("Unrecognized configurable option", result.stdout)
+            native = (root / "console.log").read_text()
+            marker = "Unknown command: sparkwerx-check-native-logging"
+            self.assertIn(marker, native)
+            self.assertIn(marker, result.stdout)
+            self.assertIn("Sunshine version: 2026.516.143833", native)
+            self.assertNotIn("Trying encoder", native)
+
+    def test_native_log_stays_private_and_process_inherits_the_evidence_fd(self):
+        directory = Path("/private/sunshine")
+        config = session.configuration(directory, {"address": "100.64.0.1"})
+        self.assertEqual(config["log_path"], str(directory / "console.log"))
+        with mock.patch.object(session.subprocess, "Popen") as launch:
+            session.launch_sunshine(
+                {"sunshine": "/fixture/sunshine"}, directory / "sunshine.conf", {}, directory
+            )
+        self.assertIsNone(launch.call_args.kwargs["stdout"])
+        self.assertEqual(launch.call_args.kwargs["stderr"], subprocess.STDOUT)
+        self.assertEqual(launch.call_args.kwargs["stdin"], subprocess.DEVNULL)
+        # The offline test must keep its original /dev/null native sink.
+        self.assertEqual(session.startup.configuration(directory, "TEST")["log_path"], "/dev/null")
+
+    def test_live_records_survive_termination_without_running_parent_cleanup(self):
+        # Real unprivileged processes, no compositor or listeners. The stand-in
+        # models Sunshine's flushed stdout + native file sinks. Kill the whole
+        # test process group: saved records must not depend on a Python finally.
+        records = (
+            "[2026-09-07 05:05:53.123]: Info: CLIENT CONNECTED\n"
+            "[2026-09-07 05:05:53.124]: Debug: Frame processing latency (min/max/avg): 1ms/3ms/2ms\n"
+        )
+        launcher = textwrap.dedent("""\
+            import importlib.util, sys
+            from pathlib import Path
+            spec = importlib.util.spec_from_file_location("trial_log_test", sys.argv[1])
+            session = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(session)
+            child = session.launch_sunshine(
+                {"sunshine": sys.executable}, Path(sys.argv[2]), {}, Path(sys.argv[3])
+            )
+            child.wait()
+            """)
+        for stop_signal in (signal.SIGTERM, signal.SIGKILL):
+            with self.subTest(signal=stop_signal), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "sunshine.py"
+                fake.write_text(
+                    "import signal, sys\nfrom pathlib import Path\n"
+                    f"records = {records!r}\n"
+                    "Path('console.log').write_text(records)\n"
+                    "sys.stdout.write(records)\nsys.stdout.flush()\n"
+                    "Path('ready').touch()\nsignal.pause()\n"
+                )
+                evidence = root / "session.log"
+                fd = os.open(evidence, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "wb") as stream:
+                    process = subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-B",
+                            "-c",
+                            launcher,
+                            str(ROOT / "remote-desktop/trial-session.py"),
+                            str(fake),
+                            directory,
+                        ],
+                        stdout=stream,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True,
+                    )
+                    try:
+                        deadline = time.monotonic() + 5
+                        while not (root / "ready").exists():
+                            if process.poll() is not None or time.monotonic() >= deadline:
+                                self.fail("stand-in did not become ready: " + evidence.read_text())
+                            time.sleep(0.01)
+                        self.assertEqual(evidence.read_text(), records)
+                        self.assertEqual((root / "console.log").read_text(), records)
+                        os.killpg(process.pid, stop_signal)
+                        self.assertEqual(process.wait(timeout=5), -stop_signal)
+                    finally:
+                        # This group was created by the test, never a host unit.
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        process.wait(timeout=5)
+                self.assertEqual(evidence.read_text(), records)  # no shutdown duplication
+                self.assertEqual(stat.S_IMODE(evidence.stat().st_mode), 0o600)
+                summary = metrics.summarize(evidence.read_text())
+                self.assertEqual(summary["client_connections"], 1)
+                self.assertEqual(summary["host_processing_ms"]["sample_count"], 1)
+
+    def test_inner_uses_live_logging_without_a_shutdown_copy(self):
+        tree = ast.parse((ROOT / "remote-desktop/trial-session.py").read_text())
+        inner = next(
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "inner"
+        )
+        calls = [ast.unparse(node.func) for node in ast.walk(inner) if isinstance(node, ast.Call)]
+        self.assertIn("launch_sunshine", calls)
+        self.assertNotIn("sys.stdout.buffer.write", calls)
+        self.assertNotIn("log_path.open", calls)
+        self.assertIn("log_path.touch", calls)
+        self.assertIn("private Sunshine log reached its size limit", ast.unparse(inner))
 
 
 class TrialPolicyTests(unittest.TestCase):

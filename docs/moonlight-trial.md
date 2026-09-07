@@ -117,8 +117,11 @@ encoder setting. After stopping the trial or letting it expire, run:
 The `performance` section reports early/late canvas windows, paint times,
 Sunshine capture-rate requests, connection counts, and its existing host
 processing/send-path timings. These are numeric extracts, not raw logs.
-Older trials have no canvas counters. Sunshine's log is copied into evidence
-at shutdown; missing samples during a live trial are not zero latency or success.
+Older trials have no canvas counters. Sunshine now writes directly to the
+root-private evidence log while running; stopping the session does not need to
+copy it out of temporary storage. Earlier revisions could lose that copy during
+shutdown. Missing samples are unknown, not zero latency or proof of no connection.
+You can run `inspect` during a stream to check that statistics are arriving.
 
 Sunshine startup also requests frames for encoder probes. A request for
 120 FPS is not a measurement of 120 FPS. Its
@@ -161,6 +164,12 @@ deadline. It runs the actual JSON firewall transaction through 32 IPv4/IPv6
 probes, then exercises stop, crash, failure, access loss, changed-rule handling,
 and the systemd deadline with a deliberately suspended guardian.
 These are not GPU, client, or sustained-FPS tests.
+
+Sunshine's native `log_path` remains inside the private runtime for readiness
+and the existing 8 MiB size check. Its separately flushed stdout inherits
+systemd's saved, mode-0600 evidence descriptor. Keep both paths: redirecting
+stdout back into temporary storage reintroduces log loss during a group stop.
+The temporary file is not copied again at exit, which would duplicate metrics.
 
 Every trial Python entrypoint uses `-B`, including detached children. Root can
 otherwise write `__pycache__` into a Nix output despite its read-only file modes.

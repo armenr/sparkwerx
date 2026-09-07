@@ -108,7 +108,7 @@ def summarize(log):
             "Capture requests include startup probes; they are not achieved frame rates.",
             "Host processing includes the capture-timestamp-to-packet pipeline, not just NVENC.",
             "Host send-path timing is not network round-trip latency or a Tailscale path check.",
-            "Sunshine timing/connection records arrive after session shutdown; absent is unknown.",
+            "Missing Sunshine records are unknown; older trials copied them only at shutdown.",
         ],
         "raw_log_printed": False,
     }

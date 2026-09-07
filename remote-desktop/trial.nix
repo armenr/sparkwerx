@@ -130,7 +130,9 @@ in
           ]
         )}
         cp ${../dev/test_moonlight_trial.py} tree/dev/test_moonlight_trial.py
-        SPARKWERX_TEST_NFT=${pkgs.nftables}/bin/nft python3 -B -m unittest discover -s tree/dev
+        SPARKWERX_TEST_NFT=${pkgs.nftables}/bin/nft \
+          SPARKWERX_TEST_SUNSHINE=${tools.sunshine} \
+          python3 -B -m unittest discover -s tree/dev
         test -e ${inputPolicy}/passed
         ${canvas}/bin/sparkwerx-trial-canvas --describe
         test ! -e ${source}/trial-fixture.py

@@ -65,7 +65,25 @@ def configuration(directory, context):
         "mouse": "enabled",
         "nvenc_preset": "1",
         "nvenc_twopass": "quarter_res",
+        # Sunshine flushes both this private readiness log and stdout after
+        # each record. Stdout inherits systemd's root-private evidence FD;
+        # retaining diagnostics must not depend on an interrupted finally block.
+        "log_path": str(directory / "console.log"),
     }
+
+
+def launch_sunshine(tools, server_config, env, server_dir):
+    # The native file sink is only for readiness/size checks inside the private
+    # runtime. Do not redirect stdout there: a control-group stop can kill the
+    # Python supervisors before they copy a temporary file into saved evidence.
+    return subprocess.Popen(
+        [tools["sunshine"], str(server_config)],
+        env=env,
+        cwd=server_dir,
+        stdin=subprocess.DEVNULL,
+        stdout=None,
+        stderr=subprocess.STDOUT,
+    )
 
 
 def small_json(path, uid):
@@ -207,63 +225,49 @@ def inner(tools):
                 f"{key} = {value}\n" for key, value in configuration(server_dir, context).items()
             )
         )
-        with log_path.open("wb") as log:
-            sunshine = subprocess.Popen(
-                [tools["sunshine"], str(server_config)],
-                env=env,
-                cwd=server_dir,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-            )
-            ready = False
-            next_display = 0.0
-            deadline = time.monotonic() + 65
-            while time.monotonic() < context["started"] + context["limit"] - 20:
-                if any(child.poll() is not None for child in (compositor, canvas, sunshine)):
-                    raise RuntimeError("a private trial application exited")
-                if log_path.stat().st_size > 8 * 1024 * 1024:
-                    raise RuntimeError("private Sunshine log reached its size limit")
-                if not ready:
-                    text = startup.read_log(log_path)
-                    if (
-                        not startup.missing_evidence(text, preset, tools["sunshineVersion"])
-                        and "Sparkwerx session-local Wayland keyboard/pointer ready" in text
-                    ):
-                        # Successful encoder probes alone do not prove a server.
-                        # Require all four TCP listeners on the selected local IP.
-                        try:
-                            for port in (47984, 47989, 47990, 48010):
-                                with socket.create_connection(
-                                    (context["address"], port), timeout=0.2
-                                ):
-                                    pass
-                        except OSError:
-                            pass
-                        else:
-                            (directory / "ready.json").write_text('{"ready":true}')
-                            ready = True
-                    if not ready and time.monotonic() > deadline:
-                        raise TimeoutError("Sunshine display/encoder/listener startup timed out")
-                if time.monotonic() >= next_display:
-                    capture.display.assert_dedicated_instance(
-                        instances(), signature, compositor.pid
-                    )
-                    if not capture.display.validate_monitors(
-                        control(signature, "monitors", "all"), preset, ready=True
-                    ):
-                        raise RuntimeError("private output mode changed")
-                    next_display = time.monotonic() + 5
-                time.sleep(0.1)
+        # Precreate mode 0600 so the first readiness poll can precede native
+        # logger initialization without a missing-file race.
+        log_path.touch(mode=0o600, exist_ok=False)
+        sunshine = launch_sunshine(tools, server_config, env, server_dir)
+        ready = False
+        next_display = 0.0
+        deadline = time.monotonic() + 65
+        while time.monotonic() < context["started"] + context["limit"] - 20:
+            if any(child.poll() is not None for child in (compositor, canvas, sunshine)):
+                raise RuntimeError("a private trial application exited")
+            if log_path.stat().st_size > 8 * 1024 * 1024:
+                raise RuntimeError("private Sunshine log reached its size limit")
+            if not ready:
+                text = startup.read_log(log_path)
+                if (
+                    not startup.missing_evidence(text, preset, tools["sunshineVersion"])
+                    and "Sparkwerx session-local Wayland keyboard/pointer ready" in text
+                ):
+                    # Successful encoder probes alone do not prove a server.
+                    # Require all four TCP listeners on the selected local IP.
+                    try:
+                        for port in (47984, 47989, 47990, 48010):
+                            with socket.create_connection((context["address"], port), timeout=0.2):
+                                pass
+                    except OSError:
+                        pass
+                    else:
+                        (directory / "ready.json").write_text('{"ready":true}')
+                        ready = True
+                if not ready and time.monotonic() > deadline:
+                    raise TimeoutError("Sunshine display/encoder/listener startup timed out")
+            if time.monotonic() >= next_display:
+                capture.display.assert_dedicated_instance(instances(), signature, compositor.pid)
+                if not capture.display.validate_monitors(
+                    control(signature, "monitors", "all"), preset, ready=True
+                ):
+                    raise RuntimeError("private output mode changed")
+                next_display = time.monotonic() + 5
+            time.sleep(0.1)
     finally:
         capture.stop(sunshine)
         capture.stop(canvas)
         capture.stop(compositor)
-        if log_path.exists():
-            # Root-private evidence only; the front door never prints this log.
-            with log_path.open("rb") as stream:
-                sys.stdout.buffer.write(stream.read(8 * 1024 * 1024))
-                sys.stdout.flush()
 
 
 def run(action, tools, bundle):

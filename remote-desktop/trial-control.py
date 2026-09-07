@@ -587,8 +587,9 @@ def inspect():
                 or stat.S_IMODE(info.st_mode) != 0o600
             ):
                 raise ValueError("expected a private root-owned trial log")
-            # The worker appends up to 8 MiB of Sunshine output at shutdown.
-            # Keep the earlier canvas samples too, with a fixed read ceiling.
+            # Older workers appended Sunshine's log at shutdown; new workers
+            # inherit this evidence FD and write it live. Keep early canvas
+            # samples in either layout, with a fixed read ceiling.
             limit = 16 * 1024 * 1024
             offset = max(0, info.st_size - limit)
             stream.seek(offset)

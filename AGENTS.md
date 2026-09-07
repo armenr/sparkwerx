@@ -98,8 +98,10 @@ The corrected privileged lifecycle and first client connection passed; the
 first 4K HEVC overlay measured 32.44 FPS, not 120. The trial canvas now has
 submission/callback timings and its inspector extracts numeric Sunshine
 pipeline statistics. These counters are not GPU presentation or client FPS.
-The timing-instrumented revision is build-tested, not yet live-tested; its
-pre-launch gate must pass for that exact revision before another session.
+The next live run produced roughly 110–120 canvas submissions/sec, but its
+Sunshine log was lost during a manual stop. Trial stdout now goes directly to
+root-private evidence; native logging handles readiness in the private runtime.
+The logging correction still needs its exact pre-launch gate and a live check.
 Read the trial guide before use. Preserve the
 passed offline diagnostics unchanged. This authorization does not extend to
 persistent services, a desktop-mode switch, reboot, audio, or host input ACLs.

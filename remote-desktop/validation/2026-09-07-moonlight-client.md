@@ -90,4 +90,50 @@ screenshot's measured run. Build/self-test results do not replace the next
 client measurement. The next read-only step is `./scripts/dgx-moonlight-trial inspect`
 on the finished trial, which needs the operator's local sudo prompt.
 
+## Instrumented run and shutdown log repair
+
+The operator supplied an inspection of trial `20260907T054235Z-b8a74b3cde88`,
+using the timing-instrumented candidate above. It reported successful cleanup
+and 45 canvas windows. The 12 retained early/late windows showed approximately
+110.2–120.0 submissions/callbacks per second, with mean paint times of
+0.148–0.203 ms. This is evidence against a fixed 30 FPS canvas loop, not a
+measurement of compositor presentation or delivered stream FPS.
+
+All Sunshine statistics were absent from this run's saved log. Connection
+counts of zero therefore do not establish that no client connected, and the
+earlier screenshot's 32.44 FPS cannot be assigned to this later run.
+
+The host's systemd event metadata shows the worker stopping at 05:46:25 UTC,
+after starting at 05:42:35 UTC. This matches the operator's manual stop, not
+the earlier trial's deadline. The inspectors' interruption/exit errors remain
+visible; they are separate from the reported successful cleanup.
+
+The old worker redirected Sunshine stdout into private temporary storage and
+copied it into saved evidence only after stopping three children. A group stop
+and repeated supervisor signals could interrupt that final copy. Sunshine's
+pinned `src/logging.cpp` already flushes each record to both stdout and its
+native file sink. The trial now uses that native file for readiness/size checks
+and inherits systemd's root-private evidence descriptor for stdout. There is
+no shutdown copy and no duplicated timing records. This changes neither video
+settings nor permissions, isolation, deadlines, or the passed offline probes.
+
+Logging-fix validation:
+
+- `./scripts/dev check` passed: 199 tests, four expected skips, plus lint,
+  documentation, shell property checks, and Nix evaluation.
+- The Nix policy ran all 35 trial tests. They include real process-group
+  SIGTERM/SIGKILL tests and the pinned Sunshine binary's native logger. The
+  latter takes its unknown-command exit before graphics/network initialization
+  and verifies all generated options are recognized, including warnings emitted
+  before native logging starts.
+- Trial, policy, and gate built with `--no-link`. Ordinary Sunshine, the
+  input adapter, and all three passed offline diagnostic outputs stayed exact.
+- Trial: `/nix/store/g9sk4c25160niyyjhp1jmbbc6qy8389y-sparkwerx-moonlight-trial`.
+- Policy: `/nix/store/6zy91zgfj7bkk628wyh2537nb3vfnggq-sparkwerx-moonlight-trial-policy`.
+- Gate: `/nix/store/hacv54gl0k9gacs87qpl183zfa5gmh32-sparkwerx-moonlight-trial-gate`.
+
+The new privileged lifecycle and real streaming check still require the
+operator's sudo prompt. No live trial was launched for this correction. Its
+next run must pass the exact pre-launch gate; build checks alone do not count.
+
 No private screenshot, address, pairing credential, or raw log is copied here.
