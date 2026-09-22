@@ -1,0 +1,615 @@
+"""Stage one KMS test boot, or revoke it; never reboot or reload a GPU module."""
+
+import argparse
+import fcntl
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import secrets
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location("kms", Path(__file__).with_name("kms-preflight.py"))
+kms = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(kms)
+
+ENTRY = "sparkwerx-kms-trial"
+TICKET = "sparkwerx_kms_ticket"
+ARGUMENT = "nvidia_drm.modeset=1"
+OWNER = 0
+CUSTOM_HOOK = """if [ -f  ${config_directory}/custom.cfg ]; then
+  source ${config_directory}/custom.cfg
+elif [ -z "${config_directory}" -a -f  $prefix/custom.cfg ]; then
+  source $prefix/custom.cfg
+fi"""
+
+
+def require(condition, message):
+    if not condition:
+        raise kms.InspectionError(message)
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def environment(output):
+    result = {}
+    for line in output.splitlines():
+        require("=" in line, "unexpected GRUB environment format")
+        key, value = line.split("=", 1)
+        require(key not in result, "duplicate GRUB environment key")
+        result[key] = value
+    return result
+
+
+def factory_entry(config, release):
+    # Copy the existing first Ubuntu entry, not /proc/cmdline or regenerated
+    # GRUB output. The strict shape and factory syntax checker reject layouts
+    # we have not accounted for. Nothing here evaluates GRUB/shell code.
+    require(CUSTOM_HOOK in config, "generated GRUB custom.cfg hook is not recognized")
+    require(config.count(CUSTOM_HOOK) == 1, "duplicate GRUB custom.cfg hook")
+    require(ENTRY not in config and TICKET not in config, "trial names already occur in GRUB")
+    lines = config.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.startswith("menuentry ")), None)
+    require(start is not None, "no top-level factory menu entry")
+    require(
+        not any(line.startswith("submenu ") for line in lines[:start]),
+        "submenu precedes default entry",
+    )
+    require(lines[start].rstrip().endswith(" {"), "unsupported factory entry header")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].strip() == "}"), None)
+    require(end is not None, "factory menu entry is incomplete")
+    body = lines[start + 1 : end]
+    # Only the header/closing brace may be structural braces. ${variable}
+    # substitutions remain untouched. Avoid silently truncating nested code.
+    for line in body:
+        without_vars = re.sub(r"\$\{[A-Za-z_][A-Za-z_0-9]*\}", "", line)
+        require(
+            "{" not in without_vars and "}" not in without_vars, "nested factory entry needs review"
+        )
+        require(
+            not re.match(r"\s*(?:source|configfile|savedefault|initrdfail)\b", line),
+            "unsupported factory entry command",
+        )
+    linux = [i for i, line in enumerate(body) if re.match(r"\s*linux(?:efi)?\s", line)]
+    initrd = [i for i, line in enumerate(body) if re.match(r"\s*initrd(?:efi)?\s", line)]
+    require(
+        len(linux) == len(initrd) == 1 and linux[0] < initrd[0],
+        "expected one kernel and one initrd",
+    )
+    kernel_words = body[linux[0]].split()
+    initrd_words = body[initrd[0]].split()
+    require(
+        kernel_words[1] in (f"/boot/vmlinuz-{release}", f"/vmlinuz-{release}"),
+        "trial kernel differs from running kernel",
+    )
+    require(
+        len(initrd_words) == 2
+        and initrd_words[1] in (f"/boot/initrd.img-{release}", f"/initrd.img-{release}"),
+        "trial initrd differs from running initrd",
+    )
+    require(not re.search(r"[;|&\\]", body[linux[0]]), "compound kernel command needs review")
+    require(
+        not any(
+            word == "--"
+            or word == "nomodeset"
+            or word.startswith(("nvidia_drm.", "nvidia-drm.", "init=", "rdinit=", "systemd.unit="))
+            for word in kernel_words[2:]
+        ),
+        "conflicting kernel argument needs review",
+    )
+    return body, linux[0]
+
+
+def render(config, release, nonce):
+    require(re.fullmatch(r"[0-9a-f]{32}", nonce) is not None, "invalid trial marker")
+    body, linux = factory_entry(config, release)
+    # save_env can fail at boot even when Linux could write grubenv. In that
+    # case (or on a later selection of this entry), boot the unchanged args.
+    # Reset before load_env so a missing disk value cannot pass via stale RAM.
+    gate = f"""  set sparkwerx_kms_arg=
+  if [ "${{{TICKET}}}" = "{nonce}" ]; then
+    set {TICKET}=consumed-{nonce}
+    if save_env {TICKET}; then
+      set {TICKET}=unverified
+      if load_env {TICKET}; then
+        if [ "${{{TICKET}}}" = "consumed-{nonce}" ]; then
+          set sparkwerx_kms_arg={ARGUMENT}
+        fi
+      fi
+    fi
+  fi
+"""
+    body[linux] = body[linux].rstrip("\r\n") + " $sparkwerx_kms_arg\n"
+    return (
+        "# Generated by Sparkwerx. Private factory boot arguments; do not publish.\n"
+        f"menuentry 'Sparkwerx KMS trial (one boot)' --id {ENTRY} {{\n"
+        + gate
+        + "".join(body)
+        + "}\n"
+    ).encode()
+
+
+def efi_route(boot_info, partition, stub, root_uuid):
+    current = re.search(r"^BootCurrent: ([0-9A-Fa-f]{4})$", boot_info, re.M)
+    require(current is not None, "firmware BootCurrent is unavailable")
+    selected = re.search(r"^Boot" + current[1] + r"\*?\s+(.+)$", boot_info, re.M | re.I)
+    require(selected is not None, "current EFI entry is unavailable")
+    hd = re.search(r"HD\(\d+,GPT,([0-9a-f-]{36}),[^)]+\)", selected[1], re.I)
+    require(
+        hd is not None and hd[1].lower() == partition.strip().lower(),
+        "EFI partition does not match mounted ESP",
+    )
+    require(
+        re.search(r"/File\(\\EFI\\ubuntu\\(?:shim|grub)aa64\.efi\)", selected[1], re.I) is not None,
+        "firmware does not select the Ubuntu ARM64 loader",
+    )
+    lines = [
+        line.strip()
+        for line in stub.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    require(len(lines) == 3, "Ubuntu EFI forwarding configuration needs review")
+    require(
+        re.fullmatch(
+            r"search\.fs_uuid\s+" + re.escape(root_uuid.strip()) + r"\s+root(?:\s+[A-Za-z0-9_,]+)*",
+            lines[0],
+        )
+        is not None,
+        "EFI forwarder points to a different filesystem",
+    )
+    require(
+        lines[1] in ("set prefix=($root)'/boot/grub'", "set prefix=($root)/boot/grub"),
+        "EFI GRUB prefix needs review",
+    )
+    require(
+        lines[2] == "configfile $prefix/grub.cfg",
+        "EFI forwarder is not the expected GRUB configuration",
+    )
+
+
+def read_owned(path):
+    info = path.lstat()
+    require(
+        stat.S_ISREG(info.st_mode) and info.st_uid == OWNER and not info.st_mode & 0o022,
+        "unexpected ownership/type on a trial file",
+    )
+    require(info.st_size <= 2 * 1024 * 1024, "trial file exceeds size limit")
+    return path.read_bytes()
+
+
+def directory(path):
+    info = path.lstat()
+    require(
+        stat.S_ISDIR(info.st_mode) and info.st_uid == OWNER and not info.st_mode & 0o022,
+        "unexpected ownership/type on a trial directory",
+    )
+
+
+def fsync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def publish(path, data, *, replace=False):
+    # Same-filesystem, complete-file publication. link() refuses collisions;
+    # replace is used only for our own journal, never a boot/configuration file.
+    directory(path.parent)
+    fd, temporary = tempfile.mkstemp(prefix=".sparkwerx-kms-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if replace:
+            read_owned(path)
+            os.replace(temporary, path)
+        else:
+            os.link(temporary, path, follow_symlinks=False)
+        fsync_directory(path.parent)
+    finally:
+        if os.path.lexists(temporary):
+            os.unlink(temporary)
+
+
+class Trial:
+    def __init__(self, plan, bundle, root=Path("/")):
+        # root is injected only by temporary-filesystem unit tests. The CLI
+        # never accepts a path override, environment hook, or failure flag.
+        self.plan = plan
+        self.bundle = bundle
+        self.root = root
+        self.state = root / "var/lib/dgx-setup/kms-trial"
+        self.custom = root / "boot/grub/custom.cfg"
+        self.grub = root / "boot/grub/grub.cfg"
+        self.env = root / "boot/grub/grubenv"
+        self.boot_id = root / "proc/sys/kernel/random/boot_id"
+
+    def run(self, args):
+        result = subprocess.run(args, capture_output=True, text=True, timeout=30, check=False)
+        require(
+            result.returncode == 0,
+            f"{Path(args[0]).name} failed; inspect privately before proceeding",
+        )
+        return result.stdout
+
+    def env_values(self):
+        read_owned(self.env)
+        return environment(self.run(["/usr/bin/grub-editenv", str(self.env), "list"]))
+
+    def change_env(self, action, *values):
+        self.run(["/usr/bin/grub-editenv", str(self.env), action, *values])
+        fd = os.open(self.env, os.O_RDONLY | os.O_NOFOLLOW)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def journal(self, data):
+        publish(
+            self.state / "journal.json",
+            (json.dumps(data, sort_keys=True) + "\n").encode(),
+            replace=(self.state / "journal.json").exists(),
+        )
+
+    def load(self):
+        directory(self.state)
+        require(
+            stat.S_IMODE(self.state.stat().st_mode) == 0o700, "trial snapshot must stay private"
+        )
+        data = json.loads(read_owned(self.state / "journal.json"))
+        require(
+            data.get("schema") == 1
+            and data.get("phase") in ("prepared", "armed", "canceled")
+            and re.fullmatch(r"[0-9a-f]{32}", data.get("nonce", "")),
+            "unsupported trial journal",
+        )
+        for name in ("grub.cfg.before", "grubenv.before", "custom.cfg.candidate"):
+            require(
+                digest(read_owned(self.state / name)) == data["hashes"][name],
+                "trial snapshot checksum mismatch",
+            )
+        return data
+
+    def preflight(self):
+        report = kms.inspect(self.plan)
+        require(not report["reviewFindings"], "KMS preflight needs review; run dgx-kms check")
+        require(
+            report["grub"]["configSha256"] == self.plan["reviewedBoot"]["configSha256"],
+            "boot configuration changed since the reviewed inspection",
+        )
+        require(
+            report["kernel"] == self.plan["reviewedBoot"]["kernel"],
+            "running kernel changed since review",
+        )
+        efi_route(
+            self.run(["/usr/bin/efibootmgr", "-v"]),
+            self.run(
+                [
+                    "/usr/bin/findmnt",
+                    "--noheadings",
+                    "--output",
+                    "PARTUUID",
+                    "--target",
+                    "/boot/efi",
+                ]
+            ),
+            read_owned(self.root / "boot/efi/EFI/ubuntu/grub.cfg").decode(),
+            self.run(["/usr/sbin/grub-probe", "--target=fs_uuid", str(self.grub)]),
+        )
+        require(
+            not os.path.lexists(self.custom),
+            "custom.cfg already exists; it will not be overwritten",
+        )
+        require(TICKET not in self.env_values(), "a GRUB trial marker already exists")
+        return report
+
+    def check_syntax(self, candidate):
+        # The factory parser reads stdin. Its diagnostics can quote private
+        # arguments, so neither stream is sent to the terminal.
+        parsed = subprocess.run(
+            ["/usr/bin/grub-script-check"],
+            input=candidate,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        require(parsed.returncode == 0, "factory GRUB syntax checker rejected the candidate")
+
+    def arm(self, console_ready):
+        require(
+            console_ready,
+            "arm needs --console-ready and independent keyboard/display/power recovery",
+        )
+        if os.path.lexists(self.state):
+            data = self.load()
+            if data["phase"] == "canceled":
+                require(
+                    self.status()["status"] == "CANCELED", "previous trial is not cleanly canceled"
+                )
+                history = self.state.parent / "kms-trial-history"
+                if not os.path.lexists(history):
+                    history.mkdir(mode=0o700)
+                directory(history)
+                require(
+                    stat.S_IMODE(history.stat().st_mode) == 0o700, "trial history must stay private"
+                )
+                destination = history / data["nonce"]
+                require(
+                    not os.path.lexists(destination), "trial history destination already exists"
+                )
+                self.state.rename(destination)
+                fsync_directory(history)
+                fsync_directory(self.state.parent)
+            else:
+                if data["phase"] == "prepared" and self.status()["status"] == "ARMED_FOR_ONE_BOOT":
+                    data["phase"] = "armed"
+                    self.journal(data)
+                require(
+                    data["phase"] == "armed",
+                    "trial record already exists; run status or cancel, not another arm",
+                )
+                return self.status()
+        report = self.preflight()
+        nonce = secrets.token_hex(16)
+        original = read_owned(self.grub)
+        original_env = read_owned(self.env)
+        candidate = render(original.decode(), report["kernel"], nonce)
+        self.check_syntax(candidate)
+        directory(self.state.parent)
+        files = {
+            "grub.cfg.before": original,
+            "grubenv.before": original_env,
+            "custom.cfg.candidate": candidate,
+        }
+        data = {
+            "schema": 1,
+            "phase": "prepared",
+            "nonce": nonce,
+            "bootId": self.boot_id.read_text().strip(),
+            "kernel": report["kernel"],
+            "createdUtc": datetime.now(timezone.utc).isoformat(),
+            "bundle": self.bundle,
+            "hashes": {name: digest(content) for name, content in files.items()},
+        }
+        # Publish a complete private snapshot as a directory. A disk/full or
+        # interruption before rename leaves only an unselected staging folder,
+        # not an incomplete active journal that blocks retry or cancel.
+        staging = Path(tempfile.mkdtemp(prefix=".kms-trial-", dir=self.state.parent))
+        for name, content in files.items():
+            publish(staging / name, content)
+        publish(staging / "journal.json", (json.dumps(data, sort_keys=True) + "\n").encode())
+        require(not os.path.lexists(self.state), "trial state appeared during preparation")
+        staging.rename(self.state)
+        fsync_directory(self.state.parent)
+        # Before publication, retain immutable recovery code and recheck the
+        # configuration/environment captured just above. No service is touched.
+        retention = self.root / f"nix/var/nix/gcroots/dgx-setup-kms-trial-{nonce}"
+        try:
+            directory(retention.parent)
+            retention.symlink_to(self.bundle)
+            fsync_directory(retention.parent)
+            self.preflight()
+            require(
+                read_owned(self.grub) == original and read_owned(self.env) == original_env,
+                "boot state changed during preparation",
+            )
+            publish(self.custom, candidate)
+            self.change_env("set", f"{TICKET}={nonce}")
+            # next_entry is LAST: a partial preparation cannot select the trial.
+            self.change_env("set", f"next_entry={ENTRY}")
+            actual = self.env_values()
+            require(
+                actual.get(TICKET) == nonce and actual.get("next_entry") == ENTRY,
+                "one-boot selection did not persist",
+            )
+            before = environment(
+                self.run(["/usr/bin/grub-editenv", str(self.state / "grubenv.before"), "list"])
+            )
+            require(
+                {key: value for key, value in actual.items() if key not in (TICKET, "next_entry")}
+                == {key: value for key, value in before.items() if key != "next_entry"},
+                "unrelated GRUB environment values changed",
+            )
+            data["phase"] = "armed"
+            self.journal(data)
+        except (Exception, KeyboardInterrupt):
+            # Also callable after disconnect/power loss via `cancel`. Do not
+            # restore the entire env block over unrelated bootloader changes.
+            try:
+                self.cancel()
+            except Exception:
+                print(
+                    "RECOVERY_NEEDED: run dgx-kms status; preserve the trial snapshot.",
+                    file=sys.stderr,
+                )
+            raise
+        return self.status()
+
+    def surface(self, data):
+        values = self.env_values()
+        require(
+            values.get("next_entry", "") in ("", ENTRY),
+            "another boot selection is pending; preserve it and inspect privately",
+        )
+        require(
+            values.get(TICKET, "") in ("", data["nonce"], "consumed-" + data["nonce"]),
+            "foreign trial marker; no cleanup performed",
+        )
+        if os.path.lexists(self.custom):
+            require(
+                digest(read_owned(self.custom)) == data["hashes"]["custom.cfg.candidate"],
+                "custom.cfg changed; it will not be removed",
+            )
+        return values
+
+    def status(self):
+        if not os.path.lexists(self.state):
+            return {"status": "NOT_ARMED", "hostChangesPerformed": False}
+        data = self.load()
+        values = self.surface(data)
+        new_boot = self.boot_id.read_text().strip() != data["bootId"]
+        try:
+            loaded = kms.kernel_boolean(
+                (self.root / "sys/module/nvidia_drm/parameters/modeset").read_text()
+            )
+        except (OSError, ValueError):
+            # A failed GPU startup must not prevent revoking a boot selection.
+            loaded = "unavailable"
+        intact = os.path.lexists(self.custom)
+        consumed = values.get(TICKET) == "consumed-" + data["nonce"]
+        selected = values.get("next_entry") == ENTRY
+        retention = self.root / f"nix/var/nix/gcroots/dgx-setup-kms-trial-{data['nonce']}"
+        retained = retention.is_symlink() and os.readlink(retention) == data["bundle"]
+        config_matches = digest(read_owned(self.grub)) == data["hashes"]["grub.cfg.before"]
+        if data["phase"] == "canceled":
+            require(
+                not intact and not selected and not values.get(TICKET),
+                "canceled trial has unexpected boot artifacts",
+            )
+            status = "CANCELED"
+        elif not new_boot:
+            status = (
+                "ARMED_FOR_ONE_BOOT"
+                if intact
+                and retained
+                and config_matches
+                and selected
+                and values.get(TICKET) == data["nonce"]
+                else "PARTIAL_PREPARATION"
+            )
+        else:
+            status = (
+                "KMS_TEST_BOOT"
+                if intact
+                and retained
+                and config_matches
+                and consumed
+                and not selected
+                and loaded == "Y"
+                else "BOOT_NEEDS_REVIEW"
+            )
+        return {
+            "status": status,
+            "newBoot": new_boot,
+            "modeset": loaded,
+            "trialMarkerConsumed": consumed,
+            "nextEntryPending": selected,
+            "normalGrubConfigUnchanged": config_matches,
+            "recoveryCodeRetained": retained,
+            "snapshot": str(self.state),
+            "rebootPerformed": False,
+            "note": "Boot selection evidence only; run access/GPU/capture checks separately.",
+        }
+
+    def cancel(self):
+        if not os.path.lexists(self.state):
+            return {"status": "NOT_ARMED", "hostChangesPerformed": False}
+        data = self.load()
+        values = self.surface(data)
+        if data["phase"] == "canceled":
+            return self.status()
+        # Revoke permission before clearing selection/removing the entry. If
+        # interrupted, a remaining selected entry uses the factory arguments.
+        if values.get(TICKET):
+            self.change_env("unset", TICKET)
+        if values.get("next_entry") == ENTRY:
+            self.change_env("unset", "next_entry")
+        values = self.env_values()
+        require(
+            not values.get(TICKET) and values.get("next_entry") != ENTRY,
+            "trial selection was not cleared; entry retained",
+        )
+        if os.path.lexists(self.custom):
+            require(
+                digest(read_owned(self.custom)) == data["hashes"]["custom.cfg.candidate"],
+                "custom.cfg changed during cleanup",
+            )
+            self.custom.unlink()
+            fsync_directory(self.custom.parent)
+        data["phase"] = "canceled"
+        self.journal(data)
+        # Snapshot and our exact code root remain. Never touch historical roots.
+        result = self.status()
+        result["note"] = (
+            "Only this trial entry/selection removed. Snapshot/code retained. Loaded KMS is unchanged until reboot."
+        )
+        return result
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("arm", "status", "cancel"))
+    parser.add_argument("--console-ready", action="store_true")
+    parser.add_argument("--plan-file", type=Path, required=True)
+    parser.add_argument("--bundle", required=True)
+    args = parser.parse_args(argv)
+    require(os.geteuid() == 0, "trial operations need sudo")
+    require(args.action == "arm" or not args.console_ready, "--console-ready is only for arm")
+    require(
+        re.fullmatch(r"/nix/store/[a-z0-9]{32}-dgx-kms-trial", args.bundle) is not None,
+        "unexpected trial bundle",
+    )
+    require(
+        Path(args.bundle).resolve(strict=True) == Path(args.bundle),
+        "trial bundle is not a direct store path",
+    )
+    plan = json.loads(args.plan_file.read_text())
+    require(
+        os.uname().machine == "aarch64" and os.uname().nodename.split(".")[0] == plan["pilotHost"],
+        "trial supports only the reviewed ARM64 pilot",
+    )
+    # No lock file/service installation. All trial operators serialize on the
+    # existing root-owned parent directory, including the read-only status call.
+    parent = Path("/var/lib/dgx-setup")
+    directory(parent)
+    fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        def interrupted(_signum, _frame):
+            raise KeyboardInterrupt
+
+        signal.signal(signal.SIGHUP, interrupted)
+        signal.signal(signal.SIGTERM, interrupted)
+        trial = Trial(plan, args.bundle)
+        result = (
+            trial.arm(args.console_ready) if args.action == "arm" else getattr(trial, args.action)()
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        print("KMS_STATUS=" + result["status"])
+        print("NO_REBOOT: this operator never reboots, reloads GPU modules, or switches desktops.")
+    finally:
+        os.close(fd)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except kms.InspectionError as error:
+        print(f"FAIL|kms_trial|{error}", file=sys.stderr)
+        raise SystemExit(1) from None
+    except KeyboardInterrupt:
+        print(
+            "INTERRUPTED: inspect dgx-kms status; cancel revokes any remaining trial selection.",
+            file=sys.stderr,
+        )
+        raise SystemExit(130) from None
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        print(
+            f"FAIL|kms_trial|{type(error).__name__}; inspect status and preserve private evidence",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from None

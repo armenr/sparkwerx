@@ -64,6 +64,13 @@ name `lmstudio`, including the current direct vendor-artifact adapter. The
 predicate installs nothing by itself. Any future ChatGPT package is evaluated
 separately.
 
+For the approved Sunshine CUDA rebuild, a separate package set permits only
+`cuda_nvcc`, `cuda_cudart`, and the runtime's required `cuda_cccl` headers.
+The locked Nix redistributables mark all three with the CUDA EULA. This does
+not broaden the stable/general-apps predicates or replace factory CUDA/driver
+packages; these are the build/runtime dependencies of the selected optional
+remote-desktop application.
+
 ### D-004: compose independent layers
 
 **Status:** ACCEPTED
@@ -689,6 +696,58 @@ access. Live graphical rollout still requires tested capture/input permissions,
 the guarded desktop round trip, private pairing, and a real client check.
 See [remote desktop](remote-desktop.md) for options and upstream breadcrumbs.
 
+### D-020: Hyprland local/remote use with factory GNOME fallback; optional KMS
+
+**Status:** ACCEPTED DESIGN; KMS TRIAL PREPARATION APPROVED
+
+Armen intends to use Hyprland at the physical machine and through the optional
+Tailscale-only remote desktop. Keep factory GNOME/Xorg as the familiar alternate
+and recovery desktop. KDE stays a future optional role; XFCE is a possible
+alternative to discuss, not an additional selected package set.
+
+Prepare a reversible NVIDIA DRM KMS trial for the pilot without replacing the
+factory driver or deleting NVIDIA's modeset override package/file. Prefer a
+separate one-boot entry using the existing kernel and initramfs, subject to the
+actual bootloader and recovery checks. Preserve the regular boot configuration
+and keep the first trial headless. Other hosts retain their factory setting by
+default. A KMS-enabled machine can still be in compute-only headless mode.
+
+Do not accidentally make factory GNOME use its older Wayland stack while
+enabling Hyprland's KMS prerequisite. Local session integration, a repeatable
+desktop round trip, portals, and complete remote streaming remain distinct
+work. Preparing or inspecting this option does not reboot or activate it.
+See [the KMS plan](nvidia-kms.md) for current commands, evidence, and recovery.
+
+The pilot's root-readable inspection matched the running factory kernel,
+ordinary EFI/ext-family storage, empty pending boot selections, and clean
+headless unit state. One-boot tooling now snapshots and verifies the existing
+boot route, gates the KMS argument on a consumed/read-back GRUB marker, and
+provides repeatable cancellation without a confirmation phrase or countdown.
+Repository tests are not a hardware boot result. Arming is an explicit host
+change with independent console/power recovery; reboot remains separate.
+
+### D-021: temporary Moonlight client trial
+
+Armen approved a separate 30-minute trial over Tailscale with keyboard/mouse
+input, SSH-forwarded Sunshine administration, and automatic shutdown. The first
+client is a MacBook; Linux and Windows remain client targets. Keep persistent
+headless mode, factory services, KMS boot selection, and the passed offline
+diagnostics unchanged. Audio and permanent session deployment remain separate.
+
+Use a session-local Wayland keyboard/pointer adapter for this private Hyprland
+trial. Do not expose physical input devices, grant access to host `/dev/uinput`,
+or modify device permissions. Package the adapter separately from the tested
+Sunshine capture build; preserve its original encoder and transport sources.
+Validate input delivery and cleanup before enabling the temporary listener.
+
+The first client trial uses a private animated test screen with aggregate
+input feedback, not a terminal or the user's real home directory. Keep its
+credentials/certificates ephemeral and the admin page behind an SSH forward.
+Its launcher runs the exact disposable lifecycle gate before starting, owns
+only its temporary firewall table, and stops graphics before removing that
+table. No retention phrase is needed: every run ends within 30 minutes.
+See the [trial guide](moonlight-trial.md).
+
 ## Explicit non-selections
 
 | Item | Decision |
@@ -707,8 +766,8 @@ See [remote desktop](remote-desktop.md) for options and upstream breadcrumbs.
   five numbered generations and direct pilot roots remain, and recovery is
   clean and unarmed. Any later recovery arming, reboot, or generation/pilot-root
   retirement remains a separate decision.
-- The factory-GNOME-to-headless live pilot is confirmed. Its headless cold boot
-  has container coverage but no recorded physical-host reboot yet. A general
+- The factory-GNOME-to-headless live pilot is confirmed. Its physical-host boot
+  into headless also passed during the [KMS trial](../root/graphics/validation/2026-09-06-kms-test-boot.md). A general
   retained-headless-to-GNOME round trip still needs a tested operator. Hyprland
   and KDE remain later independent extensions.
 - Decide whether KDE is merely supported as a mode or actually selected for
@@ -788,3 +847,26 @@ commit may expose `currentCandidate != observedCandidate`; that is a reviewable
 `UPDATE_AVAILABLE` state, not flake-evaluation failure. A successful real
 update must be followed by a deployment-evidence commit before another update.
 See the [update lifecycle](2026-09-03-home-headless-update-lifecycle.md).
+
+## D-022: Optional persistent KMS after the successful one-boot trial
+
+Status: implementation approved by Armen on 2026-09-07; host activation and
+reboot remain separate.
+
+The normal reboot after the one-boot test restored factory `modeset=N`.
+Keep persistent KMS optional, with the pilot explicitly selecting it in
+`hosts/sparkle-01/graphics.nix`; its Nix adapter defaults to disabled.
+
+Own two additive GRUB configuration symlinks and the resulting generated
+`grub.cfg`, not NVIDIA's override package/file, driver, initramfs, kernel,
+EFI loader, CUDA, or System Manager generations. Generate a visible KMS-off
+fallback from Ubuntu's current default kernel rather than a saved image path.
+Keep recovery code rooted and boot snapshots private. Normal disable must
+regenerate the current factory configuration; interrupted-transaction recovery
+may restore its snapshot only while the corresponding factory inputs match.
+
+There is no automatic reboot or typo-sensitive confirmation phrase. Initial
+activation requires independent local recovery and stays headless. KMS is not
+permission to enable factory GNOME Wayland; explicit Xorg integration comes
+before a later GDM transition. The spent one-boot trial is retained, not
+silently deleted. Read [the persistent KMS operator](nvidia-kms.md#persistent-kms-optional-boot-configuration).

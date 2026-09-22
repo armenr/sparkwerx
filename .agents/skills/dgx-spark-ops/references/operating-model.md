@@ -38,8 +38,12 @@ applications when the Spark playbook supports that route. Record both the
 readable container tag and exact architecture-specific digest.
 
 Review the [software manifest](../../../../docs/software-manifest.md) before
-realization or deployment. No global unfree permission; the current exact
-exception is `lmstudio`. Honor the decision register's explicit exclusions.
+realization or deployment. No global unfree permission: general apps permit
+only `lmstudio`. Sunshine has a separate package set permitting only its
+required `cuda_nvcc`, `cuda_cudart`, and `cuda_cccl` dependencies. Read the
+[adapter and update instructions](../../../../packages/sunshine/README.md)
+before changing it; keep factory CUDA and the driver untouched. Honor the
+decision register's explicit exclusions.
 
 Keep models, datasets, caches, databases, generated media, credentials,
 browser profiles, Tailscale identity, and account state outside Git, Nix store

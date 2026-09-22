@@ -17,7 +17,7 @@ before="$(unit_snapshot)"
 profile_before="$(readlink -f /nix/var/nix/profiles/system-manager-profiles/system-manager || true)"
 python3 -m unittest discover -s dev -p test_remote_desktop.py
 nix --extra-experimental-features 'nix-command flakes' build --no-link --no-write-lock-file \
-  .#remote-desktop-policy .#remote-desktop-network-test .#sunshine
+  .#remote-desktop-policy .#remote-desktop-network-test .#sunshine .#sunshine-policy
 test_bundle="$(nix --extra-experimental-features 'nix-command flakes' \
   eval --raw --no-write-lock-file .#remote-desktop-network-test.outPath)"
 
