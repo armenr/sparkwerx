@@ -45,6 +45,45 @@
           "enabled": false
         }
       }
+    },
+    "spark-9667": {
+      "system": "aarch64-linux",
+      "pilotRing": "workstation",
+      "users": {
+        "armen": {
+          "unixName": "deadspark",
+          "homeDirectory": "/home/deadspark",
+          "overlaySelected": false,
+          "graphicalAppsSelected": false,
+          "codexSelected": false,
+          "codexRelaxedPermissions": false
+        }
+      },
+      "fleetBase": {
+        "enable": true
+      },
+      "access": {
+        "tailscale": {
+          "selected": false,
+          "sshDesired": false,
+          "ownership": "disabled"
+        }
+      },
+      "desktop": {
+        "mode": "gnome",
+        "hyprlandPortal": false,
+        "hostController": "not-implemented"
+      },
+      "workloads": {
+        "isaacOmniverse": {
+          "selected": false,
+          "enabled": false
+        },
+        "lmstudioDaemon": {
+          "selected": false,
+          "enabled": false
+        }
+      }
     }
   }
 }

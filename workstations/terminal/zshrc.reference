@@ -1,0 +1,38 @@
+# Portable version of the workstation shell setup for DGX Spark.
+export ZSH="$HOME/.oh-my-zsh"
+export ZSH_CUSTOM="$ZSH/custom"
+ZSH_THEME="spaceship"
+plugins=(git you-should-use)
+source "$ZSH/oh-my-zsh.sh"
+
+typeset -U path PATH
+path=("$HOME/.local/bin" "$HOME/.npm-global/bin" $path)
+[[ -d "$HOME/go/bin" ]] && path+=("$HOME/go/bin")
+[[ -d /usr/local/go/bin ]] && path+=(/usr/local/go/bin)
+
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=50000
+setopt HIST_IGNORE_SPACE HIST_IGNORE_ALL_DUPS SHARE_HISTORY
+
+(( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
+(( $+commands[lsd] )) && alias ls='lsd'
+alias open='xdg-open'
+copy_me() { wl-copy < "$1"; }
+alias hud='python3 ~/.local/share/terminal-hud/hud.py'
+
+# Refresh this Kitty instance's status bar when a command finishes.
+if [[ -n "$KITTY_PID" && -n "$KITTY_LISTEN_ON" && -z "$SSH_CONNECTION" ]]; then
+  _kitty_tab_refresh() {
+    kitty @ --to "$KITTY_LISTEN_ON" set-tab-title "" >/dev/null 2>&1
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _kitty_tab_refresh
+fi
+
+# Keep machine-specific overrides in a separate, optional file.
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+
+# Load highlighting last so it can wrap the final editor widgets.
+source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

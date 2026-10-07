@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "hosts": {
+    "spark-9667": {
+      "system": "aarch64-linux",
+      "user": "deadspark",
+      "uid": 1000,
+      "homeDirectory": "/home/deadspark",
+      "desktop": "factory-gnome",
+      "packages": [
+        "nh",
+        "nix-output-monitor",
+        "nix-search-tv",
+        "fzf",
+        "networkmanager",
+        "btop"
+      ]
+    }
+  }
+}

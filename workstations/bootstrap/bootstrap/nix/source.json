@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "installer": {
+    "project": "NixOS/nix-installer",
+    "version": "2.35.2",
+    "releaseTag": "2.35.2",
+    "asset": "nix-installer-aarch64-linux",
+    "url": "https://github.com/NixOS/nix-installer/releases/download/2.35.2/nix-installer-aarch64-linux",
+    "size": 32467873,
+    "sha256": "a1b35e56da5adadbc117c3cf17b83948ac657f3c0bd79d47bbe0aa70832b5c8e",
+    "embeddedNixVersion": "2.35.2"
+  },
+  "desiredRuntime": {
+    "version": "2.35.2",
+    "source": "root/nix/store-paths.nix"
+  },
+  "linuxPlanner": {
+    "init": "systemd",
+    "startDaemon": true,
+    "modifyProfile": true,
+    "buildGroupName": "nixbld",
+    "buildGroupId": 30000,
+    "buildUserPrefix": "nixbld",
+    "buildUserIdBase": 30000,
+    "buildUserCount": 32,
+    "enableFlakes": true,
+    "addChannel": false
+  }
+}

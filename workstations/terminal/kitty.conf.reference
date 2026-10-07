@@ -1,0 +1,70 @@
+# Remote control
+allow_remote_control socket-only
+listen_on unix:/tmp/kitty-{kitty_pid}
+
+# Shell
+shell /usr/bin/zsh
+
+# Fix xterm-256color for SSH compatibility
+term xterm-256color
+
+# Font
+font_family      JetBrains Mono
+bold_font        auto
+italic_font      auto
+bold_italic_font auto
+font_size        12.0
+
+# Cursor
+cursor_shape beam
+cursor_blink_interval 0
+
+# Scrollback
+scrollback_lines 10000
+
+# Window
+window_padding_width 8
+confirm_os_window_close 0
+
+# Tab bar (custom status bar)
+tab_bar_style custom
+tab_bar_min_tabs 1
+tab_bar_edge top
+
+# Layouts (enable splits)
+enabled_layouts splits,stack
+
+# Keyboard shortcuts
+map ctrl+shift+e launch --location=vsplit --cwd=current
+map ctrl+shift+o launch --location=hsplit --cwd=current
+map ctrl+enter toggle_layout stack
+
+# Navigate splits
+map ctrl+shift+h neighboring_window left
+map ctrl+shift+l neighboring_window right
+map ctrl+shift+k neighboring_window up
+map ctrl+shift+j neighboring_window down
+
+# Resize splits
+map ctrl+shift+left resize_window narrower
+map ctrl+shift+right resize_window wider
+map ctrl+shift+up resize_window taller
+map ctrl+shift+down resize_window shorter
+
+# Media controls (works anywhere in Kitty)
+map ctrl+shift+space launch --type=background playerctl play-pause
+map ctrl+shift+] launch --type=background playerctl next
+map ctrl+shift+[ launch --type=background playerctl previous
+
+# HUD dashboard (ctrl+shift+d) - opens as overlay, press q to dismiss
+map ctrl+shift+d launch --type=overlay python3 ~/.local/share/terminal-hud/hud.py
+
+# Theme (customize below)
+include theme.conf
+
+
+# Detach into a separate desktop window
+map ctrl+f2 detach_window
+
+# Detach into a new tab
+map ctrl+f3 detach_window new-tab

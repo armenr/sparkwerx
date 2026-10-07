@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Stop local vLLM Docker containers, releasing model memory and retaining data."""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+DOCKER = ["docker", "--host", "unix:///var/run/docker.sock"]
+LABEL = "io.sparkwerx.workload"
+IMAGES = {"vllm/vllm-openai", "nvcr.io/nvidia/vllm", "docker.io/vllm/vllm-openai"}
+FIELDS = (
+    '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Config.Image}},'
+    '"workload":{{json (index .Config.Labels "io.sparkwerx.workload")}},'
+    '"running":{{json .State.Running}},"restarting":{{json .State.Restarting}}}'
+)
+
+
+def docker(*args):
+    result = subprocess.run(
+        [*DOCKER, *args], text=True, capture_output=True, check=False, timeout=60
+    )
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or f"Docker exited {result.returncode}")
+    return result.stdout
+
+
+def is_vllm(container):
+    image = container["image"].split("@", 1)[0]
+    # Strip a tag only from the final component, preserving registry ports.
+    prefix, _, name = image.rpartition("/")
+    repository = (prefix + "/" if prefix else "") + name.split(":", 1)[0]
+    return container.get("workload") == "vllm" or repository in IMAGES
+
+
+def running_models():
+    ids = docker("ps", "--quiet", "--no-trunc").split()
+    if not ids:
+        return []
+    # Inspect only these fields: never fetch environment variables/API keys.
+    containers = [
+        json.loads(line) for line in docker("inspect", "--format", FIELDS, *ids).splitlines()
+    ]
+    return [
+        item for item in containers if is_vllm(item) and (item["running"] or item["restarting"])
+    ]
+
+
+def stop_gpustack():
+    """Stop desired deployments before touching containers owned by a scheduler."""
+    credential = Path.home() / ".config/sparkwerx/gpustack/management.key"
+    if not credential.exists():
+        return
+    controller = os.environ.get("SPARK_GPUSTACK_CONTROL")
+    if not controller:
+        raise RuntimeError("GPUStack is configured; use the current Nix-managed vllm_stop command")
+    result = subprocess.run([controller, "stop-models", "--vllm-only"], check=False, timeout=120)
+    if result.returncode:
+        raise RuntimeError("GPUStack shutdown failed; refusing to report that models are unloaded")
+
+
+def stop_models():
+    stop_gpustack()
+    containers = running_models()
+    if not containers:
+        print("No running vLLM containers. Downloaded models and caches are retained.")
+        return
+    failures = []
+    for item in containers:
+        print(f"Stopping {item['name'].lstrip('/')} ...", flush=True)
+        try:
+            # Docker stops the whole container, including engine/worker processes.
+            # It escalates to SIGKILL after the grace period if necessary.
+            docker("stop", "--timeout", "15", item["id"])
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            failures.append(str(error))
+    remaining = running_models()
+    if remaining:
+        failures.append("Still running: " + ", ".join(c["name"].lstrip("/") for c in remaining))
+    if failures:
+        raise RuntimeError("\n".join(failures))
+    print("vLLM stopped. Model processes exited; downloaded models and caches are retained.")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "Uses this machine's /var/run/docker.sock. Matches official vLLM images or "
+            f"containers labeled {LABEL}=vllm. Native processes and other runtimes are outside "
+            "this command's scope. Active requests are interrupted."
+        ),
+    )
+    parser.parse_args()
+    try:
+        stop_models()
+    except (OSError, RuntimeError, subprocess.TimeoutExpired, ValueError) as error:
+        print(f"vllm_stop: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

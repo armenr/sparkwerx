@@ -4,6 +4,26 @@
 
 For your machine's status, use the [status commands](operations.md#status-checks).
 
+## Workstation: spark-9667
+
+The separate factory-GNOME workstation path is active on `deadspark@spark-9667`.
+It uses Nix installer/runtime 2.35.2 and an isolated user-package profile. The
+2026-10-07 read-only inspection found generation 5 active, a clean checkout at
+`4802336`, and no pending package recovery. Native Tailscale, OpenSSH, Docker, and the
+factory desktop remain under their existing ownership.
+
+The GPUStack trial's server and worker were running at that inspection. This
+branch adds their global Nix control integration, but that integration was not
+in the active profile and is not activated by publishing the branch. The
+reported `nvtopPackages.nvidia` CUDA-license rejection remains unresolved;
+the unfree policy is unchanged. See the [review handoff](../workstations/REVIEW.md).
+
+Use `spark status` and `spark generations` on this machine. Read the
+[workstation README](../workstations/README.md),
+[branch design notes](../workstations/CHANGES.md), and
+[validation record](../workstations/VALIDATION.md). The pilot state below
+belongs to a different host and lifecycle.
+
 ## Pilot: sparkle-01
 
 | Layer | State |

@@ -102,6 +102,26 @@ class QualityTests(unittest.TestCase):
                     quality.hooks()
                 self.assertIn("user hook", foreign.read_text())
 
+    def test_legacy_alias_requires_exact_in_repository_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "historical.sh"
+            script.write_text("#!/bin/sh\necho original\n")
+            baseline = {"historical.sh": {"sha256": quality.digest(script), "checks": ["shfmt"]}}
+            alias = root / "alias.sh"
+            alias.symlink_to("historical.sh")
+            copy = root / "copy.sh"
+            copy.write_bytes(script.read_bytes())
+            with patch.object(quality, "ROOT", root):
+                self.assertTrue(quality.legacy_exception(alias, baseline, "shfmt"))
+                self.assertFalse(quality.legacy_exception(alias, baseline, "shellcheck"))
+                self.assertFalse(quality.legacy_exception(copy, baseline, "shfmt"))
+                script.write_text("#!/bin/sh\necho changed\n")
+                self.assertFalse(quality.legacy_exception(alias, baseline, "shfmt"))
+                alias.unlink()
+                alias.symlink_to(Path(__file__).resolve())
+                self.assertFalse(quality.legacy_exception(alias, baseline, "shfmt"))
+
 
 if __name__ == "__main__":
     unittest.main()

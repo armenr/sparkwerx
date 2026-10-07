@@ -57,6 +57,16 @@ def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def legacy_exception(path: Path, baseline: dict, tool: str) -> bool:
+    # A relative alias reuses the historical script, including its exact hash.
+    # Copies/new scripts get no inherited exception; external links get none.
+    target = path.resolve() if path.is_symlink() else path
+    if not target.is_relative_to(ROOT):
+        return False
+    accepted = baseline.get(str(target.relative_to(ROOT)), {})
+    return accepted.get("sha256") == digest(path) and tool in accepted.get("checks", [])
+
+
 def commands(path: Path) -> dict[str, list[str]]:
     name = str(path.relative_to(ROOT))
     return {
@@ -99,8 +109,7 @@ def lint() -> int:
             result = run(command, capture_output=True)
             if not result.returncode:
                 continue
-            accepted = baseline.get(name, {})
-            if accepted.get("sha256") == digest(path) and tool in accepted.get("checks", []):
+            if legacy_exception(path, baseline, tool):
                 legacy += 1
             else:
                 print(result.stdout + result.stderr, file=sys.stderr)

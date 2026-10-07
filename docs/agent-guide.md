@@ -8,6 +8,11 @@ pilot transcript.
 
 ## Orient quickly
 
+For `feat/deadspark-system-setup`, read the
+[maintainer handoff](../workstations/REVIEW.md) before interpreting historical
+deployment notes. It separates this workstation from the headless pilot and
+lists the remaining integration limits.
+
 1. Resolve the repository root and inspect Git status. Preserve unrelated edits.
 2. Read [status](status.md) and the relevant section of [operations](operations.md).
 3. Classify the task: explanation/audit, repository change, disposable test,
@@ -40,6 +45,7 @@ description appear true.
 
 | Host | Setup/application | Root status |
 | --- | --- | --- |
+| `deadspark@spark-9667`, factory GNOME workstation | `spark setup`; guided `spark` package manager; [workstation contract](../workstations/README.md) | Separate installer verification; no System Manager ownership |
 | Newly declared Spark using generic provisioning | `dgx-setup converge` | `dgx-fleet-bootstrap status` |
 | Historical `sparkle-01` on retained generation five | `dgx-setup apply`, or recognized no-op `converge` | `dgx-desktop status` and `dgx-tailscale status` |
 | Any supported Home deployment | `dgx-home` first activation/update as appropriate | `dgx-home status` |

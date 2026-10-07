@@ -1,0 +1,69 @@
+name: spark-qwen38
+
+services:
+  model:
+    image: vllm/vllm-openai@sha256:4864d46625cbc3307623e29ac742030655e27249feba7b97ec925ce4cc4dfb56
+    platform: linux/arm64
+    pull_policy: never
+    container_name: huihui-qwen38
+    restart: "no"
+    devices:
+      - nvidia.com/gpu=all
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "${SPARK_LAN_IP:?Set the private LAN address}:8000:8000"
+      - "${SPARK_TAILSCALE_IP:?Set the Tailscale address}:8000:8000"
+    env_file:
+      - ${HOME}/.config/sparkwerx/huihui-qwen38/api.env
+    environment:
+      HF_HUB_OFFLINE: "1"
+      VLLM_NO_USAGE_STATS: "1"
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface:ro
+      - compilation-cache:/root/.cache/vllm
+      - flashinfer-cache:/root/.cache/flashinfer
+    entrypoint: ["vllm", "serve"]
+    command:
+      - huihui-ai/Huihui-Qwen3.8-27B-abliterated
+      - --revision
+      - 739e3c5b89849f6c238ce1e5b70008612ae42cdd
+      - --tokenizer-revision
+      - 739e3c5b89849f6c238ce1e5b70008612ae42cdd
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - bfloat16
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_xml
+      - --reasoning-parser
+      - qwen3
+      - --max-model-len
+      - "131072"
+      - --max-num-seqs
+      - "1"
+      - --max-num-batched-tokens
+      - "8192"
+      - --gpu-memory-utilization
+      - "0.70"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).close()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20m
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "3"
+
+volumes:
+  compilation-cache:
+  flashinfer-cache:

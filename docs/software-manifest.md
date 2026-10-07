@@ -15,6 +15,15 @@ upstream automatically. Historical root milestones describe the state at each
 milestone; the retained pilot is now generation five with Nix-owned Tailscale
 and headless mode.
 
+## Independent deadspark model workload
+
+The independent deadspark workload selected on 2026-09-25 is recorded in
+[Huihui Qwen3.8](../workloads/huihui-qwen38/README.md): 55.6 GB of external BF16
+weights, a pinned ARM64 vLLM 0.30.0 image, native NVIDIA CDI GPU access, and an
+authenticated API on private LAN/Tailscale/loopback addresses. It is manually
+started, outside Home Manager and the user package profile. Stopping its
+container releases model memory and retains downloaded data and caches.
+
 ## Optional remote desktop
 
 Sunshine/Moonlight over Tailscale is selected for the pilot and defaults off for
@@ -479,3 +488,40 @@ also denies unfree by default and permits only the exact Nix package name
 The exception installs nothing by itself. Do not broaden it “for convenience.”
 If an approved closure fails because another package is unfree, stop and
 present that exact dependency and why it entered the graph.
+
+## deadspark workstation profile
+
+The separate [workstation profile](../workstations/README.md) selects the exact
+fleet base plus `nh`, `nix-output-monitor`, `nix-search-tv`, `fzf`, and the local
+`spark` launcher. The Nixpkgs tools use the `nixpkgs-workstation` locked stable
+input; Devbox keeps its existing reviewed adapter. The launcher uses pinned
+Python. All are user-profile tools, with no service, listener, driver, desktop,
+or Codex permission configuration. Exact resolved package versions are written
+to each candidate's `workstation.json`. Build/activation status is recorded in
+the workstation validation record; selection alone is not deployment.
+
+The initial selection is now active as user generation 1 on `spark-9667`.
+Fresh-shell command resolution and live stable-channel package search passed;
+exact output and runtime versions are in the workstation validation record.
+
+The workstation's separate bootstrap pin selects official Nix installer
+2.35.2 (ARM64, SHA-256
+`a1b35e56da5adadbc117c3cf17b83948ac657f3c0bd79d47bbe0aa70832b5c8e`),
+embedding its already selected runtime 2.35.2. The pilot retains its original
+2.35.1 provisioning pin. The workstation operator preserves the same guarded
+lifecycle while accepting healthy Tailscale with its optional SSH feature off
+when declared; the original pilot operator remains unchanged.
+
+## deadspark GPUStack trial
+
+GPUStack 2.2.3 uses the exact ARM64 OCI child digest and upstream source revision
+in [its source record](../workloads/gpustack/source.json). The Nix package
+`gpustack-spark` supplies a pinned Python control program and two hash-checked
+upstream module adaptations for private worker binding and GB10 shared memory.
+The workstation's `vllm_stop` coordinates desired deployments with GPUStack
+before stopping standalone containers. These helpers create no service through
+profile activation. The existing factory Docker engine remains the runtime.
+Mutable credentials, databases, and caches stay outside Nix/Git. UI access is
+private to loopback/Tailscale; model startup remains under user control.
+See [the workload contract](../workloads/gpustack/README.md) for commands,
+network/storage ownership, rollback, and validation limits.

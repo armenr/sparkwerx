@@ -5,6 +5,9 @@
     # Stable foundation for the fleet and Home Manager.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # Workstation package updates do not move the pilot or root-service pins.
+    nixpkgs-workstation.url = "github:NixOS/nixpkgs/nixos-26.05";
+
     # Immutable foundation for the currently live System Manager closure and
     # its exact disposable-test evidence. User/package refreshes must not move
     # this input; advance it only through a separately reviewed root generation.
@@ -43,6 +46,7 @@
   outputs =
     {
       nixpkgs,
+      nixpkgs-workstation,
       nixpkgs-root,
       nixpkgs-apps,
       nixpkgs-devtools,
@@ -3576,9 +3580,16 @@
           homeDirectory = userSpec.homeDirectory;
         })
       ) fleetHosts;
+      workstations = import ./workstations/profiles.nix {
+        inherit lib home-manager devboxPackage;
+        pkgs = import nixpkgs-workstation {
+          inherit system;
+          config.allowUnfree = false;
+        };
+      };
     in
     {
-      inherit homeConfigurations;
+      homeConfigurations = homeConfigurations // workstations.homeConfigurations;
 
       systemConfigs.sparkle-01 = rootCanary;
 
@@ -3590,7 +3601,8 @@
         }
       ) fleetRootOutputs;
 
-      packages.${system} = {
+      packages.${system} = workstations.packages // {
+        gpustack-spark = import ./workloads/gpustack { inherit pkgs; };
         chromium = chromiumPackage;
         codex-cli = codexPackage;
         devbox = devboxPackage;

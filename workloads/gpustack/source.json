@@ -1,0 +1,25 @@
+{
+  "version": "2.2.3",
+  "sourceRevision": "1cfcbbff02aacdb51f0a390378dd7bcddd9bf365",
+  "sourceUrl": "https://github.com/gpustack/gpustack/releases/tag/v2.2.3",
+  "imageTag": "gpustack/gpustack:v2.2.3",
+  "indexDigest": "sha256:55ecc762950a32641b6a4d96195c0662ef72998eaeeda31bba0e8e218d41afef",
+  "arm64Digest": "sha256:e86c8009b1676ccd0852c3af17a12ca35847f7fb005ed2da69ec72657370bec4",
+  "compressedBytes": 1485486662,
+  "auditDate": "2026-09-25",
+  "workerSourceHash": "sha256-Xs0S3DNVOgjkvLoHvtE/WrIXNhRyZMBfHxtmqdIonf8=",
+  "runtimeImages": {
+    "pause": {
+      "tag": "gpustack/runtime:pause",
+      "indexDigest": "sha256:e9622b01071c38e4fe1ca9822a3841feab630ae13ff5ad7f540f73771e56ae86",
+      "arm64Digest": "sha256:e50b7059b633caf3c1449b8da680d11845cda4506b513ee7a2de00725f0a34a7"
+    },
+    "health": {
+      "tag": "gpustack/runtime:health",
+      "indexDigest": "sha256:910a7bfa3149639a26a56e55dd5a511355f954ab3143582725f63517ede4bee2",
+      "arm64Digest": "sha256:972557dae25ca73e347dde71a8e54cc6b8accf2f16ec5a3de231cef6c431cb75"
+    }
+  },
+  "collectorSourceHash": "sha256-fwlDQXBMnwGKAZK51vGYjEFl4jyHQAvE83kwvVj2LPs=",
+  "vllmImage": "vllm/vllm-openai@sha256:4864d46625cbc3307623e29ac742030655e27249feba7b97ec925ce4cc4dfb56"
+}

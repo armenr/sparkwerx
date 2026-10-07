@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Run repository checks in a bounded container; never leave an idle test daemon.
+set -euo pipefail
+
+repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+image='nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c'
+duration="${SPARK_VALIDATION_SECONDS:-1800}"
+if [[ ! "$duration" =~ ^[1-9][0-9]{0,3}$ ]] || ((duration > 7200)); then
+  printf '%s\n' 'SPARK_VALIDATION_SECONDS must be 1–7200.' >&2
+  exit 2
+fi
+if (($# == 0)); then
+  set -- ./scripts/dev check
+fi
+
+state_dir="$(mktemp -d -t sparkwerx-validation.XXXXXXXX)"
+client_pid=''
+cleanup() {
+  local result=$?
+  trap - EXIT HUP INT TERM
+  if [[ -s "$state_dir/container.id" ]]; then
+    docker --host unix:///var/run/docker.sock rm --force "$(cat "$state_dir/container.id")" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$client_pid" ]]; then
+    wait "$client_pid" 2>/dev/null || true
+  fi
+  rm -rf -- "$state_dir"
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Init reaps orphan descendants. The in-container deadline survives a lost SSH
+# client; --rm removes the container after its bounded foreground task exits.
+docker --host unix:///var/run/docker.sock run --rm --init --restart=no --pull=never \
+  --cidfile "$state_dir/container.id" --label sparkwerx.role=validation \
+  --cpus=2 --memory=8g --memory-swap=8g --pids-limit=512 \
+  --mount "type=bind,source=$repo_dir,target=/src,readonly" \
+  --entrypoint timeout "$image" --signal=TERM --kill-after=10s "$duration" \
+  bash -c '
+    set -euo pipefail
+    mkdir -p /tmp/work
+    cp -a --no-preserve=ownership /src/. /tmp/work/
+    cd /tmp/work
+    if [[ ! -e /etc/os-release ]]; then
+      printf "ID=nix\nNAME=Nix\n" > /etc/os-release
+    fi
+    exec "$@"
+  ' bash "$@" &
+client_pid=$!
+wait "$client_pid"

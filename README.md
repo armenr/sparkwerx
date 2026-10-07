@@ -43,6 +43,7 @@ bring up the next three without rediscovering every decision—is better.
 | --- | --- |
 | Fresh-host setup | Resumable Nix → services → headless → Home installation |
 | Fleet CLI base | `ncdu`, `lazydocker`, `devbox` |
+| Factory GNOME workstation | Separate user-package profile with guided `spark` search/install/update/rollback; validated on `spark-9667` |
 | Armen's personal tools | Nix-managed Codex CLI |
 | Tailscale + Tailscale SSH | Optional per host, managed by Nix |
 | Headless host mode | Stops the desktop; keeps factory GNOME installed |
@@ -53,6 +54,36 @@ bring up the next three without rediscovering every decision—is better.
 
 See [status](docs/status.md) for details and the [roadmap](docs/roadmap.md)
 for what's next.
+
+## Factory GNOME workstation: keep the desktop
+
+This branch adds a second setup path for a Spark that should retain its full
+factory desktop and existing access/network configuration. It was built and
+validated on `deadspark@spark-9667`; the original headless pilot remains separate.
+
+```bash
+# On the declared workstation, from ~/Development/DGX-setup:
+./scripts/dgx-workstation status
+./scripts/dgx-workstation setup
+exec zsh
+spark
+```
+
+`spark` provides a keyboard-driven package manager: search ARM64 packages,
+select with Tab, build, review, and confirm. It saves accepted selections to
+Git and keeps previous package generations. `spark install btop`,
+`spark uninstall`, and `spark upgrade` offer the same guided flows.
+
+Read the [workstation README](workstations/README.md) for setup, usage, and
+recovery; [what changed and why](workstations/CHANGES.md) for the branch's design
+and ownership decisions; and [validation](workstations/VALIDATION.md) for
+container tests and actual host observations. This is a declared-host workflow,
+not yet a general-purpose onboarding wizard. Use this path for the workstation;
+the `dgx-setup converge` instructions below target headless provisioning.
+
+For review of this branch, start with the [maintainer handoff](workstations/REVIEW.md).
+It maps the changes to their tests, distinguishes deployed state from pending
+integration, and records unresolved issues for human and AI reviewers.
 
 ## Get started
 

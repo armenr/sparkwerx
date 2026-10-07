@@ -788,3 +788,72 @@ commit may expose `currentCandidate != observedCandidate`; that is a reviewable
 `UPDATE_AVAILABLE` state, not flake-evaluation failure. A successful real
 update must be followed by a deployment-evidence commit before another update.
 See the [update lifecycle](2026-09-03-home-headless-update-lifecycle.md).
+
+### D-020: deadspark workstation foundation
+
+**Status:** ACTIVE ON spark-9667; FACTORY GNOME RETAINED
+
+The new user requests reproducible system setup while retaining factory DGX OS,
+GNOME, and the existing APT terminal packages. The workstation declaration is
+separate from Armen's pilot. Its personal tools and permission defaults are
+unselected. Qwen and other workloads are outside this change.
+
+The first user-level lifecycle uses Home Manager's package output in an isolated
+Nix profile, with explicit generation rollback and recovery after interruption.
+It does not run Home Manager file/service activation, System Manager, Tailscale
+migration, desktop switching, or a reboot. Existing dotfiles keep their owner.
+The workstation management tools belong to this user selection, not the shared
+three-package fleet base. See [the operator contract](../workstations/README.md).
+
+The owner subsequently confirmed retention of desktop applications. The
+one-time NVIDIA removal job was disabled through their sudo terminal, with
+its prior state recorded; GNOME Software/Contacts remain installed and host
+health is `running`. See [the validation checkpoint](../workstations/VALIDATION.md).
+
+The workstation uses a separately pinned installer 2.35.2 through a relocatable
+input root that symlinks the unchanged updater and receipt rollback operators.
+Its dedicated bootstrap copy carries the workstation Tailscale check below. Its
+native Ubuntu/systemd install/failure/receipt rollback/retry/adoption tests
+passed. `spark setup` composes that guarded bootstrap and the user profile;
+the original pilot's provisioning pin and root ownership remain unchanged.
+
+The owner explicitly requires the existing Tailscale VPN to stay on. Its SSH
+feature is separately disabled and unselected. The workstation bootstrap now
+permits that healthy state and still requires exact VPN/daemon continuity;
+it does not enable Tailscale SSH, change enrollment/preferences, or restart
+network services. The full disposable lifecycle with this state passed.
+
+The owner's `spark setup` completed at `c427082`. Installer/runtime 2.35.2 and
+user generation 1 are active. Fresh-shell tool resolution and package search
+passed; desktop/GPU/access services are healthy and Tailscale remains online
+with its optional SSH feature unchanged. See the live validation checkpoint.
+
+The owner subsequently requested a Paru-like guided package manager. `spark`
+now combines search, multi-selection, build, review, local commit, and guarded
+activation. The owner used it to select `networkmanager` and then update the
+workstation pin, producing generation 3 with prior generations retained.
+The package does not take ownership of the native NetworkManager daemon.
+See [what changed and why](../workstations/CHANGES.md).
+
+### D-021: deadspark's first independent model workload
+
+After workstation setup the owner selected
+`huihui-ai/Huihui-Qwen3.8-27B-abliterated` in a pinned ARM64 vLLM container.
+Keep its downloaded weights in the existing user Hugging Face cache and its
+API credential outside Git/Nix. Publish the authenticated API on localhost,
+the private LAN address, and the node's Tailscale address only. Public/wildcard
+host bindings and automatic startup are unselected. Factory GPU, desktop,
+Docker, SSH, and Tailscale ownership remain unchanged. This separate workload
+does not become part of the workstation package profile. Exact inputs and
+the operating commands are in [the workload record](../workloads/huihui-qwen38/README.md).
+
+### D-022: private GPUStack trial on deadspark's workstation
+
+The owner selected GPUStack's browser UI over Tailscale and explicitly requested
+Nix management. Nix packages the controls/configuration; pinned ARM64 containers
+run GPUStack on factory Docker. The trial preserves GNOME and native access.
+The owner requested 90% GPU utilization; the final shared-memory reservation is
+8 GiB once, not separate additive RAM/VRAM reserves. The owner explicitly
+controls model downloads and starts; only stopped presets and metadata previews
+are prepared. See [GPUStack](../workloads/gpustack/README.md) and its
+[validation record](../workloads/gpustack/VALIDATION.md).
